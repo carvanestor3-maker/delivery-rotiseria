@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Menú Digital & Delivery - La Gran Rotisería</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/css/styles.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen pb-24">
+
+  <!-- Header -->
+  <header class="bg-gradient-to-r from-orange-600 to-amber-500 text-white shadow-lg sticky top-0 z-30">
+    <div class="max-w-4xl mx-auto px-4 py-3 flex justify-between items-center">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center text-2xl shadow-inner">
+          🍕
+        </div>
+        <div>
+          <h1 id="restaurant-name" class="font-extrabold text-lg sm:text-xl leading-tight">La Gran Rotisería</h1>
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-500/30 text-emerald-100 border border-emerald-400/40">
+            <span class="w-1.5 h-1.5 bg-emerald-400 rounded-full mr-1.5 animate-pulse"></span> Abierto • Tomando Pedidos
+          </span>
+        </div>
+      </div>
+      <div class="flex items-center space-x-2">
+        <a href="/cocina.html" target="_blank" class="px-3 py-1.5 text-xs font-semibold bg-white/20 hover:bg-white/30 rounded-lg backdrop-blur flex items-center gap-1 transition">
+          <i data-lucide="chef-hat" class="w-4 h-4"></i> Cocina
+        </a>
+        <a href="/admin.html" target="_blank" class="px-3 py-1.5 text-xs font-semibold bg-white/20 hover:bg-white/30 rounded-lg backdrop-blur flex items-center gap-1 transition">
+          <i data-lucide="settings" class="w-4 h-4"></i> Admin
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Banner Promocional -->
+  <div class="max-w-4xl mx-auto px-4 mt-4">
+    <div class="bg-amber-100 border border-amber-300 rounded-2xl p-4 flex items-center gap-3 text-amber-900 shadow-sm">
+      <div class="text-3xl">🛵</div>
+      <div class="text-sm">
+        <strong class="font-bold">¡Envío rápido y seguro!</strong> Elige tus comidas favoritas, arma tu carrito y envía tu pedido directo a nuestro WhatsApp en 1 click.
+      </div>
+    </div>
+  </div>
+
+  <!-- Buscador & Filtro de Categorías -->
+  <main class="max-w-4xl mx-auto px-4 mt-6">
+    
+    <!-- Filtros por Categoría -->
+    <div id="categories-container" class="flex gap-2 overflow-x-auto pb-3 no-scrollbar scroll-smooth">
+      <button class="cat-btn active px-4 py-2 bg-orange-500 text-white font-bold rounded-xl shadow-md whitespace-nowrap text-sm flex items-center gap-1.5 transition transform active:scale-95" data-category="all">
+        🔥 Todos
+      </button>
+      <!-- Se pueblan dinámicamente -->
+    </div>
+
+    <!-- Título de Sección -->
+    <div class="flex justify-between items-center my-4">
+      <h2 id="current-category-title" class="text-xl font-bold text-slate-800">Menú Completo</h2>
+      <span id="product-count" class="text-xs font-medium text-slate-500">Cargando platos...</span>
+    </div>
+
+    <!-- Lista / Grid de Productos -->
+    <div id="products-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <!-- Se pueblan dinámicamente -->
+    </div>
+  </main>
+
+  <!-- BOTÓN FLOTANTE DEL CARRITO -->
+  <div id="floating-cart-btn" class="fixed bottom-4 left-0 right-0 max-w-md mx-auto px-4 z-40 hidden">
+    <button onclick="openCartModal()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold py-3.5 px-6 rounded-2xl shadow-xl flex justify-between items-center transition transform active:scale-95 border border-emerald-500/50">
+      <div class="flex items-center gap-2">
+        <div class="relative">
+          <i data-lucide="shopping-bag" class="w-6 h-6"></i>
+          <span id="cart-badge" class="absolute -top-2 -right-2 bg-amber-400 text-slate-900 text-xs font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-emerald-600">0</span>
+        </div>
+        <span class="text-sm tracking-wide">Ver mi Pedido</span>
+      </div>
+      <div class="text-base">
+        Total: <span id="cart-total-floating" class="font-black text-lg">$0</span>
+      </div>
+    </button>
+  </div>
+
+  <!-- MODAL / DRAWER DEL CARRITO DE COMPRAS -->
+  <div id="cart-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex justify-end transition-opacity duration-300 opacity-0 pointer-events-none">
+    <div class="bg-white w-full max-w-md h-full flex flex-col shadow-2xl overflow-hidden transform transition-transform duration-300 translate-x-full" id="cart-drawer">
+      
+      <!-- Modal Header -->
+      <div class="bg-slate-900 text-white px-5 py-4 flex justify-between items-center shadow">
+        <div class="flex items-center gap-2">
+          <i data-lucide="shopping-cart" class="w-5 h-5 text-orange-400"></i>
+          <h3 class="font-bold text-lg">Tu Pedido de Comida</h3>
+        </div>
+        <button onclick="closeCartModal()" class="text-slate-400 hover:text-white p-1 rounded-lg">
+          <i data-lucide="x" class="w-6 h-6"></i>
+        </button>
+      </div>
+
+      <!-- Modal Body (Scrollable) -->
+      <div class="flex-1 overflow-y-auto p-5 space-y-5">
+        
+        <!-- Ítems del Carrito -->
+        <div>
+          <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Detalle de Comidas</h4>
+          <div id="cart-items-list" class="space-y-3">
+            <!-- Se pueblan dinámicamente -->
+          </div>
+        </div>
+
+        <hr class="border-slate-200">
+
+        <!-- Opciones de Envío -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Tipo de Entrega</label>
+          <div class="grid grid-cols-2 gap-2">
+            <button type="button" onclick="setDeliveryType('delivery')" id="btn-delivery" class="delivery-type-btn py-2.5 px-3 rounded-xl border-2 border-orange-500 bg-orange-50 text-orange-600 font-bold text-sm flex items-center justify-center gap-2 transition">
+              🛵 Delivery
+            </button>
+            <button type="button" onclick="setDeliveryType('retiro')" id="btn-retiro" class="delivery-type-btn py-2.5 px-3 rounded-xl border-2 border-slate-200 bg-slate-50 text-slate-600 font-bold text-sm flex items-center justify-center gap-2 transition">
+              🏪 Retiro en Local
+            </button>
+          </div>
+        </div>
+
+        <!-- Formulario de Datos del Cliente -->
+        <form id="checkout-form" class="space-y-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Nombre Completo *</label>
+            <input type="text" id="cust-name" required placeholder="Ej: Juan Pérez" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none">
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Teléfono de Contacto / WhatsApp *</label>
+            <input type="tel" id="cust-phone" required placeholder="Ej: 379 4218138" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none">
+          </div>
+
+          <div id="address-field-container">
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Dirección de Entrega *</label>
+            <input type="text" id="cust-address" placeholder="Calle, Número, Piso/Depto, Barrio" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none">
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Método de Pago *</label>
+            <select id="cust-payment" onchange="togglePaymentNote()" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none bg-white font-medium">
+              <option value="Efectivo">💵 Efectivo al entregar</option>
+              <option value="Tarjeta de Débito">💳 Tarjeta de Débito (Llevar Posnet)</option>
+              <option value="Tarjeta de Crédito">💳 Tarjeta de Crédito (Llevar Posnet)</option>
+              <option value="MercadoPago">📱 MercadoPago / QR</option>
+              <option value="Transferencia">🏦 Transferencia bancaria / CBU</option>
+              <option value="Link de Pago">🔗 Link de Pago por WhatsApp</option>
+            </select>
+          </div>
+
+          <div id="payment-note-container">
+            <label id="payment-note-label" class="block text-xs font-semibold text-slate-600 mb-1">¿Con cuánto abonas? (para el vuelto)</label>
+            <input type="text" id="cust-payment-note" placeholder="Ej: Pago con $10.000" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none">
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Notas / Aclaraciones para Cocina</label>
+            <textarea id="cust-notes" rows="2" placeholder="Ej: Sin salsa barbacoa, timbre no funciona llamar por cel." class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"></textarea>
+          </div>
+        </form>
+
+        <!-- Resumen Financiero -->
+        <div class="bg-slate-50 p-4 rounded-xl space-y-1.5 text-sm border border-slate-200">
+          <div class="flex justify-between text-slate-600">
+            <span>Subtotal de productos:</span>
+            <span id="summary-subtotal">$0</span>
+          </div>
+          <div class="flex justify-between text-slate-600" id="summary-delivery-row">
+            <span>Costo de envío (Delivery):</span>
+            <span id="summary-delivery-cost">$0</span>
+          </div>
+          <hr class="border-slate-200 my-1">
+          <div class="flex justify-between text-base font-extrabold text-slate-900">
+            <span>TOTAL A PAGAR:</span>
+            <span id="summary-total" class="text-orange-600 font-black text-lg">$0</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Modal Footer - Botón WhatsApp -->
+      <div class="p-4 bg-white border-t border-slate-200">
+        <button type="button" onclick="submitOrderToWhatsApp()" class="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-extrabold py-3.5 px-4 rounded-xl shadow-lg flex items-center justify-center gap-2 transition text-base">
+          <span class="text-xl">💬</span> Confirmar y Enviar Pedido por WhatsApp
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+  <script>
+    lucide.createIcons();
+  </script>
+</body>
+</html>

@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Pantalla de Cocina (KDS Celular) - Gestión de Pedidos</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/css/styles.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col font-sans select-none">
+
+  <!-- Header de Cocina -->
+  <header class="bg-slate-800 border-b border-slate-700 px-4 py-2.5 flex justify-between items-center shadow-lg sticky top-0 z-30">
+    <div class="flex items-center gap-2">
+      <div class="w-9 h-9 bg-orange-500 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow">
+        📱
+      </div>
+      <div>
+        <h1 class="text-sm sm:text-base font-black tracking-wide flex items-center gap-1.5 leading-tight">
+          COCINA (KDS)
+          <span id="socket-status" class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+            🟢 En vivo
+          </span>
+        </h1>
+        <p class="text-[10px] text-slate-400 leading-none">Recepción de pedidos por celular</p>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <!-- Botón Resumen de Caja -->
+      <button onclick="openCashModal()" class="px-2.5 py-1.5 bg-emerald-700 hover:bg-emerald-600 rounded-xl text-xs font-bold flex items-center gap-1 text-emerald-100 border border-emerald-500/40 shadow transition">
+        💰 <span class="hidden sm:inline">Caja del Día</span>
+      </button>
+
+      <!-- Botón de Sonido -->
+      <button id="sound-btn" onclick="toggleAudio()" class="px-2.5 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-xl text-xs font-bold flex items-center gap-1 border border-slate-600 transition">
+        <i data-lucide="volume-2" class="w-4 h-4 text-emerald-400"></i>
+        <span class="hidden sm:inline">Sonido</span>
+      </button>
+
+      <!-- Botón Recargar -->
+      <button onclick="loadOrders()" class="p-1.5 bg-slate-700 hover:bg-slate-600 rounded-xl text-xs font-bold border border-slate-600 transition">
+        <i data-lucide="refresh-cw" class="w-4 h-4 text-slate-300"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- PESTAÑAS MÓVILES (Solo visibles en Celulares / Pantallas Pequeñas) -->
+  <nav class="md:hidden bg-slate-850 border-b border-slate-700 px-2 py-2 flex gap-1.5 overflow-x-auto no-scrollbar sticky top-[53px] z-20 bg-slate-800">
+    <button onclick="setMobileTab('all')" id="mtab-all" class="mtab-btn active bg-orange-500 text-white font-bold px-3 py-1.5 rounded-xl text-xs whitespace-nowrap shadow transition">
+      🔥 Todos
+    </button>
+    <button onclick="setMobileTab('nuevo')" id="mtab-nuevo" class="mtab-btn bg-slate-700 text-slate-300 font-bold px-3 py-1.5 rounded-xl text-xs whitespace-nowrap transition flex items-center gap-1">
+      🔴 Nuevos <span id="mcount-nuevo" class="bg-red-500/30 text-red-200 px-1.5 rounded-full text-[10px]">0</span>
+    </button>
+    <button onclick="setMobileTab('en_preparacion')" id="mtab-en_preparacion" class="mtab-btn bg-slate-700 text-slate-300 font-bold px-3 py-1.5 rounded-xl text-xs whitespace-nowrap transition flex items-center gap-1">
+      🟡 En Cocina <span id="mcount-en_preparacion" class="bg-amber-500/30 text-amber-200 px-1.5 rounded-full text-[10px]">0</span>
+    </button>
+    <button onclick="setMobileTab('en_camino')" id="mtab-en_camino" class="mtab-btn bg-slate-700 text-slate-300 font-bold px-3 py-1.5 rounded-xl text-xs whitespace-nowrap transition flex items-center gap-1">
+      🛵 Listos <span id="mcount-en_camino" class="bg-blue-500/30 text-blue-200 px-1.5 rounded-full text-[10px]">0</span>
+    </button>
+    <button onclick="setMobileTab('entregado')" id="mtab-entregado" class="mtab-btn bg-slate-700 text-slate-300 font-bold px-3 py-1.5 rounded-xl text-xs whitespace-nowrap transition flex items-center gap-1">
+      ✅ Entregados
+    </button>
+  </nav>
+
+  <!-- TABLERO KANBAN / LISTA DE PEDIDOS -->
+  <main class="flex-1 p-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 overflow-hidden">
+    
+    <!-- COLUMNA 1: NUEVOS -->
+    <div id="col-box-nuevo" class="bg-slate-800/80 rounded-2xl border border-red-500/30 flex flex-col overflow-hidden shadow-inner">
+      <div class="bg-gradient-to-r from-red-600 to-rose-700 text-white px-3 py-2.5 font-extrabold flex justify-between items-center shadow text-xs sm:text-sm">
+        <div class="flex items-center gap-2">
+          <span>🔴</span>
+          <span>NUEVOS</span>
+        </div>
+        <span id="count-nuevo" class="bg-white/20 text-white text-xs px-2 py-0.5 rounded-full font-bold">0</span>
+      </div>
+      <div id="col-nuevo" class="flex-1 p-2.5 space-y-3 overflow-y-auto max-h-[calc(100vh-140px)]">
+        <!-- Tarjetas -->
+      </div>
+    </div>
+
+    <!-- COLUMNA 2: EN PREPARACIÓN -->
+    <div id="col-box-en_preparacion" class="bg-slate-800/80 rounded-2xl border border-amber-500/30 flex flex-col overflow-hidden shadow-inner">
+      <div class="bg-gradient-to-r from-amber-600 to-yellow-600 text-white px-3 py-2.5 font-extrabold flex justify-between items-center shadow text-xs sm:text-sm">
+        <div class="flex items-center gap-2">
+          <span>🟡</span>
+          <span>EN PREPARACIÓN</span>
+        </div>
+        <span id="count-en_preparacion" class="bg-white/20 text-white text-xs px-2 py-0.5 rounded-full font-bold">0</span>
+      </div>
+      <div id="col-en_preparacion" class="flex-1 p-2.5 space-y-3 overflow-y-auto max-h-[calc(100vh-140px)]">
+        <!-- Tarjetas -->
+      </div>
+    </div>
+
+    <!-- COLUMNA 3: EN CAMINO / LISTO -->
+    <div id="col-box-en_camino" class="bg-slate-800/80 rounded-2xl border border-blue-500/30 flex flex-col overflow-hidden shadow-inner">
+      <div class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-3 py-2.5 font-extrabold flex justify-between items-center shadow text-xs sm:text-sm">
+        <div class="flex items-center gap-2">
+          <span>🛵</span>
+          <span>EN CAMINO / LISTO</span>
+        </div>
+        <span id="count-en_camino" class="bg-white/20 text-white text-xs px-2 py-0.5 rounded-full font-bold">0</span>
+      </div>
+      <div id="col-en_camino" class="flex-1 p-2.5 space-y-3 overflow-y-auto max-h-[calc(100vh-140px)]">
+        <!-- Tarjetas -->
+      </div>
+    </div>
+
+    <!-- COLUMNA 4: COMPLETADOS -->
+    <div id="col-box-entregado" class="bg-slate-800/80 rounded-2xl border border-emerald-500/30 flex flex-col overflow-hidden shadow-inner opacity-90">
+      <div class="bg-gradient-to-r from-emerald-600 to-teal-700 text-white px-3 py-2.5 font-extrabold flex justify-between items-center shadow text-xs sm:text-sm">
+        <div class="flex items-center gap-2">
+          <span>✅</span>
+          <span>COMPLETADOS</span>
+        </div>
+        <span id="count-entregado" class="bg-white/20 text-white text-xs px-2 py-0.5 rounded-full font-bold">0</span>
+      </div>
+      <div id="col-entregado" class="flex-1 p-2.5 space-y-3 overflow-y-auto max-h-[calc(100vh-140px)]">
+        <!-- Tarjetas -->
+      </div>
+    </div>
+
+  </main>
+
+  <!-- MODAL DE RESUMEN Y ARQUEO DE CAJA DEL DÍA -->
+  <div id="cash-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200">
+    <div class="bg-slate-850 bg-slate-900 border border-slate-700 text-white rounded-2xl max-w-md w-full p-5 shadow-2xl space-y-4">
+      <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+        <h3 class="font-extrabold text-lg flex items-center gap-2 text-emerald-400">
+          💰 Control y Arqueo de Caja del Día
+        </h3>
+        <button onclick="closeCashModal()" class="text-slate-400 hover:text-white p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div id="cash-summary-content" class="space-y-3">
+        <!-- Carga dinámicamente -->
+      </div>
+
+      <div class="pt-3 border-t border-slate-700 flex justify-end">
+        <button onclick="closeCashModal()" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 font-bold rounded-xl text-xs text-white">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ÁREA DE IMPRESIÓN DE TICKET TÉRMICO -->
+  <div id="print-area">
+    <!-- Se llena dinámicamente -->
+  </div>
+
+  <script src="/js/cocina.js"></script>
+  <script>
+    lucide.createIcons();
+  </script>
+</body>
+</html>

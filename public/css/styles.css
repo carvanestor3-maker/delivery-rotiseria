@@ -1,0 +1,155 @@
+/* Custom Styles & Thermal Printer Formatting */
+
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
+
+body {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+.font-mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Animación de entrada de tarjeta de pedido en Cocina */
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-new-order {
+  animation: slideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Pulso brillante para pedidos nuevos */
+@keyframes pulseGlow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+  }
+}
+
+.pulse-red {
+  animation: pulseGlow 2s infinite;
+}
+
+/* Scrollbar personalizado */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* ----------------------------------------------------
+   FORMATO DE IMPRESIÓN DE COMANDAS (IMPRESORA TÉRMICA 80mm/58mm)
+   ---------------------------------------------------- */
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+
+  #print-area, #print-area * {
+    visibility: visible !important;
+  }
+
+  #print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 78mm;
+    margin: 0;
+    padding: 4mm 2mm;
+    font-family: 'Courier New', Courier, monospace !important;
+    font-size: 13px;
+    line-height: 1.2;
+    color: #000;
+    background: #fff;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .ticket-title {
+    font-size: 20px;
+    font-weight: bold;
+    text-align: center;
+    text-transform: uppercase;
+    border-bottom: 2px dashed #000;
+    padding-bottom: 5px;
+    margin-bottom: 8px;
+  }
+
+  .ticket-header {
+    margin-bottom: 8px;
+    border-bottom: 1px dashed #000;
+    padding-bottom: 5px;
+  }
+
+  .ticket-header div {
+    margin-bottom: 2px;
+  }
+
+  .ticket-items-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 8px 0;
+    border-bottom: 2px dashed #000;
+    padding-bottom: 5px;
+  }
+
+  .ticket-items-table th {
+    text-align: left;
+    border-bottom: 1px solid #000;
+    font-size: 12px;
+  }
+
+  .ticket-items-table td {
+    padding: 3px 0;
+    vertical-align: top;
+  }
+
+  .ticket-qty {
+    font-weight: bold;
+    font-size: 15px;
+  }
+
+  .ticket-notes {
+    font-style: italic;
+    font-size: 11px;
+    padding-left: 10px;
+  }
+
+  .ticket-total {
+    font-size: 16px;
+    font-weight: bold;
+    text-align: right;
+    margin-top: 8px;
+    border-top: 1px solid #000;
+    padding-top: 4px;
+  }
+
+  .ticket-footer {
+    text-align: center;
+    margin-top: 15px;
+    font-size: 11px;
+    border-top: 1px dashed #000;
+    padding-top: 5px;
+  }
+}

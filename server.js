@@ -69,6 +69,23 @@ app.post('/api/orders', (req, res) => {
 
     const itemsJson = typeof items === 'string' ? items : JSON.stringify(items);
 
+    // Si es Cuenta Corriente, validar registro previo
+    if (payment_method && payment_method.includes('Cuenta Corriente')) {
+      const store = db.getStore();
+      const account = store.customer_accounts.find(a => 
+        a.dni === payment_note || 
+        a.phone.includes(customer_phone) || 
+        customer_phone.includes(a.phone)
+      );
+
+      if (!account) {
+        return res.status(400).json({ 
+          success: false, 
+          error: `El cliente ${customer_name} no posee una Cuenta Corriente autorizada en el sistema. Debe registrarse previamente en el Panel de Administración.` 
+        });
+      }
+    }
+
     const insertStmt = db.prepare(`
       INSERT INTO orders (order_number, customer_name, customer_phone, address, delivery_type, payment_method, payment_note, notes, items, total, status, paid)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'nuevo', 0)
@@ -134,7 +151,7 @@ app.get('/api/orders', (req, res) => {
   }
 });
 
-// PUT /api/orders/:id/status - Cambiar estado del pedido (con validación estricta de ingreso a caja)
+// PUT /api/orders/:id/status - Cambiar estado con validación estricta de caja y límite de crédito
 app.put('/api/orders/:id/status', (req, res) => {
   try {
     const { id } = req.params;
@@ -145,31 +162,70 @@ app.put('/api/orders/:id/status', (req, res) => {
       return res.status(400).json({ success: false, error: 'Estado no válido' });
     }
 
-    // Obtener pedido actual
-    const checkStmt = db.prepare('SELECT * FROM orders WHERE id = ?');
-    const existingOrder = checkStmt.get(id);
+    const store = db.getStore();
+    const existingOrder = store.orders.find(o => o.id === parseInt(id));
 
     if (!existingOrder) {
       return res.status(404).json({ success: false, error: 'Pedido no encontrado' });
     }
 
-    // Validación estricta: No se permite marcar como 'entregado' si no ha sido ingresado a caja (paid = 1)
-    if (status === 'entregado' && existingOrder.paid !== 1) {
+    const isCuentaCorriente = existingOrder.payment_method && existingOrder.payment_method.includes('Cuenta Corriente');
+
+    // Validación para avance en cocina si es Cuenta Corriente: Verificar límite de crédito
+    if (isCuentaCorriente && ['en_preparacion', 'en_camino', 'entregado'].includes(status)) {
+      const account = store.customer_accounts.find(a => 
+        a.dni === existingOrder.payment_note || 
+        a.phone.includes(existingOrder.customer_phone) || 
+        existingOrder.customer_phone.includes(a.phone)
+      );
+
+      if (!account) {
+        return res.status(400).json({ 
+          success: false, 
+          error: `⚠️ BLOQUEADO EN COCINA: El cliente ${existingOrder.customer_name} no posee una Cuenta Corriente autorizada en el sistema.` 
+        });
+      }
+
+      const totalDeudaPróxima = (account.balance || 0) + existingOrder.total;
+      if (totalDeudaPróxima > account.credit_limit) {
+        return res.status(400).json({
+          success: false,
+          error: `⚠️ BLOQUEADO EN COCINA (LÍMITE EXCEDIDO): Deuda actual ($${account.balance}) + Pedido ($${existingOrder.total}) = $${totalDeudaPróxima}, superando el Límite Fiable de $${account.credit_limit}.\n\nSe requiere un Cobro Parcial en el Admin para desbloquear la cocina.`
+        });
+      }
+    }
+
+    // Validación de cobro en efectivo / tarjeta antes de marcar entregado
+    if (status === 'entregado' && !isCuentaCorriente && existingOrder.paid !== 1) {
       return res.status(400).json({
         success: false,
         error: `No se puede marcar como Entregado el pedido ${existingOrder.order_number} porque aún no ha sido ingresado a Caja ($${existingOrder.total}). Primero debe ingresarse a caja.`
       });
     }
 
-    const updateStmt = db.prepare('UPDATE orders SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
-    updateStmt.run(status, id);
-
-    const updatedOrderStmt = db.prepare('SELECT * FROM orders WHERE id = ?');
-    const updatedOrder = updatedOrderStmt.get(id);
-    if (updatedOrder) {
-      updatedOrder.items = JSON.parse(updatedOrder.items);
-      io.emit('order_updated', updatedOrder);
+    // Si pasa a entregado y es Cuenta Corriente, sumar la deuda a la cuenta del cliente
+    if (status === 'entregado' && isCuentaCorriente && existingOrder.status !== 'entregado') {
+      const account = store.customer_accounts.find(a => 
+        a.dni === existingOrder.payment_note || 
+        a.phone.includes(existingOrder.customer_phone) || 
+        existingOrder.customer_phone.includes(a.phone)
+      );
+      if (account) {
+        account.balance = (account.balance || 0) + existingOrder.total;
+        db.saveStore();
+      }
     }
+
+    existingOrder.status = status;
+    existingOrder.updated_at = new Date().toISOString();
+    db.saveStore();
+
+    const updatedOrder = {
+      ...existingOrder,
+      items: typeof existingOrder.items === 'string' ? JSON.parse(existingOrder.items) : existingOrder.items
+    };
+
+    io.emit('order_updated', updatedOrder);
 
     res.json({ success: true, order: updatedOrder });
   } catch (err) {
@@ -199,10 +255,129 @@ app.put('/api/orders/:id/paid', (req, res) => {
   }
 });
 
+// RUTAS DE CUENTAS CORRIENTES (FIADO)
+app.get('/api/admin/accounts', (req, res) => {
+  try {
+    const store = db.getStore();
+    res.json({ 
+      success: true, 
+      accounts: store.customer_accounts || [],
+      payments: store.account_payments || []
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/admin/accounts', (req, res) => {
+  try {
+    const { id, name, dni, phone, address, payment_term, credit_limit } = req.body;
+    if (!name || !dni || !phone) {
+      return res.status(400).json({ success: false, error: 'Nombre, DNI y Teléfono son obligatorios' });
+    }
+
+    const store = db.getStore();
+    if (id) {
+      const acc = store.customer_accounts.find(a => a.id === parseInt(id));
+      if (acc) {
+        acc.name = name;
+        acc.dni = dni;
+        acc.phone = phone;
+        acc.address = address || '';
+        acc.payment_term = payment_term || 'quincenal';
+        acc.credit_limit = parseFloat(credit_limit || 20000);
+        db.saveStore();
+      }
+    } else {
+      const nextId = store.customer_accounts.length > 0 ? Math.max(...store.customer_accounts.map(a => a.id)) + 1 : 1;
+      store.customer_accounts.push({
+        id: nextId,
+        name,
+        dni,
+        phone,
+        address: address || '',
+        payment_term: payment_term || 'quincenal',
+        credit_limit: parseFloat(credit_limit || 20000),
+        balance: 0,
+        status: 'active',
+        created_at: new Date().toISOString()
+      });
+      db.saveStore();
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Registrar Cobro Parcial o Total de Cuenta Corriente (ingresa efectivo a la caja del día)
+app.post('/api/admin/accounts/:id/payment', (req, res) => {
+  try {
+    const { id } = req.params;
+    const { amount, payment_type, notes } = req.body;
+
+    const store = db.getStore();
+    const account = store.customer_accounts.find(a => a.id === parseInt(id));
+    if (!account) {
+      return res.status(404).json({ success: false, error: 'Cuenta de cliente no encontrada' });
+    }
+
+    const payAmount = parseFloat(amount || 0);
+    if (payAmount <= 0) {
+      return res.status(400).json({ success: false, error: 'El monto ingresado debe ser mayor a $0' });
+    }
+
+    account.balance = Math.max(0, (account.balance || 0) - payAmount);
+
+    const nextPaymentId = store.account_payments.length > 0 ? Math.max(...store.account_payments.map(p => p.id)) + 1 : 1;
+    store.account_payments.unshift({
+      id: nextPaymentId,
+      account_id: account.id,
+      customer_name: account.name,
+      amount: payAmount,
+      type: payment_type || 'parcial',
+      notes: notes || '',
+      date: new Date().toISOString()
+    });
+
+    // Registrar pago como ingreso de efectivo en ordenes diarias de caja
+    const countStmt = db.prepare('SELECT COUNT(*) as count FROM orders');
+    const totalOrders = countStmt.get().count;
+    const orderNumber = `#PAGO-CC-${101 + totalOrders}`;
+
+    store.orders.unshift({
+      id: store.orders.length > 0 ? Math.max(...store.orders.map(o => o.id)) + 1 : 1,
+      order_number: orderNumber,
+      customer_name: `COBRO CC: ${account.name}`,
+      customer_phone: account.phone,
+      address: account.address,
+      delivery_type: 'retiro',
+      payment_method: 'Efectivo',
+      payment_note: `Pago ${payment_type === 'total' ? 'Total' : 'Parcial'} Cuenta Corriente`,
+      notes: notes || `Ingreso de cobro a cuenta corriente de ${account.name}`,
+      items: JSON.stringify([{ name: `Cobro Cuenta Corriente (${payment_type})`, qty: 1, price: payAmount }]),
+      total: payAmount,
+      status: 'entregado',
+      paid: 1,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    });
+
+    db.saveStore();
+
+    io.emit('order_updated');
+
+    res.json({ success: true, account });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.get('/api/cash/summary', (req, res) => {
   try {
-    const todayOrdersStmt = db.prepare("SELECT * FROM orders WHERE status != 'cancelado' ORDER BY id DESC");
-    const rawOrders = todayOrdersStmt.all();
+    const store = db.getStore();
+    const rawOrders = store.orders.filter(o => o.status !== 'cancelado');
 
     let totalSales = 0;
     let cashTotal = 0;
@@ -212,7 +387,7 @@ app.get('/api/cash/summary', (req, res) => {
     let digitalTotal = 0;
 
     const orders = rawOrders.map(o => {
-      const items = JSON.parse(o.items);
+      const items = typeof o.items === 'string' ? JSON.parse(o.items) : o.items;
       const isPaid = o.paid === 1;
       const total = o.total;
 
@@ -262,7 +437,7 @@ app.post('/api/print-epson/:id', async (req, res) => {
     const order = stmt.get(id);
     if (!order) return res.status(404).json({ success: false, error: 'Pedido no encontrado' });
 
-    order.items = JSON.parse(order.items);
+    order.items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
 
     const settings = getSettingsMap();
     const printerIp = req.body.printer_ip || settings.epson_printer_ip;
@@ -455,8 +630,7 @@ app.post('/api/settings', (req, res) => {
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`
-🚀 Servidor Delivery & Cocina en ejecución (Acceso Local y Red Wi-Fi):
-👉 Desde la PC:       http://localhost:${PORT}/cocina.html
-👉 Desde el Celular:  http://192.168.100.145:${PORT}/cocina.html
+🚀 Servidor Delivery & Cuentas Corrientes en ejecución:
+👉 Local: http://localhost:${PORT}/admin.html
   `);
 });

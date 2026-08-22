@@ -2,6 +2,7 @@ let products = [];
 let categories = [];
 let settings = {};
 let cashOrders = [];
+let customerAccounts = [];
 let selectedAdminCat = 'all';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -9,7 +10,197 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function loadData() {
-  await Promise.all([loadCashSummary(), loadProducts(), loadCategories(), loadSettings()]);
+  await Promise.all([loadCashSummary(), loadProducts(), loadCategories(), loadSettings(), loadAccounts()]);
+}
+
+// Cargar Cuentas Corrientes
+async function loadAccounts() {
+  try {
+    const res = await fetch('/api/admin/accounts');
+    const data = await res.json();
+    if (data.success) {
+      customerAccounts = data.accounts;
+      renderAccountsTable();
+    }
+  } catch (err) {
+    console.error('Error al cargar cuentas corrientes:', err);
+  }
+}
+
+function renderAccountsTable() {
+  const tbody = document.getElementById('accounts-table-body');
+  if (!tbody) return;
+
+  tbody.innerHTML = '';
+
+  if (customerAccounts.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-slate-400">No hay clientes registrados en Cuenta Corriente.</td></tr>`;
+    return;
+  }
+
+  customerAccounts.forEach(a => {
+    const isExceeded = (a.balance || 0) > (a.credit_limit || 0);
+    const tr = document.createElement('tr');
+    tr.className = 'hover:bg-slate-50 transition';
+
+    tr.innerHTML = `
+      <td class="p-4">
+        <div class="font-extrabold text-slate-900">${a.name}</div>
+        <div class="text-xs font-mono text-slate-400">DNI: ${a.dni}</div>
+      </td>
+      <td class="p-4 text-xs">
+        <div class="font-bold text-slate-700">📞 ${a.phone}</div>
+        <div class="text-slate-400">${a.address || 'Sin domicilio registrado'}</div>
+      </td>
+      <td class="p-4 text-xs font-extrabold uppercase">
+        <span class="px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-200 text-slate-700">
+          🗓️ ${a.payment_term}
+        </span>
+      </td>
+      <td class="p-4 font-mono">
+        <span class="text-base font-black ${a.balance > 0 ? (isExceeded ? 'text-red-600' : 'text-amber-600') : 'text-emerald-600'}">
+          ${formatCurrency(a.balance || 0)}
+        </span>
+        ${isExceeded ? `<span class="block text-[10px] font-bold text-red-500">⚠️ Excede Límite</span>` : ''}
+      </td>
+      <td class="p-4 font-mono font-bold text-slate-700">
+        ${formatCurrency(a.credit_limit || 0)}
+      </td>
+      <td class="p-4 text-right space-x-2">
+        <button onclick="openPaymentModal(${a.id})" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl text-xs shadow-sm transition">
+          💰 Registrar Cobro
+        </button>
+        <button onclick="editAccount(${a.id})" class="p-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-700 transition" title="Editar">
+          <i data-lucide="edit-2" class="w-4 h-4"></i>
+        </button>
+      </td>
+    `;
+
+    tbody.appendChild(tr);
+  });
+
+  lucide.createIcons();
+}
+
+function openAccountModal(acc = null) {
+  const modal = document.getElementById('account-modal');
+  const title = document.getElementById('account-modal-title');
+  const form = document.getElementById('account-form');
+
+  form.reset();
+  if (acc) {
+    title.textContent = 'Editar Cliente en Cuenta Corriente';
+    document.getElementById('acc-id').value = acc.id;
+    document.getElementById('acc-name').value = acc.name;
+    document.getElementById('acc-dni').value = acc.dni;
+    document.getElementById('acc-phone').value = acc.phone;
+    document.getElementById('acc-address').value = acc.address || '';
+    document.getElementById('acc-term').value = acc.payment_term || 'quincenal';
+    document.getElementById('acc-limit').value = acc.credit_limit || 20000;
+  } else {
+    title.textContent = 'Registrar Cliente en Cuenta Corriente';
+    document.getElementById('acc-id').value = '';
+    document.getElementById('acc-limit').value = 20000;
+  }
+
+  modal.classList.remove('opacity-0', 'pointer-events-none');
+}
+
+function closeAccountModal() {
+  const modal = document.getElementById('account-modal');
+  modal.classList.add('opacity-0', 'pointer-events-none');
+}
+
+function editAccount(id) {
+  const acc = customerAccounts.find(a => a.id === id);
+  if (acc) openAccountModal(acc);
+}
+
+async function saveAccount(e) {
+  e.preventDefault();
+  const id = document.getElementById('acc-id').value;
+  const name = document.getElementById('acc-name').value.trim();
+  const dni = document.getElementById('acc-dni').value.trim();
+  const phone = document.getElementById('acc-phone').value.trim();
+  const address = document.getElementById('acc-address').value.trim();
+  const payment_term = document.getElementById('acc-term').value;
+  const credit_limit = document.getElementById('acc-limit').value;
+
+  try {
+    const res = await fetch('/api/admin/accounts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: id ? parseInt(id) : null, name, dni, phone, address, payment_term, credit_limit })
+    });
+    const data = await res.json();
+    if (data.success) {
+      closeAccountModal();
+      await loadAccounts();
+    } else {
+      alert(`⚠️ ${data.error}`);
+    }
+  } catch (err) {
+    console.error('Error al guardar cliente en CC:', err);
+  }
+}
+
+function openPaymentModal(accId) {
+  const acc = customerAccounts.find(a => a.id === accId);
+  if (!acc) return;
+
+  const modal = document.getElementById('payment-modal');
+  document.getElementById('pay-acc-id').value = acc.id;
+  document.getElementById('pay-acc-name').textContent = `Cliente: ${acc.name}`;
+  document.getElementById('pay-acc-dni').textContent = `DNI: ${acc.dni}`;
+  document.getElementById('pay-acc-balance').textContent = `Deuda Total: ${formatCurrency(acc.balance || 0)}`;
+
+  document.getElementById('pay-type').value = 'parcial';
+  document.getElementById('pay-amount').value = Math.min(5000, acc.balance || 0);
+
+  modal.classList.remove('opacity-0', 'pointer-events-none');
+}
+
+function closePaymentModal() {
+  const modal = document.getElementById('payment-modal');
+  modal.classList.add('opacity-0', 'pointer-events-none');
+}
+
+function handlePayTypeChange() {
+  const accId = parseInt(document.getElementById('pay-acc-id').value);
+  const acc = customerAccounts.find(a => a.id === accId);
+  const payType = document.getElementById('pay-type').value;
+  const amountInput = document.getElementById('pay-amount');
+
+  if (acc && payType === 'total') {
+    amountInput.value = acc.balance || 0;
+  }
+}
+
+async function submitAccountPayment(e) {
+  e.preventDefault();
+  const accId = parseInt(document.getElementById('pay-acc-id').value);
+  const amount = parseFloat(document.getElementById('pay-amount').value);
+  const payment_type = document.getElementById('pay-type').value;
+  const notes = document.getElementById('pay-notes').value.trim();
+
+  try {
+    const res = await fetch(`/api/admin/accounts/${accId}/payment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount, payment_type, notes })
+    });
+    const data = await res.json();
+    if (data.success) {
+      closePaymentModal();
+      await loadAccounts();
+      await loadCashSummary();
+      alert(`✅ Cobro de ${formatCurrency(amount)} registrado con éxito e ingresado a Caja.`);
+    } else {
+      alert(`⚠️ ${data.error}`);
+    }
+  } catch (err) {
+    console.error('Error al registrar cobro:', err);
+  }
 }
 
 // Lector de fotos de la PC / Celular
@@ -397,18 +588,22 @@ async function saveSettings(e) {
 
 function switchTab(tab) {
   const cSection = document.getElementById('tab-cash');
+  const aSection = document.getElementById('tab-accounts');
   const pSection = document.getElementById('tab-products');
   const sSection = document.getElementById('tab-settings');
   
   const cBtn = document.getElementById('tab-btn-cash');
+  const aBtn = document.getElementById('tab-btn-accounts');
   const pBtn = document.getElementById('tab-btn-products');
   const sBtn = document.getElementById('tab-btn-settings');
 
   cSection.classList.add('hidden');
+  aSection.classList.add('hidden');
   pSection.classList.add('hidden');
   sSection.classList.add('hidden');
 
   cBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
+  aBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
   pBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
   sBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
 
@@ -416,6 +611,10 @@ function switchTab(tab) {
     cSection.classList.remove('hidden');
     cBtn.className = 'tab-btn pb-3 border-b-2 border-orange-500 text-orange-600 flex items-center gap-2 font-bold';
     loadCashSummary();
+  } else if (tab === 'accounts') {
+    aSection.classList.remove('hidden');
+    aBtn.className = 'tab-btn pb-3 border-b-2 border-orange-500 text-orange-600 flex items-center gap-2 font-bold';
+    loadAccounts();
   } else if (tab === 'products') {
     pSection.classList.remove('hidden');
     pBtn.className = 'tab-btn pb-3 border-b-2 border-orange-500 text-orange-600 flex items-center gap-2 font-bold';

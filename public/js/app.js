@@ -1,19 +1,17 @@
-let state = {
+const state = {
   categories: [],
   products: [],
   settings: {},
-  currentCategory: 'all',
   cart: [],
-  deliveryType: 'delivery', // 'delivery' | 'retiro'
+  selectedCategory: 'all',
+  deliveryType: 'delivery'
 };
 
-document.addEventListener('DOMContentLoaded', async () => {
-  await fetchMenu();
+document.addEventListener('DOMContentLoaded', () => {
+  loadMenuData();
   loadCartFromStorage();
-  updateCartUI();
 });
 
-// Helper para formatear números de teléfono a WhatsApp (ej: 3794218138 -> 5493794218138)
 function formatWhatsAppNumber(phone) {
   if (!phone) return '';
   let clean = phone.replace(/[^0-9]/g, '');
@@ -27,8 +25,7 @@ function formatWhatsAppNumber(phone) {
   return clean;
 }
 
-// Cargar menú y configuraciones desde la API
-async function fetchMenu() {
+async function loadMenuData() {
   try {
     const res = await fetch('/api/menu');
     const data = await res.json();
@@ -39,115 +36,128 @@ async function fetchMenu() {
       state.settings = data.settings;
 
       if (state.settings.restaurant_name) {
-        document.getElementById('restaurant-name').textContent = state.settings.restaurant_name;
+        document.getElementById('restaurant-title').textContent = state.settings.restaurant_name;
       }
 
-      renderCategories();
-      renderProducts();
+      renderCategoryTabs();
+      renderMenuSections();
+      updateCartUI();
+      handlePaymentMethodChange();
     }
   } catch (err) {
-    console.error('Error al obtener el menú:', err);
+    console.error('Error al cargar el menú:', err);
   }
 }
 
-// Renderizar botones de categorías
-function renderCategories() {
-  const container = document.getElementById('categories-container');
+function renderCategoryTabs() {
+  const container = document.getElementById('category-tabs');
   container.innerHTML = `
-    <button onclick="selectCategory('all')" class="cat-btn ${state.currentCategory === 'all' ? 'bg-orange-500 text-white font-bold shadow-md' : 'bg-white text-slate-700 hover:bg-slate-100'} px-4 py-2 rounded-xl text-sm whitespace-nowrap transition border border-slate-200" data-cat="all">
+    <button onclick="selectCategory('all')" class="category-tab active px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all shadow-sm ${state.selectedCategory === 'all' ? 'bg-orange-500 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}">
       🔥 Todos
     </button>
   `;
 
   state.categories.forEach(cat => {
-    const isActive = state.currentCategory === String(cat.id);
+    const isSelected = state.selectedCategory === String(cat.id);
     const btn = document.createElement('button');
     btn.onclick = () => selectCategory(String(cat.id));
-    btn.className = `cat-btn ${isActive ? 'bg-orange-500 text-white font-bold shadow-md' : 'bg-white text-slate-700 hover:bg-slate-100'} px-4 py-2 rounded-xl text-sm whitespace-nowrap transition border border-slate-200`;
-    btn.innerHTML = `${cat.icon || '🍽️'} ${cat.name}`;
+    btn.className = `category-tab px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all shadow-sm ${isSelected ? 'bg-orange-500 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`;
+    btn.textContent = `${cat.icon || '🍽️'} ${cat.name}`;
     container.appendChild(btn);
   });
 }
 
 function selectCategory(catId) {
-  state.currentCategory = catId;
-  renderCategories();
-  renderProducts();
-
-  const titleEl = document.getElementById('current-category-title');
-  if (catId === 'all') {
-    titleEl.textContent = 'Menú Completo';
-  } else {
-    const cat = state.categories.find(c => String(c.id) === String(catId));
-    titleEl.textContent = cat ? `${cat.icon} ${cat.name}` : 'Menú';
-  }
+  state.selectedCategory = catId;
+  renderCategoryTabs();
+  renderMenuSections();
 }
 
-// Renderizar tarjetas de productos
-function renderProducts() {
-  const grid = document.getElementById('products-grid');
-  grid.innerHTML = '';
+function scrollToCategory(catId) {
+  selectCategory(String(catId));
+  const el = document.getElementById(`cat-section-${catId}`);
+  if (el) el.scrollIntoView({ behavior: 'smooth' });
+}
 
-  let filtered = state.products;
-  if (state.currentCategory !== 'all') {
-    filtered = state.products.filter(p => String(p.category_id) === String(state.currentCategory));
+function renderMenuSections() {
+  const container = document.getElementById('menu-sections');
+  container.innerHTML = '';
+
+  let filteredProducts = state.products.filter(p => p.available === 1);
+
+  if (state.selectedCategory !== 'all') {
+    filteredProducts = filteredProducts.filter(p => String(p.category_id) === state.selectedCategory);
   }
 
-  document.getElementById('product-count').textContent = `${filtered.length} opciones disponibles`;
-
-  if (filtered.length === 0) {
-    grid.innerHTML = `
-      <div class="col-span-full py-12 text-center text-slate-400">
+  if (filteredProducts.length === 0) {
+    container.innerHTML = `
+      <div class="text-center py-12 text-slate-400">
         <div class="text-4xl mb-2">🍽️</div>
-        <p class="font-semibold">No hay platos disponibles en esta categoría.</p>
+        <p class="font-semibold text-sm">No hay platos disponibles en esta categoría en este momento.</p>
       </div>
     `;
     return;
   }
 
-  filtered.forEach(p => {
-    const isAvailable = p.available === 1;
-    const card = document.createElement('div');
-    card.className = `bg-white rounded-2xl p-4 shadow-sm border border-slate-200/80 flex flex-col justify-between transition hover:shadow-md ${!isAvailable ? 'opacity-60 grayscale' : ''}`;
+  const grouped = {};
+  filteredProducts.forEach(p => {
+    if (!grouped[p.category_id]) grouped[p.category_id] = [];
+    grouped[p.category_id].push(p);
+  });
 
-    const formattedPrice = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(p.price);
+  state.categories.forEach(cat => {
+    const prodsInCat = grouped[cat.id];
+    if (!prodsInCat || prodsInCat.length === 0) return;
 
-    card.innerHTML = `
-      <div class="flex gap-3">
-        ${p.image_url ? `
-          <img src="${p.image_url}" alt="${p.name}" class="w-24 h-24 object-cover rounded-xl flex-shrink-0 bg-slate-100" onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=300'">
-        ` : `
-          <div class="w-24 h-24 bg-orange-100 text-orange-500 rounded-xl flex items-center justify-center text-3xl flex-shrink-0">🍔</div>
-        `}
-        <div class="flex-1">
-          <h3 class="font-bold text-slate-900 text-base leading-tight">${p.name}</h3>
-          <p class="text-xs text-slate-500 mt-1 line-clamp-2">${p.description || ''}</p>
-          <div class="mt-2 font-black text-slate-900 text-base">
-            ${formattedPrice}
-          </div>
-        </div>
+    const section = document.createElement('section');
+    section.id = `cat-section-${cat.id}`;
+    section.className = 'space-y-3';
+
+    section.innerHTML = `
+      <div class="flex items-center gap-2 border-b border-slate-200 pb-2">
+        <span class="text-xl">${cat.icon || '🍽️'}</span>
+        <h3 class="font-extrabold text-slate-900 text-base sm:text-lg uppercase tracking-wide">${cat.name}</h3>
       </div>
-
-      <div class="mt-3 pt-3 border-t border-slate-100 flex justify-end">
-        ${isAvailable ? `
-          <button onclick="addToCart(${p.id})" class="bg-orange-500 hover:bg-orange-600 active:scale-95 text-white font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition">
-            <i data-lucide="plus" class="w-4 h-4"></i> Agregar al Pedido
-          </button>
-        ` : `
-          <span class="text-xs font-semibold text-slate-400 bg-slate-100 px-3 py-1.5 rounded-lg">Agotado</span>
-        `}
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        ${prodsInCat.map(p => createProductCardHtml(p)).join('')}
       </div>
     `;
 
-    grid.appendChild(card);
+    container.appendChild(section);
   });
-
-  lucide.createIcons();
 }
 
-// ----------------------------------------------------
-// GESTIÓN DEL CARRITO
-// ----------------------------------------------------
+function createProductCardHtml(prod) {
+  const cartItem = state.cart.find(i => i.id === prod.id);
+  const qty = cartItem ? cartItem.qty : 0;
+
+  return `
+    <div class="bg-white rounded-2xl p-3.5 shadow-sm border border-slate-200/80 flex gap-3.5 justify-between items-center transition hover:shadow-md">
+      <div class="flex-1 min-w-0">
+        <h4 class="font-extrabold text-slate-900 text-sm sm:text-base leading-snug truncate">${prod.name}</h4>
+        <p class="text-xs text-slate-500 mt-1 line-clamp-2 leading-relaxed">${prod.description || ''}</p>
+        <div class="mt-2 font-mono font-black text-orange-600 text-base">
+          ${formatCurrency(prod.price)}
+        </div>
+      </div>
+      <div class="relative flex-shrink-0 flex flex-col items-end gap-2">
+        <img src="${prod.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200'}" alt="${prod.name}" class="w-20 h-20 rounded-xl object-cover bg-slate-100 border border-slate-100">
+        
+        ${qty === 0 ? `
+          <button onclick="addToCart(${prod.id})" class="bg-orange-500 hover:bg-orange-600 active:scale-95 text-white font-extrabold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1 shadow-md transition">
+            <i data-lucide="plus" class="w-3.5 h-3.5"></i> Agregar
+          </button>
+        ` : `
+          <div class="flex items-center bg-slate-900 text-white rounded-xl overflow-hidden shadow-md">
+            <button onclick="updateItemQty(${prod.id}, -1)" class="px-2 py-1 hover:bg-slate-800 font-bold text-xs">-</button>
+            <span class="px-2 font-black text-xs font-mono text-orange-400">${qty}</span>
+            <button onclick="addToCart(${prod.id})" class="px-2 py-1 hover:bg-slate-800 font-bold text-xs">+</button>
+          </div>
+        `}
+      </div>
+    </div>
+  `;
+}
 
 function addToCart(productId) {
   const prod = state.products.find(p => p.id === productId);
@@ -167,10 +177,6 @@ function addToCart(productId) {
 
   saveCartToStorage();
   updateCartUI();
-
-  if (state.cart.reduce((sum, item) => sum + item.qty, 0) === 1) {
-    openCartModal();
-  }
 }
 
 function updateItemQty(productId, delta) {
@@ -188,34 +194,38 @@ function updateItemQty(productId, delta) {
 function setDeliveryType(type) {
   state.deliveryType = type;
 
-  const btnDel = document.getElementById('btn-delivery');
-  const btnRet = document.getElementById('btn-retiro');
+  const btnDel = document.getElementById('btn-type-delivery');
+  const btnRet = document.getElementById('btn-type-takeaway');
   const addrContainer = document.getElementById('address-field-container');
 
   if (type === 'delivery') {
-    btnDel.className = 'delivery-type-btn py-2.5 px-3 rounded-xl border-2 border-orange-500 bg-orange-50 text-orange-600 font-bold text-sm flex items-center justify-center gap-2 transition';
-    btnRet.className = 'delivery-type-btn py-2.5 px-3 rounded-xl border-2 border-slate-200 bg-slate-50 text-slate-600 font-bold text-sm flex items-center justify-center gap-2 transition';
-    addrContainer.style.display = 'block';
+    btnDel.className = 'py-2.5 rounded-lg transition bg-orange-500 text-white shadow';
+    btnRet.className = 'py-2.5 rounded-lg transition text-slate-600 hover:text-slate-900';
+    if (addrContainer) addrContainer.style.display = 'block';
   } else {
-    btnRet.className = 'delivery-type-btn py-2.5 px-3 rounded-xl border-2 border-orange-500 bg-orange-50 text-orange-600 font-bold text-sm flex items-center justify-center gap-2 transition';
-    btnDel.className = 'delivery-type-btn py-2.5 px-3 rounded-xl border-2 border-slate-200 bg-slate-50 text-slate-600 font-bold text-sm flex items-center justify-center gap-2 transition';
-    addrContainer.style.display = 'none';
+    btnRet.className = 'py-2.5 rounded-lg transition bg-orange-500 text-white shadow';
+    btnDel.className = 'py-2.5 rounded-lg transition text-slate-600 hover:text-slate-900';
+    if (addrContainer) addrContainer.style.display = 'none';
   }
 
   updateCartUI();
 }
 
-function togglePaymentNote() {
+function handlePaymentMethodChange() {
   const method = document.getElementById('cust-payment').value;
   const noteContainer = document.getElementById('payment-note-container');
   const label = document.getElementById('payment-note-label');
   const input = document.getElementById('cust-payment-note');
 
+  if (!noteContainer) return;
   noteContainer.style.display = 'block';
 
   if (method === 'Efectivo') {
     label.textContent = '¿Con cuánto abonas? (para el vuelto)';
     input.placeholder = 'Ej: Pago con $10.000';
+  } else if (method.includes('Cuenta Corriente')) {
+    label.textContent = 'DNI / CUIT de la Cuenta Corriente Autorizada *';
+    input.placeholder = 'Ej: 35123456 (Obligatorio para fiado)';
   } else if (method.includes('Tarjeta')) {
     label.textContent = 'Aclaración de Tarjeta / Posnet (Opcional)';
     input.placeholder = 'Ej: Visa Débito, Mastercard, Posnet MP';
@@ -234,59 +244,55 @@ function updateCartUI() {
   const deliveryCost = state.deliveryType === 'delivery' ? parseFloat(state.settings.delivery_cost || 1200) : 0;
   const grandTotal = subtotal > 0 ? subtotal + deliveryCost : 0;
 
-  const floatingBtn = document.getElementById('floating-cart-btn');
+  const cartBar = document.getElementById('cart-bar');
   if (totalItems > 0) {
-    floatingBtn.classList.remove('hidden');
+    cartBar.classList.remove('translate-y-32', 'opacity-0', 'pointer-events-none');
   } else {
-    floatingBtn.classList.add('hidden');
+    cartBar.classList.add('translate-y-32', 'opacity-0', 'pointer-events-none');
     closeCartModal();
   }
 
-  document.getElementById('cart-badge').textContent = totalItems;
-  document.getElementById('cart-total-floating').textContent = formatCurrency(grandTotal);
-
-  const itemsContainer = document.getElementById('cart-items-list');
-  if (state.cart.length === 0) {
-    itemsContainer.innerHTML = `
-      <div class="py-8 text-center text-slate-400">
-        <p class="text-sm font-semibold">Tu carrito está vacío</p>
-      </div>
-    `;
-  } else {
-    itemsContainer.innerHTML = state.cart.map(item => `
-      <div class="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-200/60">
-        <div class="flex-1 pr-2">
-          <h5 class="font-bold text-slate-900 text-sm">${item.name}</h5>
-          <span class="text-xs font-semibold text-orange-600">${formatCurrency(item.price)} x ${item.qty} = ${formatCurrency(item.price * item.qty)}</span>
-        </div>
-        <div class="flex items-center gap-2 bg-white border border-slate-300 rounded-lg p-1">
-          <button onclick="updateItemQty(${item.id}, -1)" class="w-6 h-6 rounded flex items-center justify-center hover:bg-slate-100 font-bold text-slate-700 text-sm">-</button>
-          <span class="text-xs font-bold w-4 text-center">${item.qty}</span>
-          <button onclick="updateItemQty(${item.id}, 1)" class="w-6 h-6 rounded flex items-center justify-center hover:bg-slate-100 font-bold text-slate-700 text-sm">+</button>
-        </div>
-      </div>
-    `).join('');
-  }
+  document.getElementById('cart-badge-count').textContent = totalItems;
+  document.getElementById('cart-bar-total').textContent = formatCurrency(grandTotal);
 
   document.getElementById('summary-subtotal').textContent = formatCurrency(subtotal);
-  document.getElementById('summary-delivery-cost').textContent = state.deliveryType === 'delivery' ? formatCurrency(deliveryCost) : 'GRATIS';
+  document.getElementById('summary-delivery-cost').textContent = formatCurrency(deliveryCost);
   document.getElementById('summary-total').textContent = formatCurrency(grandTotal);
 
-  document.getElementById('summary-delivery-row').style.display = state.deliveryType === 'delivery' ? 'flex' : 'none';
+  const itemsContainer = document.getElementById('cart-items-list');
+  if (!itemsContainer) return;
+
+  if (state.cart.length === 0) {
+    itemsContainer.innerHTML = `<p class="text-center py-4 text-slate-400 text-xs">Tu carrito está vacío.</p>`;
+    return;
+  }
+
+  itemsContainer.innerHTML = state.cart.map(item => `
+    <div class="py-2.5 flex justify-between items-center text-xs sm:text-sm">
+      <div class="flex-1 min-w-0 pr-2">
+        <div class="font-extrabold text-slate-800 truncate">${item.name}</div>
+        <div class="text-slate-400 text-xs font-mono font-semibold">${formatCurrency(item.price)} x ${item.qty}</div>
+      </div>
+      <div class="flex items-center gap-2">
+        <div class="flex items-center bg-slate-100 rounded-lg border border-slate-200">
+          <button onclick="updateItemQty(${item.id}, -1)" class="px-2 py-1 text-slate-600 font-bold hover:bg-slate-200 rounded-l-lg">-</button>
+          <span class="px-2 font-black font-mono text-slate-800">${item.qty}</span>
+          <button onclick="updateItemQty(${item.id}, 1)" class="px-2 py-1 text-slate-600 font-bold hover:bg-slate-200 rounded-r-lg">+</button>
+        </div>
+        <span class="font-mono font-black text-slate-900 w-16 text-right">${formatCurrency(item.price * item.qty)}</span>
+      </div>
+    </div>
+  `).join('');
 }
 
 function openCartModal() {
   const modal = document.getElementById('cart-modal');
-  const drawer = document.getElementById('cart-drawer');
   modal.classList.remove('opacity-0', 'pointer-events-none');
-  drawer.classList.remove('translate-x-full');
 }
 
 function closeCartModal() {
   const modal = document.getElementById('cart-modal');
-  const drawer = document.getElementById('cart-drawer');
   modal.classList.add('opacity-0', 'pointer-events-none');
-  drawer.classList.add('translate-x-full');
 }
 
 function saveCartToStorage() {
@@ -308,10 +314,7 @@ function formatCurrency(val) {
   return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(val);
 }
 
-// ----------------------------------------------------
 // ENVIAR PEDIDO POR WHATSAPP Y REGISTRAR EN COCINA
-// ----------------------------------------------------
-
 async function submitOrderToWhatsApp() {
   if (state.cart.length === 0) {
     alert('Tu carrito está vacío. Agrega comidas antes de continuar.');
@@ -338,90 +341,71 @@ async function submitOrderToWhatsApp() {
   }
 
   if (state.deliveryType === 'delivery' && !address) {
-    alert('Por favor ingresa tu Dirección Completa para el envío.');
+    alert('Por favor ingresa la Dirección de Entrega para el Delivery.');
     document.getElementById('cust-address').focus();
     return;
   }
 
-  const formattedPhone = formatWhatsAppNumber(rawPhone);
+  if (paymentMethod.includes('Cuenta Corriente') && !paymentNote) {
+    alert('Por favor ingresa tu DNI / CUIT de la Cuenta Corriente Autorizada.');
+    document.getElementById('cust-payment-note').focus();
+    return;
+  }
 
   const subtotal = state.cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
   const deliveryCost = state.deliveryType === 'delivery' ? parseFloat(state.settings.delivery_cost || 1200) : 0;
-  const grandTotal = subtotal + deliveryCost;
+  const total = subtotal + deliveryCost;
 
-  // 1. Guardar el pedido en la base de datos para que la cocina lo reciba al instante
-  let createdOrder = null;
+  const orderPayload = {
+    customer_name: name,
+    customer_phone: rawPhone,
+    address: state.deliveryType === 'delivery' ? address : 'Retiro en Local',
+    delivery_type: state.deliveryType,
+    payment_method: paymentMethod,
+    payment_note: paymentNote,
+    notes,
+    items: state.cart,
+    total
+  };
+
   try {
     const res = await fetch('/api/orders', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        customer_name: name,
-        customer_phone: formattedPhone,
-        address: state.deliveryType === 'delivery' ? address : 'RETIRO POR EL LOCAL',
-        delivery_type: state.deliveryType,
-        payment_method: paymentMethod,
-        payment_note: paymentNote,
-        notes: notes,
-        items: state.cart,
-        total: grandTotal
-      })
+      body: JSON.stringify(orderPayload)
     });
 
     const data = await res.json();
-    if (data.success) {
-      createdOrder = data.order;
+    if (!data.success) {
+      alert(`⚠️ ERROR AL PROCESAR PEDIDO: ${data.error}`);
+      return;
     }
+
+    const orderNumber = data.order.order_number;
+
+    let itemsText = state.cart.map(i => `• ${i.qty}x ${i.name} ($${i.price * i.qty})`).join('\n');
+    let message = `🛒 *NUEVO PEDIDO DE COMIDA* (${orderNumber})\n\n`;
+    message += `👤 *Cliente:* ${name}\n`;
+    message += `📞 *Teléfono:* ${rawPhone}\n`;
+    message += `🛵 *Tipo:* ${state.deliveryType === 'delivery' ? 'Delivery a Domicilio' : 'Retiro en Local'}\n`;
+    if (state.deliveryType === 'delivery') message += `📍 *Dirección:* ${address}\n`;
+    message += `💳 *Pago:* ${paymentMethod} ${paymentNote ? `(${paymentNote})` : ''}\n\n`;
+    message += `📋 *DETALLE DEL PEDIDO:*\n${itemsText}\n\n`;
+    if (notes) message += `⚠️ *Notas:* ${notes}\n\n`;
+    if (state.deliveryType === 'delivery') message += `Envío: ${formatCurrency(deliveryCost)}\n`;
+    message += `💰 *TOTAL A PAGAR: ${formatCurrency(total)}*`;
+
+    state.cart = [];
+    saveCartToStorage();
+    updateCartUI();
+    closeCartModal();
+
+    const targetPhone = formatWhatsAppNumber(state.settings.whatsapp_phone || '5491112345678');
+    const waUrl = `https://wa.me/${targetPhone}?text=${encodeURIComponent(message)}`;
+
+    window.open(waUrl, '_blank');
   } catch (err) {
-    console.error('Error al registrar pedido en backend:', err);
+    console.error('Error al enviar pedido:', err);
+    alert('Ocurrió un error al registrar el pedido. Intenta nuevamente.');
   }
-
-  const orderNumber = createdOrder ? createdOrder.order_number : '#NUEVO';
-
-  // 2. Construir mensaje estructurado para WhatsApp
-  let message = `🍽️ *NUEVO PEDIDO - ${state.settings.restaurant_name || 'Rotisería'}*\n`;
-  message += `📌 *Orden:* ${orderNumber}\n`;
-  message += `--------------------------------\n`;
-  message += `👤 *Cliente:* ${name}\n`;
-  message += `📞 *Teléfono:* ${formattedPhone}\n`;
-  message += `🛵 *Tipo:* ${state.deliveryType === 'delivery' ? 'Delivery a Domicilio' : 'Retiro por el Local'}\n`;
-  if (state.deliveryType === 'delivery') {
-    message += `📍 *Dirección:* ${address}\n`;
-  }
-  message += `💳 *Pago:* ${paymentMethod}${paymentNote ? ` (${paymentNote})` : ''}\n`;
-  message += `--------------------------------\n`;
-  message += `📋 *DETALLE DEL PEDIDO:*\n`;
-
-  state.cart.forEach(item => {
-    message += `• *${item.qty}x* ${item.name} (${formatCurrency(item.price * item.qty)})\n`;
-  });
-
-  if (state.deliveryType === 'delivery') {
-    message += `• *1x* Costo de Envío (${formatCurrency(deliveryCost)})\n`;
-  }
-
-  if (notes) {
-    message += `\n📝 *Notas/Aclaraciones:* _${notes}_\n`;
-  }
-
-  message += `--------------------------------\n`;
-  message += `💰 *TOTAL A PAGAR:* *${formatCurrency(grandTotal)}*\n`;
-  message += `\n¡Gracias! Quedo a la espera de la confirmación 🙌`;
-
-  // 3. Limpiar carrito local
-  state.cart = [];
-  saveCartToStorage();
-  updateCartUI();
-  closeCartModal();
-
-  // 4. Abrir WhatsApp
-  let targetPhone = state.settings.whatsapp_phone ? formatWhatsAppNumber(state.settings.whatsapp_phone) : '';
-  if (!targetPhone || targetPhone === '5491112345678') {
-    targetPhone = formattedPhone;
-  }
-
-  const encodedText = encodeURIComponent(message);
-  const waUrl = `https://wa.me/${targetPhone}?text=${encodedText}`;
-
-  window.open(waUrl, '_blank');
 }

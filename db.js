@@ -14,33 +14,37 @@ const initialData = {
     { id: 6, name: 'Bebidas', icon: '🥤', sort_order: 5 }
   ],
   products: [
-    // Promos y Combos (cat 1)
     { id: 1, category_id: 1, name: 'Promo 2x1 Hamburguesas Clásicas', description: '2 Hamburguesas dobles con queso cheddar y papas fritas familiares.', price: 9500, image_url: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500', available: 1 },
     { id: 2, category_id: 1, name: 'Combo Familiar Pizza + 6 Empanadas', description: '1 Pizza Muzzarella grande + 6 empanadas a elección.', price: 12500, image_url: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=500', available: 1 },
-
-    // Minutas (cat 2)
     { id: 3, category_id: 2, name: 'Sándwich de Milanesa Completo', description: 'Milanesa de carne, lechuga, tomate, jamón, queso y huevo frito con papas.', price: 7500, image_url: 'https://images.unsplash.com/photo-1550547660-d9450f859349?w=500', available: 1 },
     { id: 4, category_id: 2, name: 'Milanesa Napolitana con Papas Fritas', description: 'Milanesa grande cubierta con salsa de tomate casera, muzzarella y orégano.', price: 8200, image_url: 'https://images.unsplash.com/photo-1544025162-d76694265947?w=500', available: 1 },
     { id: 5, category_id: 2, name: 'Lomito Completo al Pan', description: 'Lomo vacuno tierno, lechuga, tomate, jamón, queso, huevo frito y papas.', price: 7900, image_url: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500', available: 1 },
     { id: 6, category_id: 2, name: 'Porción de Papas Fritas Cheddar & Bacon', description: 'Papas crocantes bañadas en salsa cheddar caliente y panceta crocante.', price: 4500, image_url: 'https://images.unsplash.com/photo-1576107232684-1279f3908594?w=500', available: 1 },
-
-    // Hamburguesas (cat 3)
     { id: 7, category_id: 3, name: 'Hamburguesa Doble Cheddar & Bacon', description: 'Doble medallón 120g, cheddar, tocino crocante y salsa de la casa.', price: 6200, image_url: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500', available: 1 },
     { id: 8, category_id: 3, name: 'Hamburguesa Veggie de NotBurger', description: 'Medallón vegetal, palta, lechuga, tomate y mayonesa vegana.', price: 5800, image_url: 'https://images.unsplash.com/photo-1550547660-d9450f859349?w=500', available: 1 },
-
-    // Pizzas (cat 4)
     { id: 9, category_id: 4, name: 'Pizza Muzzarella Especial', description: 'Salsa de tomate casera, 300g muzzarella, aceitunas y orégano.', price: 7200, image_url: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=500', available: 1 },
     { id: 10, category_id: 4, name: 'Pizza Napolitana con Jamón', description: 'Muzzarella, rodajas de tomate fresco, ajo, perejil y jamón cocido.', price: 8100, image_url: 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=500', available: 1 },
-
-    // Empanadas (cat 5)
     { id: 11, category_id: 5, name: 'Empanada de Carne Cortada a Cuchillo', description: 'Relleno jugoso con cebolla, huevo y especias tradicionales.', price: 1100, image_url: 'https://images.unsplash.com/photo-1626777552726-4a6b54c97e46?w=500', available: 1 },
     { id: 12, category_id: 5, name: 'Empanada de Jamón y Queso', description: 'Queso tirante y jamón cocido seleccionado.', price: 1000, image_url: 'https://images.unsplash.com/photo-1626777552726-4a6b54c97e46?w=500', available: 1 },
-
-    // Bebidas (cat 6)
     { id: 13, category_id: 6, name: 'Coca Cola 1.5L', description: 'Botella 1.5 Litros bien fría.', price: 2500, image_url: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=500', available: 1 },
     { id: 14, category_id: 6, name: 'Cerveza Cautiva IPA 473ml', description: 'Lata artesanal bien helada.', price: 2800, image_url: 'https://images.unsplash.com/photo-1608270586620-248524c67de9?w=500', available: 1 }
   ],
   orders: [],
+  customer_accounts: [
+    {
+      id: 1,
+      name: "Carlos Rodríguez",
+      dni: "32456789",
+      phone: "5493794112233",
+      address: "Av. San Martín 450",
+      payment_term: "quincenal",
+      credit_limit: 25000,
+      balance: 0,
+      status: "active",
+      created_at: new Date().toISOString()
+    }
+  ],
+  account_payments: [],
   settings: {
     restaurant_name: 'La Gran Rotisería',
     whatsapp_phone: '5491112345678',
@@ -62,6 +66,8 @@ function loadStore() {
       if (!store.categories) store.categories = initialData.categories;
       if (!store.products) store.products = initialData.products;
       if (!store.orders) store.orders = initialData.orders;
+      if (!store.customer_accounts) store.customer_accounts = initialData.customer_accounts;
+      if (!store.account_payments) store.account_payments = [];
       if (!store.settings) store.settings = initialData.settings;
     } else {
       saveStore();
@@ -82,13 +88,19 @@ function saveStore() {
 
 loadStore();
 
-// Adaptador SQL liviano y ultrarrápido (100% Nube y Cero Bloqueos)
+// Adaptador SQL liviano y ultrarrápido (con soporte completo para Cuentas Corrientes)
 const db = {
+  getStore() {
+    return store;
+  },
+  saveStore() {
+    saveStore();
+  },
   prepare(sql) {
     return {
       all(...params) {
         const query = sql.toLowerCase();
-        
+
         // GET CATEGORIES
         if (query.includes('from categories')) {
           return [...store.categories].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
@@ -127,6 +139,16 @@ const db = {
             .map(o => ({ ...o, items: typeof o.items === 'string' ? o.items : JSON.stringify(o.items) }));
         }
 
+        // GET CUSTOMER ACCOUNTS
+        if (query.includes('from customer_accounts')) {
+          return [...store.customer_accounts].sort((a, b) => a.name.localeCompare(b.name));
+        }
+
+        // GET ACCOUNT PAYMENTS
+        if (query.includes('from account_payments')) {
+          return [...store.account_payments].sort((a, b) => new Date(b.date) - new Date(a.date));
+        }
+
         // GET SETTINGS
         if (query.includes('from settings')) {
           return Object.entries(store.settings).map(([key, value]) => ({ key, value }));
@@ -160,6 +182,16 @@ const db = {
           };
         }
 
+        if (query.includes('from customer_accounts where id = ?')) {
+          const id = parseInt(params[0]);
+          return store.customer_accounts.find(a => a.id === id) || null;
+        }
+
+        if (query.includes('from customer_accounts where dni = ? or phone = ?')) {
+          const val = String(params[0]);
+          return store.customer_accounts.find(a => a.dni === val || a.phone.includes(val) || val.includes(a.phone)) || null;
+        }
+
         if (query.includes('from categories where name like')) {
           const namePart = String(params[0] || '').replace(/%/g, '').toLowerCase();
           return store.categories.find(c => c.name.toLowerCase().includes(namePart)) || null;
@@ -175,7 +207,7 @@ const db = {
         if (query.includes('insert into orders')) {
           const [order_number, customer_name, customer_phone, address, delivery_type, payment_method, payment_note, notes, items, total, status, paid] = params;
           const nextId = store.orders.length > 0 ? Math.max(...store.orders.map(o => o.id)) + 1 : 1;
-          
+
           const newOrder = {
             id: nextId,
             order_number,
@@ -220,6 +252,43 @@ const db = {
           if (order) {
             order.paid = paid ? 1 : 0;
             order.updated_at = new Date().toISOString();
+            saveStore();
+          }
+          return { changes: 1 };
+        }
+
+        // INSERT CUSTOMER ACCOUNT
+        if (query.includes('insert into customer_accounts')) {
+          const [name, dni, phone, address, payment_term, credit_limit] = params;
+          const nextId = store.customer_accounts.length > 0 ? Math.max(...store.customer_accounts.map(a => a.id)) + 1 : 1;
+          const newAccount = {
+            id: nextId,
+            name,
+            dni,
+            phone,
+            address: address || '',
+            payment_term: payment_term || 'quincenal',
+            credit_limit: parseFloat(credit_limit || 20000),
+            balance: 0,
+            status: 'active',
+            created_at: new Date().toISOString()
+          };
+          store.customer_accounts.push(newAccount);
+          saveStore();
+          return { lastInsertRowid: nextId };
+        }
+
+        // UPDATE CUSTOMER ACCOUNT
+        if (query.includes('update customer_accounts set name =')) {
+          const [name, dni, phone, address, payment_term, credit_limit, id] = params;
+          const acc = store.customer_accounts.find(a => a.id === parseInt(id));
+          if (acc) {
+            acc.name = name;
+            acc.dni = dni;
+            acc.phone = phone;
+            acc.address = address;
+            acc.payment_term = payment_term;
+            acc.credit_limit = parseFloat(credit_limit);
             saveStore();
           }
           return { changes: 1 };

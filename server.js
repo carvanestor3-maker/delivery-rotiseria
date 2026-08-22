@@ -66,6 +66,27 @@ app.post('/api/verify-pin', (req, res) => {
   }
 });
 
+// BITÁCORA DE AUDITORÍA DE MOVIMIENTOS Y MERMAS (EXCLUSIVO NIVEL 3 - GERENTE / DUEÑO)
+app.post('/api/admin/audit-logs', (req, res) => {
+  try {
+    const { pin } = req.body;
+
+    if (!verifyPin(pin, 3)) {
+      return res.status(401).json({ success: false, error: 'Acceso Denegado: La Bitácora de Auditoría es de acceso exclusivo para Gerente / Dueño (Nivel 3).' });
+    }
+
+    const store = db.getStore();
+    res.json({
+      success: true,
+      stock_entries: store.stock_entries || [],
+      stock_adjustments: store.stock_adjustments || [],
+      account_payments: store.account_payments || []
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // CONCILIAR / AJUSTAR STOCK REAL VS VIRTUAL (REQUERIDO NIVEL 3 - GERENTE / DUEÑO)
 app.post('/api/admin/stock/adjust', (req, res) => {
   try {
@@ -852,7 +873,7 @@ app.post('/api/settings', (req, res) => {
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`
-🚀 Servidor Delivery, Producción, Stock & Seguridad 3 Niveles en ejecución:
+🚀 Servidor Delivery, Auditoría Nivel 3 & Seguridad en ejecución:
 👉 Local: http://localhost:${PORT}/admin.html
   `);
 });

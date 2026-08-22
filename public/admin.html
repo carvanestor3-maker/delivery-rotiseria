@@ -18,7 +18,7 @@
       </div>
       <div>
         <h1 class="font-black text-lg">PANEL DE ADMINISTRACIÓN</h1>
-        <p class="text-xs text-slate-400">Menú, Cuentas Corrientes, Stock/Insumos, Caja e Impresoras</p>
+        <p class="text-xs text-slate-400">Menú, Cuentas Corrientes, Stock/Insumos, Auditoría e Impresoras</p>
       </div>
     </div>
     <div class="flex items-center gap-2">
@@ -48,7 +48,10 @@
         📦 Insumos & Conciliación de Stock
       </button>
       <button onclick="switchTab('products')" id="tab-btn-products" class="tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2">
-        <i data-lucide="utensils" class="w-4 h-4"></i> Catálogo de Productos y Minutas
+        <i data-lucide="utensils" class="w-4 h-4"></i> Catálogo de Productos
+      </button>
+      <button onclick="switchTab('audit')" id="tab-btn-audit" class="tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2">
+        📜 Bitácora de Auditoría (Nivel 3)
       </button>
       <button onclick="switchTab('settings')" id="tab-btn-settings" class="tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2">
         <i data-lucide="sliders" class="w-4 h-4"></i> Ajustes & Claves (Niveles 2 y 3)
@@ -244,7 +247,92 @@
       </div>
     </section>
 
-    <!-- PESTAÑA 5: CONFIGURACIÓN Y CLAVES -->
+    <!-- PESTAÑA 5: BITÁCORA DE AUDITORÍA (EXCLUSIVO NIVEL 3 - GERENTE / DUEÑO) -->
+    <section id="tab-audit" class="hidden space-y-6">
+      <div class="bg-purple-900 text-white p-6 rounded-2xl shadow-md flex justify-between items-center">
+        <div>
+          <h2 class="font-extrabold text-xl flex items-center gap-2">
+            📜 Bitácora General de Auditoría de Movimientos
+          </h2>
+          <p class="text-xs text-purple-200 mt-1">Historial inalterable de ingresos de stock, conciliaciones de mermas y pagos a cuentas corrientes</p>
+        </div>
+        <div class="bg-purple-950 px-3 py-1.5 rounded-xl border border-purple-500/40 text-xs font-bold text-purple-300">
+          👑 Acceso Protegido por PIN Nivel 3 (Gerente/Dueño)
+        </div>
+      </div>
+
+      <!-- Formulario para Desbloquear Auditoría con PIN Nivel 3 -->
+      <div id="audit-pin-prompt" class="bg-white p-8 rounded-2xl border border-purple-200 shadow-sm text-center max-w-md mx-auto space-y-4">
+        <div class="w-12 h-12 bg-purple-100 text-purple-700 rounded-2xl flex items-center justify-center font-bold text-xl mx-auto">
+          🔒
+        </div>
+        <div>
+          <h3 class="font-extrabold text-slate-900 text-base">Ingrese PIN de Gerente / Dueño (Nivel 3)</h3>
+          <p class="text-xs text-slate-500 mt-1">Esta bitácora contiene la auditoría completa de inventario y mermas</p>
+        </div>
+        <form onsubmit="unlockAuditLogs(event)" class="space-y-3">
+          <input type="password" id="audit-input-pin" required placeholder="PIN de Gerente (ej: 9999)" class="w-full px-4 py-2.5 border border-purple-300 rounded-xl text-center text-lg font-mono font-bold outline-none focus:ring-2 focus:ring-purple-500">
+          <button type="submit" class="w-full bg-purple-700 hover:bg-purple-800 text-white font-extrabold py-2.5 rounded-xl text-xs shadow-md transition">
+            Desbloquear Bitácora de Auditoría
+          </button>
+        </form>
+      </div>
+
+      <!-- Contenido de Bitácora (Se muestra tras validar PIN Nivel 3) -->
+      <div id="audit-logs-content" class="hidden space-y-6">
+
+        <!-- Sección A: Historial de Conciliaciones de Mermas y Ajustes de Balanza -->
+        <div class="bg-white rounded-2xl border border-purple-200 shadow-sm overflow-hidden space-y-2">
+          <div class="p-4 bg-purple-50 border-b border-purple-200 font-extrabold text-purple-900 text-sm flex items-center gap-2">
+            ⚖️ Historial de Conciliaciones de Stock Real & Mermas (Ajustes de Balanza)
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-sm">
+              <thead>
+                <tr class="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase">
+                  <th class="p-4">Fecha y Hora</th>
+                  <th class="p-4">Insumo</th>
+                  <th class="p-4">Stock Virtual Anterior</th>
+                  <th class="p-4">Stock Real Ajustado</th>
+                  <th class="p-4">Diferencia / Merma</th>
+                  <th class="p-4">Motivo Observado</th>
+                  <th class="p-4">Autorizado Por</th>
+                </tr>
+              </thead>
+              <tbody id="audit-adjustments-tbody" class="divide-y divide-slate-100">
+                <!-- Dinámico -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Sección B: Historial de Ingresos de Stock de Proveedores -->
+        <div class="bg-white rounded-2xl border border-blue-200 shadow-sm overflow-hidden space-y-2">
+          <div class="p-4 bg-blue-50 border-b border-blue-200 font-extrabold text-blue-900 text-sm flex items-center gap-2">
+            📦 Historial de Entregas de Proveedores (Ingresos de Mercadería)
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-sm">
+              <thead>
+                <tr class="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase">
+                  <th class="p-4">Fecha</th>
+                  <th class="p-4">Proveedor</th>
+                  <th class="p-4">Insumo Recibido</th>
+                  <th class="p-4">Cantidad</th>
+                  <th class="p-4">Registrado Por</th>
+                </tr>
+              </thead>
+              <tbody id="audit-entries-tbody" class="divide-y divide-slate-100">
+                <!-- Dinámico -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- PESTAÑA 6: CONFIGURACIÓN Y CLAVES -->
     <section id="tab-settings" class="hidden max-w-2xl bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
       <h2 class="font-extrabold text-slate-900 text-lg border-b pb-3 border-slate-200">Ajustes, WhatsApp y Niveles de Seguridad (PINs)</h2>
       
@@ -280,7 +368,7 @@
           <div class="bg-purple-50 p-4 rounded-xl border border-purple-200">
             <label class="block text-xs font-bold text-purple-900 uppercase mb-1">👑 PIN Nivel 3 (Gerente General / Dueño)</label>
             <input type="password" id="set-admin-pin" required placeholder="Ej: 9999" class="w-full px-3 py-2 border border-purple-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-purple-500 font-mono font-bold">
-            <p class="text-[10px] text-purple-700 mt-1">Autoriza conciliaciones de mermas, cuentas corrientes y menú.</p>
+            <p class="text-[10px] text-purple-700 mt-1">Autoriza conciliaciones de mermas, cuentas corrientes y bitácora de auditoría.</p>
           </div>
         </div>
 

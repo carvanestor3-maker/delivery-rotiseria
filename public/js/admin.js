@@ -15,6 +15,96 @@ async function loadData() {
   await Promise.all([loadCashSummary(), loadProducts(), loadCategories(), loadSettings(), loadAccounts(), loadStockMaterials()]);
 }
 
+// Cargar Bitácora de Auditoría (Exclusivo Nivel 3 - Gerente / Dueño)
+async function unlockAuditLogs(e) {
+  e.preventDefault();
+  const pin = document.getElementById('audit-input-pin').value.trim();
+
+  try {
+    const res = await fetch('/api/admin/audit-logs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin })
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      document.getElementById('audit-pin-prompt').classList.add('hidden');
+      document.getElementById('audit-logs-content').classList.remove('hidden');
+
+      renderAuditAdjustments(data.stock_adjustments || []);
+      renderAuditEntries(data.stock_entries || []);
+    } else {
+      alert(`⚠️ ${data.error}`);
+    }
+  } catch (err) {
+    console.error('Error al cargar bitácora:', err);
+  }
+}
+
+function renderAuditAdjustments(adjustments) {
+  const tbody = document.getElementById('audit-adjustments-tbody');
+  if (!tbody) return;
+
+  tbody.innerHTML = '';
+
+  if (adjustments.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-400">No hay conciliaciones o mermas registradas.</td></tr>`;
+    return;
+  }
+
+  adjustments.forEach(adj => {
+    const isNeg = adj.difference < 0;
+    const tr = document.createElement('tr');
+    tr.className = 'hover:bg-slate-50 transition';
+
+    const dateStr = new Date(adj.date).toLocaleString('es-AR');
+
+    tr.innerHTML = `
+      <td class="p-4 text-xs font-mono text-slate-500">${dateStr}</td>
+      <td class="p-4 font-black text-slate-900">${adj.raw_material_name}</td>
+      <td class="p-4 font-mono text-slate-600">${adj.old_stock} ${adj.unit}</td>
+      <td class="p-4 font-mono font-bold text-slate-900">${adj.new_stock} ${adj.unit}</td>
+      <td class="p-4 font-mono font-black ${isNeg ? 'text-red-600' : 'text-emerald-600'}">
+        ${adj.difference >= 0 ? '+' : ''}${adj.difference} ${adj.unit}
+      </td>
+      <td class="p-4 text-xs text-slate-700 italic">${adj.reason || 'Sin observación'}</td>
+      <td class="p-4 text-xs font-bold text-purple-700">👑 ${adj.registered_by || 'Gerente (Nivel 3)'}</td>
+    `;
+
+    tbody.appendChild(tr);
+  });
+}
+
+function renderAuditEntries(entries) {
+  const tbody = document.getElementById('audit-entries-tbody');
+  if (!tbody) return;
+
+  tbody.innerHTML = '';
+
+  if (entries.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-400">No hay entregas de proveedores registradas.</td></tr>`;
+    return;
+  }
+
+  entries.forEach(e => {
+    const tr = document.createElement('tr');
+    tr.className = 'hover:bg-slate-50 transition';
+
+    const dateStr = new Date(e.date).toLocaleString('es-AR');
+
+    tr.innerHTML = `
+      <td class="p-4 text-xs font-mono text-slate-500">${dateStr}</td>
+      <td class="p-4 font-bold text-slate-900">${e.supplier_name}</td>
+      <td class="p-4 font-bold text-blue-900">${e.raw_material_name}</td>
+      <td class="p-4 font-mono font-black text-emerald-600">+${e.quantity} ${e.unit}</td>
+      <td class="p-4 text-xs font-bold text-blue-700">🔑 ${e.registered_by || 'Encargado (Nivel 2)'}</td>
+    `;
+
+    tbody.appendChild(tr);
+  });
+}
+
 // Cargar Insumos y Stock General
 async function loadStockMaterials() {
   try {
@@ -779,24 +869,28 @@ function switchTab(tab) {
   const aSection = document.getElementById('tab-accounts');
   const kSection = document.getElementById('tab-stock');
   const pSection = document.getElementById('tab-products');
+  const uSection = document.getElementById('tab-audit');
   const sSection = document.getElementById('tab-settings');
   
   const cBtn = document.getElementById('tab-btn-cash');
   const aBtn = document.getElementById('tab-btn-accounts');
   const kBtn = document.getElementById('tab-btn-stock');
   const pBtn = document.getElementById('tab-btn-products');
+  const uBtn = document.getElementById('tab-btn-audit');
   const sBtn = document.getElementById('tab-btn-settings');
 
   cSection.classList.add('hidden');
   aSection.classList.add('hidden');
   kSection.classList.add('hidden');
   pSection.classList.add('hidden');
+  uSection.classList.add('hidden');
   sSection.classList.add('hidden');
 
   cBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
   aBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
   kBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
   pBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
+  uBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
   sBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
 
   if (tab === 'cash') {
@@ -814,6 +908,9 @@ function switchTab(tab) {
   } else if (tab === 'products') {
     pSection.classList.remove('hidden');
     pBtn.className = 'tab-btn pb-3 border-b-2 border-orange-500 text-orange-600 flex items-center gap-2 font-bold';
+  } else if (tab === 'audit') {
+    uSection.classList.remove('hidden');
+    uBtn.className = 'tab-btn pb-3 border-b-2 border-purple-600 text-purple-700 flex items-center gap-2 font-bold';
   } else {
     sSection.classList.remove('hidden');
     sBtn.className = 'tab-btn pb-3 border-b-2 border-orange-500 text-orange-600 flex items-center gap-2 font-bold';

@@ -13,7 +13,7 @@ const initialData = {
     is_open: '1',
     auto_print_epson: '0',
     epson_printer_ip: '',
-    admin_pin: '9999' // PIN por defecto para Nivel 2 (Dueño / Encargado)
+    admin_pin: '9999'
   },
   categories: [
     { id: 1, name: 'Promos y Combos', icon: '🔥', sort_order: 0 },
@@ -50,14 +50,15 @@ const initialData = {
     { id: 4, name: 'Pan de Sándwich', unit: 'unidades', current_stock: 120.0, min_stock: 20.0 }
   ],
   product_recipes: [
-    { product_id: 3, raw_material_id: 1, qty_per_portion: 0.25 }, // Sándwich Milanesa -> 0.25 kg carne
-    { product_id: 3, raw_material_id: 2, qty_per_portion: 0.20 }, // Sándwich Milanesa -> 0.20 kg papas
-    { product_id: 3, raw_material_id: 4, qty_per_portion: 1.00 }, // Sándwich Milanesa -> 1 pan
-    { product_id: 4, raw_material_id: 1, qty_per_portion: 0.30 }, // Milanesa Napolitana -> 0.30 kg carne
-    { product_id: 4, raw_material_id: 2, qty_per_portion: 0.25 }, // Milanesa Napolitana -> 0.25 kg papas
-    { product_id: 4, raw_material_id: 3, qty_per_portion: 0.15 }  // Milanesa Napolitana -> 0.15 kg queso
+    { product_id: 3, raw_material_id: 1, qty_per_portion: 0.25 },
+    { product_id: 3, raw_material_id: 2, qty_per_portion: 0.20 },
+    { product_id: 3, raw_material_id: 4, qty_per_portion: 1.00 },
+    { product_id: 4, raw_material_id: 1, qty_per_portion: 0.30 },
+    { product_id: 4, raw_material_id: 2, qty_per_portion: 0.25 },
+    { product_id: 4, raw_material_id: 3, qty_per_portion: 0.15 }
   ],
   stock_entries: [],
+  stock_adjustments: [],
   orders: [],
   customer_accounts: [
     {
@@ -92,6 +93,7 @@ function loadStore() {
       if (!store.raw_materials) store.raw_materials = initialData.raw_materials;
       if (!store.product_recipes) store.product_recipes = initialData.product_recipes;
       if (!store.stock_entries) store.stock_entries = [];
+      if (!store.stock_adjustments) store.stock_adjustments = [];
       if (!store.settings) store.settings = initialData.settings;
       if (!store.settings.admin_pin) store.settings.admin_pin = '9999';
     } else {
@@ -173,6 +175,10 @@ const db = {
 
         if (query.includes('from stock_entries')) {
           return [...store.stock_entries].sort((a, b) => new Date(b.date) - new Date(a.date));
+        }
+
+        if (query.includes('from stock_adjustments')) {
+          return [...store.stock_adjustments].sort((a, b) => new Date(b.date) - new Date(a.date));
         }
 
         if (query.includes('from settings')) {

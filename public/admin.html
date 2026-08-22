@@ -45,7 +45,7 @@
         📖 Cuentas Corrientes (Fiado)
       </button>
       <button onclick="switchTab('stock')" id="tab-btn-stock" class="tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2">
-        📦 Insumos & Recetas de Porciones
+        📦 Insumos & Conciliación de Stock
       </button>
       <button onclick="switchTab('products')" id="tab-btn-products" class="tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2">
         <i data-lucide="utensils" class="w-4 h-4"></i> Catálogo de Productos y Minutas
@@ -156,24 +156,29 @@
       </div>
     </section>
 
-    <!-- PESTAÑA 3: INSUMOS & RECETAS DE PORCIÓN -->
+    <!-- PESTAÑA 3: INSUMOS & CONCILIACIÓN DE STOCK REAL -->
     <section id="tab-stock" class="hidden space-y-6">
       <div class="flex justify-between items-center bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
         <div>
           <h2 class="font-extrabold text-slate-900 text-lg flex items-center gap-2">
-            📦 Insumos / Materias Primas & Porcionado por Plato
+            📦 Insumos, Materias Primas & Conciliación de Stock Real
           </h2>
-          <p class="text-xs text-slate-500">Configura los insumos recibidos de proveedores y las porciones que descuenta cada plato al prepararse en cocina</p>
+          <p class="text-xs text-slate-500">Configura insumos recibidos de proveedores y concilia las diferencias entre el stock virtual y el físico en balanza</p>
         </div>
-        <button onclick="openRawMaterialModal()" class="bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-extrabold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-md transition">
-          <i data-lucide="plus" class="w-4 h-4"></i> Nuevo Insumo de Stock
-        </button>
+        <div class="flex items-center gap-2">
+          <button onclick="openAdjustStockModal()" class="bg-amber-600 hover:bg-amber-700 active:scale-95 text-white font-extrabold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-md transition">
+            ⚖️ Conciliar Stock Real (Mermas)
+          </button>
+          <button onclick="openRawMaterialModal()" class="bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-extrabold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-md transition">
+            <i data-lucide="plus" class="w-4 h-4"></i> Nuevo Insumo
+          </button>
+        </div>
       </div>
 
       <!-- Tabla de Insumos de Stock General -->
       <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         <div class="p-4 bg-slate-50 border-b border-slate-200 font-extrabold text-slate-800 text-sm">
-          Inventario de Materias Primas en Stock General
+          Inventario General de Materias Primas
         </div>
         <div class="overflow-x-auto">
           <table class="w-full text-left border-collapse text-sm">
@@ -181,7 +186,7 @@
               <tr class="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase">
                 <th class="p-4">Materia Prima / Insumo</th>
                 <th class="p-4">Unidad de Medida</th>
-                <th class="p-4">Stock Actual</th>
+                <th class="p-4">Stock Actual Virtual</th>
                 <th class="p-4">Stock Mínimo (Alerta)</th>
                 <th class="p-4 text-right">Acciones</th>
               </tr>
@@ -292,6 +297,49 @@
     </section>
 
   </main>
+
+  <!-- MODAL DE CONCILIACIÓN DE STOCK REAL (REQUERIDO PIN NIVEL 2) -->
+  <div id="adjust-stock-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+      <div class="flex justify-between items-center border-b pb-3 border-slate-200">
+        <h3 class="font-extrabold text-amber-700 text-lg flex items-center gap-2">
+          ⚖️ Conciliar Stock Real (Recuento Físico)
+        </h3>
+        <button onclick="closeAdjustStockModal()" class="text-slate-400 hover:text-slate-700">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="adjust-stock-form" onsubmit="submitStockAdjustment(event)" class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Insumo a Ajustar *</label>
+          <select id="adj-material-id" required class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-amber-500 bg-white font-bold">
+            <!-- Dinámico -->
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Stock Físico Real Contado en Balanza *</label>
+          <input type="number" step="0.01" id="adj-real-stock" required placeholder="Ej: 41.5 (lo que realmente hay)" class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-amber-500 font-mono font-black text-base">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Motivo / Causa del Ajuste (Merma/Recortes)</label>
+          <input type="text" id="adj-reason" placeholder="Ej: Recorte de grasa de carne, desecho o degustación" class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-amber-500">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">🔒 Clave / PIN Nivel 2 de Administrador *</label>
+          <input type="password" id="adj-pin" required placeholder="PIN de 4 dígitos (ej: 9999)" class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-amber-500 font-mono">
+        </div>
+
+        <div class="pt-4 flex justify-end gap-2 border-t border-slate-200">
+          <button type="button" onclick="closeAdjustStockModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 font-bold rounded-xl text-xs text-slate-700">Cancelar</button>
+          <button type="submit" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 font-bold rounded-xl text-xs text-white shadow">Ajustar e Igualar Stock</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
   <!-- MODAL REGISTRO DE INSUMO / MATERIA PRIMA -->
   <div id="material-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200">

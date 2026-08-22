@@ -24,6 +24,7 @@ async function loadStockMaterials() {
       rawMaterials = data.raw_materials || [];
       suppliers = data.suppliers || [];
       renderMaterialsTable();
+      populateAdjustStockSelect();
     }
   } catch (err) {
     console.error('Error al cargar materias primas:', err);
@@ -63,6 +64,9 @@ function renderMaterialsTable() {
         ${m.min_stock || 0} ${m.unit}
       </td>
       <td class="p-4 text-right space-x-2">
+        <button onclick="openAdjustStockModal(${m.id})" class="px-2.5 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-800 font-extrabold rounded-lg text-xs transition" title="Conciliar Stock Real">
+          ⚖️ Conciliar
+        </button>
         <button onclick="editRawMaterial(${m.id})" class="p-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-700 transition" title="Editar Insumo">
           <i data-lucide="edit-2" class="w-4 h-4"></i>
         </button>
@@ -73,6 +77,59 @@ function renderMaterialsTable() {
   });
 
   lucide.createIcons();
+}
+
+function populateAdjustStockSelect() {
+  const sel = document.getElementById('adj-material-id');
+  if (!sel) return;
+  sel.innerHTML = rawMaterials.map(m => `<option value="${m.id}">${m.name} (Stock Virtual Actual: ${m.current_stock} ${m.unit})</option>`).join('');
+}
+
+function openAdjustStockModal(matId = null) {
+  loadStockMaterials();
+  const modal = document.getElementById('adjust-stock-modal');
+  const form = document.getElementById('adjust-stock-form');
+  form.reset();
+
+  if (matId) {
+    document.getElementById('adj-material-id').value = matId;
+    const mat = rawMaterials.find(m => m.id === matId);
+    if (mat) document.getElementById('adj-real-stock').value = mat.current_stock || 0;
+  }
+
+  modal.classList.remove('opacity-0', 'pointer-events-none');
+}
+
+function closeAdjustStockModal() {
+  const modal = document.getElementById('adjust-stock-modal');
+  modal.classList.add('opacity-0', 'pointer-events-none');
+}
+
+async function submitStockAdjustment(e) {
+  e.preventDefault();
+  const raw_material_id = document.getElementById('adj-material-id').value;
+  const real_stock = document.getElementById('adj-real-stock').value;
+  const reason = document.getElementById('adj-reason').value.trim();
+  const pin = document.getElementById('adj-pin').value.trim();
+
+  try {
+    const res = await fetch('/api/admin/stock/adjust', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ raw_material_id, real_stock, reason, pin })
+    });
+    const data = await res.json();
+    if (data.success) {
+      closeAdjustStockModal();
+      const diffSign = data.difference >= 0 ? `+${data.difference}` : `${data.difference}`;
+      alert(`⚖️ STOCK CONCILIADO EXITOSAMENTE:\n\nInsumo: ${data.raw_material_name}\nStock anterior: ${data.old_stock}\nStock real nuevo: ${data.new_stock}\nDiferencia/Ajuste: ${diffSign}`);
+      await loadStockMaterials();
+    } else {
+      alert(`⚠️ ${data.error}`);
+    }
+  } catch (err) {
+    console.error('Error al conciliar stock:', err);
+  }
 }
 
 function openRawMaterialModal(mat = null) {

@@ -45,6 +45,58 @@ app.post('/api/verify-pin', (req, res) => {
   }
 });
 
+// CONCILIAR / AJUSTAR STOCK REAL VS VIRTUAL (Requiere PIN Nivel 2)
+app.post('/api/admin/stock/adjust', (req, res) => {
+  try {
+    const { raw_material_id, real_stock, reason, pin } = req.body;
+    const settings = getSettingsMap();
+    const validPin = settings.admin_pin || '9999';
+
+    if (String(pin) !== String(validPin)) {
+      return res.status(401).json({ success: false, error: 'PIN de Administrador (Nivel 2) incorrecto' });
+    }
+
+    const store = db.getStore();
+    const rawMat = store.raw_materials.find(m => m.id === parseInt(raw_material_id));
+    if (!rawMat) {
+      return res.status(404).json({ success: false, error: 'Insumo no encontrado' });
+    }
+
+    const oldStock = rawMat.current_stock || 0;
+    const newStock = parseFloat(real_stock || 0);
+    const diff = newStock - oldStock;
+
+    rawMat.current_stock = newStock;
+
+    if (!store.stock_adjustments) store.stock_adjustments = [];
+    const nextId = store.stock_adjustments.length > 0 ? Math.max(...store.stock_adjustments.map(a => a.id)) + 1 : 1;
+    store.stock_adjustments.unshift({
+      id: nextId,
+      date: new Date().toISOString(),
+      raw_material_name: rawMat.name,
+      unit: rawMat.unit,
+      old_stock: oldStock,
+      new_stock: newStock,
+      difference: diff,
+      reason: reason || 'Conciliación de inventario físico real',
+      registered_by: 'Dueño (Nivel 2)'
+    });
+
+    db.saveStore();
+    io.emit('stock_updated');
+
+    res.json({
+      success: true,
+      raw_material_name: rawMat.name,
+      old_stock: oldStock,
+      new_stock: newStock,
+      difference: diff
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // REGISTRAR PRODUCCIÓN EN LOTE EN COCINA (Mise en place de porciones)
 app.post('/api/production/register', (req, res) => {
   try {
@@ -251,6 +303,23 @@ app.put('/api/orders/:id/status', (req, res) => {
       });
     }
 
+    // DESCUENTO AUTOMÁTICO DE INSUMOS POR PORCIONADO EN COCINA (cuando entra a preparacion)
+    if (status === 'en_preparacion' && existingOrder.status !== 'en_preparacion') {
+      const orderItems = typeof existingOrder.items === 'string' ? JSON.parse(existingOrder.items) : existingOrder.items;
+      if (Array.isArray(orderItems)) {
+        orderItems.forEach(item => {
+          const recipes = store.product_recipes.filter(r => r.product_id === item.id);
+          recipes.forEach(r => {
+            const rawMat = store.raw_materials.find(m => m.id === r.raw_material_id);
+            if (rawMat) {
+              const discountQty = (r.qty_per_portion || 0) * (item.qty || 1);
+              rawMat.current_stock = Math.max(0, (rawMat.current_stock || 0) - discountQty);
+            }
+          });
+        });
+      }
+    }
+
     // Si pasa a entregado y es Cuenta Corriente, sumar la deuda a la cuenta del cliente
     if (status === 'entregado' && isCuentaCorriente && existingOrder.status !== 'entregado') {
       const account = store.customer_accounts.find(a => 
@@ -314,7 +383,8 @@ app.get('/api/admin/stock', (req, res) => {
       suppliers: store.suppliers || [],
       raw_materials: store.raw_materials || [],
       product_recipes: store.product_recipes || [],
-      stock_entries: store.stock_entries || []
+      stock_entries: store.stock_entries || [],
+      stock_adjustments: store.stock_adjustments || []
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -398,36 +468,6 @@ app.post('/api/admin/materials', (req, res) => {
         min_stock: parseFloat(min_stock || 5)
       });
     }
-    db.saveStore();
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// Guardar Receta / Porcionado por Plato
-app.post('/api/admin/recipes', (req, res) => {
-  try {
-    const { product_id, ingredients, pin } = req.body;
-    const settings = getSettingsMap();
-    if (String(pin) !== String(settings.admin_pin || '9999')) {
-      return res.status(401).json({ success: false, error: 'PIN de Nivel 2 requerido' });
-    }
-
-    const store = db.getStore();
-    const pid = parseInt(product_id);
-    store.product_recipes = store.product_recipes.filter(r => r.product_id !== pid);
-
-    if (Array.isArray(ingredients)) {
-      ingredients.forEach(ing => {
-        store.product_recipes.push({
-          product_id: pid,
-          raw_material_id: parseInt(ing.raw_material_id),
-          qty_per_portion: parseFloat(ing.qty_per_portion)
-        });
-      });
-    }
-
     db.saveStore();
     res.json({ success: true });
   } catch (err) {
@@ -795,7 +835,7 @@ app.post('/api/settings', (req, res) => {
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`
-🚀 Servidor Delivery, Producción & Seguridad Nivel 2 en ejecución:
+🚀 Servidor Delivery, Producción, Stock & Conciliación en ejecución:
 👉 Local: http://localhost:${PORT}/admin.html
   `);
 });

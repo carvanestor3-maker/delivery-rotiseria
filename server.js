@@ -28,49 +28,158 @@ function getSettingsMap() {
   return store.settings || {};
 }
 
-// HELPER: VERIFICACIÓN DE PIN POR NIVEL (NIVEL 2 VS NIVEL 3)
-function verifyPin(inputPin, requiredLevel = 2) {
+// HELPER PRINCIPAL: VERIFICACIÓN DE PIN POR USUARIO Y NIVEL
+function verifyUserPin(inputPin, requiredLevel = 2) {
+  const store = db.getStore();
+  const strPin = String(inputPin || '').trim();
+
+  if (!strPin) return { isValid: false, user: null };
+
+  // 1. Buscar en la lista de usuarios nombrados del personal
+  const users = store.users || [];
+  const foundUser = users.find(u => u.active !== 0 && String(u.pin).trim() === strPin);
+
+  if (foundUser) {
+    if (foundUser.level >= requiredLevel) {
+      return { isValid: true, user: foundUser };
+    } else {
+      return { isValid: false, user: foundUser, levelTooLow: true };
+    }
+  }
+
+  // 2. Fallback a PINs generales por defecto en settings
   const settings = getSettingsMap();
   const encargadoPin = settings.encargado_pin || '2222';
   const adminPin = settings.admin_pin || '9999';
 
-  const strPin = String(inputPin || '').trim();
-
   if (requiredLevel === 3) {
-    return strPin === String(adminPin);
+    if (strPin === String(adminPin)) {
+      return { isValid: true, user: { id: 0, name: 'Gerente General / Dueño', level: 3 } };
+    }
   } else {
-    return strPin === String(encargadoPin) || strPin === String(adminPin);
+    if (strPin === String(encargadoPin)) {
+      return { isValid: true, user: { id: 0, name: 'Encargado de Turno', level: 2 } };
+    } else if (strPin === String(adminPin)) {
+      return { isValid: true, user: { id: 0, name: 'Gerente General / Dueño', level: 3 } };
+    }
   }
+
+  return { isValid: false, user: null };
 }
 
-// VERIFICAR PIN DE SEGURIDAD (APIS PUBLICAS)
+// RUTA API DE VERIFICACIÓN DE PIN (PÚBLICA CON RETORNO DE NOMBRE DE USUARIO)
 app.post('/api/verify-pin', (req, res) => {
   try {
     const { pin, level } = req.body;
     const reqLevel = parseInt(level || 2);
-    const isValid = verifyPin(pin, reqLevel);
+    const result = verifyUserPin(pin, reqLevel);
 
-    if (isValid) {
-      return res.json({ success: true, authorized: true, level: reqLevel });
-    } else {
-      return res.status(401).json({ 
-        success: false, 
-        authorized: false, 
-        error: reqLevel === 3 ? 'PIN de Gerente/Dueño (Nivel 3) incorrecto' : 'PIN de Encargado/Gerente (Nivel 2) incorrecto' 
+    if (result.isValid) {
+      return res.json({ 
+        success: true, 
+        authorized: true, 
+        user_name: result.user.name, 
+        user_level: result.user.level 
       });
+    } else {
+      const errMsg = result.levelTooLow 
+        ? `Acceso denegado: El usuario "${result.user.name}" posee Nivel ${result.user.level} y esta acción requiere Nivel ${reqLevel}.`
+        : `Clave PIN incorrecta para Nivel ${reqLevel}.`;
+      return res.status(401).json({ success: false, authorized: false, error: errMsg });
     }
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-// APERTURA DE TURNO DE CAJA (REQUERIDO NIVEL 2 - ENCARGADO / GERENTE)
+// GESTIÓN DE USUARIOS / PERSONAL NOMBRADO (REQUERIDO NIVEL 3)
+app.get('/api/admin/users', (req, res) => {
+  try {
+    const store = db.getStore();
+    res.json({ success: true, users: store.users || [] });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/admin/users', (req, res) => {
+  try {
+    const { id, name, pin, level, admin_pin } = req.body;
+
+    const auth = verifyUserPin(admin_pin, 3);
+    if (!auth.isValid) {
+      return res.status(401).json({ success: false, error: 'Acceso Denegado: La gestión de personal requiere PIN de Gerente / Dueño (Nivel 3).' });
+    }
+
+    if (!name || !pin || !level) {
+      return res.status(400).json({ success: false, error: 'Nombre, PIN y Nivel son obligatorios.' });
+    }
+
+    const store = db.getStore();
+    if (!store.users) store.users = [];
+
+    const numLevel = parseInt(level);
+    const strPin = String(pin).trim();
+
+    // Validar PIN duplicado
+    const existingPinUser = store.users.find(u => String(u.pin).trim() === strPin && u.id !== parseInt(id || 0));
+    if (existingPinUser) {
+      return res.status(400).json({ success: false, error: `La clave PIN "${strPin}" ya pertenece al usuario "${existingPinUser.name}". Debe asignar una clave única por personal.` });
+    }
+
+    if (id) {
+      const u = store.users.find(usr => usr.id === parseInt(id));
+      if (u) {
+        u.name = name;
+        u.pin = strPin;
+        u.level = numLevel;
+      }
+    } else {
+      const nextId = store.users.length > 0 ? Math.max(...store.users.map(usr => usr.id)) + 1 : 1;
+      store.users.push({
+        id: nextId,
+        name,
+        pin: strPin,
+        level: numLevel,
+        active: 1
+      });
+    }
+
+    db.saveStore();
+    res.json({ success: true, users: store.users });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/admin/users/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    const { admin_pin } = req.body;
+
+    const auth = verifyUserPin(admin_pin, 3);
+    if (!auth.isValid) {
+      return res.status(401).json({ success: false, error: 'Acceso Denegado: Se requiere PIN Nivel 3.' });
+    }
+
+    const store = db.getStore();
+    store.users = (store.users || []).filter(u => u.id !== parseInt(id));
+    db.saveStore();
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// APERTURA DE TURNO DE CAJA CON USUARIO INDIVIDUAL (REQUERIDO NIVEL 2)
 app.post('/api/cash/shift/open', (req, res) => {
   try {
-    const { initial_cash, pin, opened_by } = req.body;
+    const { initial_cash, pin } = req.body;
 
-    if (!verifyPin(pin, 2)) {
-      return res.status(401).json({ success: false, error: 'PIN de Encargado (Nivel 2) o Gerente (Nivel 3) incorrecto' });
+    const auth = verifyUserPin(pin, 2);
+    if (!auth.isValid) {
+      return res.status(401).json({ success: false, error: auth.levelTooLow ? `El usuario ${auth.user.name} no posee Nivel 2 o superior.` : 'PIN de Encargado (Nivel 2) o Gerente (Nivel 3) incorrecto' });
     }
 
     const store = db.getStore();
@@ -78,7 +187,7 @@ app.post('/api/cash/shift/open', (req, res) => {
 
     const activeShift = store.cash_shifts.find(s => s.status === 'open');
     if (activeShift) {
-      return res.status(400).json({ success: false, error: 'Ya existe una caja abierta en este turno.' });
+      return res.status(400).json({ success: false, error: `Ya existe un turno de caja abierto por "${activeShift.opened_by}".` });
     }
 
     const nextId = store.cash_shifts.length > 0 ? Math.max(...store.cash_shifts.map(s => s.id)) + 1 : 1;
@@ -89,25 +198,26 @@ app.post('/api/cash/shift/open', (req, res) => {
       initial_cash: parseFloat(initial_cash || 0),
       final_cash: null,
       status: 'open',
-      opened_by: opened_by || 'Encargado (Nivel 2)'
+      opened_by: `${auth.user.name} (Nivel ${auth.user.level})`
     };
 
     store.cash_shifts.unshift(newShift);
     db.saveStore();
     io.emit('cash_shift_updated');
 
-    res.json({ success: true, shift: newShift });
+    res.json({ success: true, shift: newShift, user_name: auth.user.name });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-// CIERRE DE TURNO DE CAJA (REQUERIDO NIVEL 2)
+// CIERRE DE TURNO DE CAJA CON USUARIO INDIVIDUAL (REQUERIDO NIVEL 2)
 app.post('/api/cash/shift/close', (req, res) => {
   try {
-    const { final_cash, pin, closed_by } = req.body;
+    const { final_cash, pin } = req.body;
 
-    if (!verifyPin(pin, 2)) {
+    const auth = verifyUserPin(pin, 2);
+    if (!auth.isValid) {
       return res.status(401).json({ success: false, error: 'PIN de Encargado (Nivel 2) o Gerente (Nivel 3) incorrecto' });
     }
 
@@ -122,12 +232,12 @@ app.post('/api/cash/shift/close', (req, res) => {
     activeShift.closed_at = new Date().toISOString();
     activeShift.final_cash = parseFloat(final_cash || 0);
     activeShift.status = 'closed';
-    activeShift.closed_by = closed_by || 'Encargado (Nivel 2)';
+    activeShift.closed_by = `${auth.user.name} (Nivel ${auth.user.level})`;
 
     db.saveStore();
     io.emit('cash_shift_updated');
 
-    res.json({ success: true, shift: activeShift });
+    res.json({ success: true, shift: activeShift, user_name: auth.user.name });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -138,14 +248,14 @@ app.post('/api/admin/audit-logs', (req, res) => {
   try {
     const { pin } = req.body;
 
-    if (!verifyPin(pin, 3)) {
+    const auth = verifyUserPin(pin, 3);
+    if (!auth.isValid) {
       return res.status(401).json({ success: false, error: 'Acceso Denegado: La Bitácora de Auditoría es de acceso exclusivo para Gerente / Dueño (Nivel 3).' });
     }
 
     const store = db.getStore();
     const now = new Date();
 
-    // Filtros de facturación: Diario (hoy), Semanal (7 días), Quincenal (15 días), Mensual (30 días)
     const validOrders = store.orders.filter(o => o.status !== 'cancelado');
 
     function calculateFinancialMetrics(days) {
@@ -185,6 +295,7 @@ app.post('/api/admin/audit-logs', (req, res) => {
 
     res.json({
       success: true,
+      audited_by_user: auth.user.name,
       billing,
       stock_entries: store.stock_entries || [],
       stock_adjustments: store.stock_adjustments || [],
@@ -196,12 +307,13 @@ app.post('/api/admin/audit-logs', (req, res) => {
   }
 });
 
-// CONCILIAR / AJUSTAR STOCK REAL VS VIRTUAL (REQUERIDO NIVEL 3 - GERENTE / DUEÑO)
+// CONCILIAR / AJUSTAR STOCK REAL VS VIRTUAL CON AUDITORÍA DE USUARIO (REQUERIDO NIVEL 3)
 app.post('/api/admin/stock/adjust', (req, res) => {
   try {
     const { raw_material_id, real_stock, reason, pin } = req.body;
 
-    if (!verifyPin(pin, 3)) {
+    const auth = verifyUserPin(pin, 3);
+    if (!auth.isValid) {
       return res.status(401).json({ success: false, error: 'Acceso Denegado: La Conciliación de Stock requiere PIN de Gerente / Dueño (Nivel 3).' });
     }
 
@@ -228,7 +340,7 @@ app.post('/api/admin/stock/adjust', (req, res) => {
       new_stock: newStock,
       difference: diff,
       reason: reason || 'Conciliación de inventario físico real',
-      registered_by: 'Gerente / Dueño (Nivel 3)'
+      registered_by: `${auth.user.name} (Nivel ${auth.user.level})`
     });
 
     db.saveStore();
@@ -239,21 +351,23 @@ app.post('/api/admin/stock/adjust', (req, res) => {
       raw_material_name: rawMat.name,
       old_stock: oldStock,
       new_stock: newStock,
-      difference: diff
+      difference: diff,
+      user_name: auth.user.name
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-// REGISTRAR PRODUCCIÓN EN LOTE EN COCINA (Mise en place - Requiere Nivel 2)
+// REGISTRAR PRODUCCIÓN EN LOTE CON NOMBRE DE ENCARGADO (Mise en place - Requiere Nivel 2)
 app.post('/api/production/register', (req, res) => {
   try {
     const { product_id, portions, pin } = req.body;
     const pid = parseInt(product_id);
     const qtyPortions = parseFloat(portions || 0);
 
-    if (pin && !verifyPin(pin, 2)) {
+    const auth = verifyUserPin(pin, 2);
+    if (!auth.isValid) {
       return res.status(401).json({ success: false, error: 'PIN de Encargado (Nivel 2) o Gerente (Nivel 3) incorrecto' });
     }
 
@@ -287,8 +401,93 @@ app.post('/api/production/register', (req, res) => {
       success: true,
       product_name: prod.name,
       portions: qtyPortions,
-      discounted: discountedMaterials
+      discounted: discountedMaterials,
+      user_name: auth.user.name
     });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Ingreso de Mercadería al Stock General con Nombre de Usuario (Requiere PIN Nivel 2)
+app.post('/api/stock/entry', (req, res) => {
+  try {
+    const { pin, supplier_id, raw_material_id, quantity, unit_cost, notes } = req.body;
+
+    const auth = verifyUserPin(pin, 2);
+    if (!auth.isValid) {
+      return res.status(401).json({ success: false, error: 'PIN de Encargado (Nivel 2) o Gerente (Nivel 3) incorrecto' });
+    }
+
+    const store = db.getStore();
+    const rawMat = store.raw_materials.find(m => m.id === parseInt(raw_material_id));
+    if (!rawMat) {
+      return res.status(404).json({ success: false, error: 'Insumo de materia prima no encontrado' });
+    }
+
+    const qtyAdd = parseFloat(quantity || 0);
+    if (qtyAdd <= 0) {
+      return res.status(400).json({ success: false, error: 'La cantidad ingresada debe ser mayor a 0' });
+    }
+
+    rawMat.current_stock = (rawMat.current_stock || 0) + qtyAdd;
+
+    const supplier = store.suppliers.find(s => s.id === parseInt(supplier_id));
+
+    const nextId = store.stock_entries.length > 0 ? Math.max(...store.stock_entries.map(e => e.id)) + 1 : 1;
+    store.stock_entries.unshift({
+      id: nextId,
+      date: new Date().toISOString(),
+      supplier_name: supplier ? supplier.name : 'Proveedor General',
+      raw_material_name: rawMat.name,
+      unit: rawMat.unit,
+      quantity: qtyAdd,
+      unit_cost: parseFloat(unit_cost || 0),
+      total_cost: qtyAdd * parseFloat(unit_cost || 0),
+      notes: notes || '',
+      registered_by: `${auth.user.name} (Nivel ${auth.user.level})`
+    });
+
+    db.saveStore();
+    io.emit('stock_updated');
+
+    res.json({ success: true, raw_material: rawMat, user_name: auth.user.name });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Guardar Insumo / Materia Prima (Requiere PIN Nivel 2)
+app.post('/api/admin/materials', (req, res) => {
+  try {
+    const { id, name, unit, min_stock, current_stock, pin } = req.body;
+
+    const auth = verifyUserPin(pin, 2);
+    if (!auth.isValid) {
+      return res.status(401).json({ success: false, error: 'PIN de Encargado (Nivel 2) o Gerente (Nivel 3) requerido' });
+    }
+
+    const store = db.getStore();
+    if (id) {
+      const mat = store.raw_materials.find(m => m.id === parseInt(id));
+      if (mat) {
+        mat.name = name;
+        mat.unit = unit || 'kg';
+        mat.min_stock = parseFloat(min_stock || 5);
+        if (current_stock !== undefined) mat.current_stock = parseFloat(current_stock);
+      }
+    } else {
+      const nextId = store.raw_materials.length > 0 ? Math.max(...store.raw_materials.map(m => m.id)) + 1 : 1;
+      store.raw_materials.push({
+        id: nextId,
+        name,
+        unit: unit || 'kg',
+        current_stock: parseFloat(current_stock || 0),
+        min_stock: parseFloat(min_stock || 5)
+      });
+    }
+    db.saveStore();
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -327,7 +526,6 @@ app.post('/api/orders', (req, res) => {
 
     const itemsJson = typeof items === 'string' ? items : JSON.stringify(items);
 
-    // Si es Cuenta Corriente, validar registro previo
     if (payment_method && payment_method.includes('Cuenta Corriente')) {
       const account = store.customer_accounts.find(a => 
         a.dni === payment_note || 
@@ -404,7 +602,6 @@ app.get('/api/orders', (req, res) => {
   }
 });
 
-// PUT /api/orders/:id/status - Cambiar estado con validaciones
 app.put('/api/orders/:id/status', (req, res) => {
   try {
     const { id } = req.params;
@@ -424,7 +621,6 @@ app.put('/api/orders/:id/status', (req, res) => {
 
     const isCuentaCorriente = existingOrder.payment_method && existingOrder.payment_method.includes('Cuenta Corriente');
 
-    // Validación para avance en cocina si es Cuenta Corriente: Verificar límite de crédito
     if (isCuentaCorriente && ['en_preparacion', 'en_camino', 'entregado'].includes(status)) {
       const account = store.customer_accounts.find(a => 
         a.dni === existingOrder.payment_note || 
@@ -448,7 +644,6 @@ app.put('/api/orders/:id/status', (req, res) => {
       }
     }
 
-    // Validación de cobro en efectivo / tarjeta antes de marcar entregado
     if (status === 'entregado' && !isCuentaCorriente && existingOrder.paid !== 1) {
       return res.status(400).json({
         success: false,
@@ -456,7 +651,6 @@ app.put('/api/orders/:id/status', (req, res) => {
       });
     }
 
-    // DESCUENTO AUTOMÁTICO DE INSUMOS POR PORCIONADO EN COCINA (cuando entra a preparacion)
     if (status === 'en_preparacion' && existingOrder.status !== 'en_preparacion') {
       const orderItems = typeof existingOrder.items === 'string' ? JSON.parse(existingOrder.items) : existingOrder.items;
       if (Array.isArray(orderItems)) {
@@ -473,7 +667,6 @@ app.put('/api/orders/:id/status', (req, res) => {
       }
     }
 
-    // Si pasa a entregado y es Cuenta Corriente, sumar la deuda a la cuenta del cliente
     if (status === 'entregado' && isCuentaCorriente && existingOrder.status !== 'entregado') {
       const account = store.customer_accounts.find(a => 
         a.dni === existingOrder.payment_note || 
@@ -527,7 +720,7 @@ app.put('/api/orders/:id/paid', (req, res) => {
   }
 });
 
-// APIS DE MERCADERÍA, INSUMOS, PROVEEDORES Y RECETAS
+// APIS DE MERCADERÍA, INSUMOS Y PROVEEDORES
 app.get('/api/admin/stock', (req, res) => {
   try {
     const store = db.getStore();
@@ -539,88 +732,6 @@ app.get('/api/admin/stock', (req, res) => {
       stock_entries: store.stock_entries || [],
       stock_adjustments: store.stock_adjustments || []
     });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// Ingreso de Mercadería al Stock General (Requiere PIN Nivel 2)
-app.post('/api/stock/entry', (req, res) => {
-  try {
-    const { pin, supplier_id, raw_material_id, quantity, unit_cost, notes, registered_by } = req.body;
-
-    if (!verifyPin(pin, 2)) {
-      return res.status(401).json({ success: false, error: 'PIN de Encargado (Nivel 2) o Gerente (Nivel 3) incorrecto' });
-    }
-
-    const store = db.getStore();
-    const rawMat = store.raw_materials.find(m => m.id === parseInt(raw_material_id));
-    if (!rawMat) {
-      return res.status(404).json({ success: false, error: 'Insumo de materia prima no encontrado' });
-    }
-
-    const qtyAdd = parseFloat(quantity || 0);
-    if (qtyAdd <= 0) {
-      return res.status(400).json({ success: false, error: 'La cantidad ingresada debe ser mayor a 0' });
-    }
-
-    rawMat.current_stock = (rawMat.current_stock || 0) + qtyAdd;
-
-    const supplier = store.suppliers.find(s => s.id === parseInt(supplier_id));
-
-    const nextId = store.stock_entries.length > 0 ? Math.max(...store.stock_entries.map(e => e.id)) + 1 : 1;
-    store.stock_entries.unshift({
-      id: nextId,
-      date: new Date().toISOString(),
-      supplier_name: supplier ? supplier.name : 'Proveedor General',
-      raw_material_name: rawMat.name,
-      unit: rawMat.unit,
-      quantity: qtyAdd,
-      unit_cost: parseFloat(unit_cost || 0),
-      total_cost: qtyAdd * parseFloat(unit_cost || 0),
-      notes: notes || '',
-      registered_by: registered_by || 'Encargado (Nivel 2)'
-    });
-
-    db.saveStore();
-    io.emit('stock_updated');
-
-    res.json({ success: true, raw_material: rawMat });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// Guardar Insumo / Materia Prima (Requiere PIN Nivel 2)
-app.post('/api/admin/materials', (req, res) => {
-  try {
-    const { id, name, unit, min_stock, current_stock, pin } = req.body;
-
-    if (!verifyPin(pin, 2)) {
-      return res.status(401).json({ success: false, error: 'PIN de Encargado (Nivel 2) o Gerente (Nivel 3) requerido' });
-    }
-
-    const store = db.getStore();
-    if (id) {
-      const mat = store.raw_materials.find(m => m.id === parseInt(id));
-      if (mat) {
-        mat.name = name;
-        mat.unit = unit || 'kg';
-        mat.min_stock = parseFloat(min_stock || 5);
-        if (current_stock !== undefined) mat.current_stock = parseFloat(current_stock);
-      }
-    } else {
-      const nextId = store.raw_materials.length > 0 ? Math.max(...store.raw_materials.map(m => m.id)) + 1 : 1;
-      store.raw_materials.push({
-        id: nextId,
-        name,
-        unit: unit || 'kg',
-        current_stock: parseFloat(current_stock || 0),
-        min_stock: parseFloat(min_stock || 5)
-      });
-    }
-    db.saveStore();
-    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -644,7 +755,8 @@ app.post('/api/admin/accounts', (req, res) => {
   try {
     const { id, name, dni, phone, address, payment_term, credit_limit, pin } = req.body;
 
-    if (!verifyPin(pin, 3)) {
+    const auth = verifyUserPin(pin, 3);
+    if (!auth.isValid) {
       return res.status(401).json({ success: false, error: 'Acceso Denegado: La apertura y gestión de Cuentas Corrientes requiere PIN de Gerente / Dueño (Nivel 3).' });
     }
 
@@ -681,13 +793,12 @@ app.post('/api/admin/accounts', (req, res) => {
       db.saveStore();
     }
 
-    res.json({ success: true });
+    res.json({ success: true, user_name: auth.user.name });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-// Registrar Cobro Parcial o Total de Cuenta Corriente
 app.post('/api/admin/accounts/:id/payment', (req, res) => {
   try {
     const { id } = req.params;
@@ -930,7 +1041,8 @@ app.post('/api/admin/products', (req, res) => {
   try {
     const { id, category_id, name, description, price, image_url, available, pin } = req.body;
 
-    if (!verifyPin(pin, 3)) {
+    const auth = verifyUserPin(pin, 3);
+    if (!auth.isValid) {
       return res.status(401).json({ success: false, error: 'Acceso Denegado: La modificación del menú requiere PIN de Gerente / Dueño (Nivel 3).' });
     }
 
@@ -958,7 +1070,7 @@ app.post('/api/admin/products', (req, res) => {
       });
     }
     db.saveStore();
-    res.json({ success: true });
+    res.json({ success: true, user_name: auth.user.name });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -989,7 +1101,7 @@ app.post('/api/settings', (req, res) => {
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`
-🚀 Servidor Delivery, Facturación Multi-Período & Apertura de Caja Nivel 2 en ejecución:
+🚀 Servidor Delivery, Personal Nombrado & Auditoría por Clave Individual en ejecución:
 👉 Local: http://localhost:${PORT}/admin.html
   `);
 });

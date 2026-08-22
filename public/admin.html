@@ -18,7 +18,7 @@
       </div>
       <div>
         <h1 class="font-black text-lg">PANEL DE ADMINISTRACIÓN</h1>
-        <p class="text-xs text-slate-400">Menú, Cuentas Corrientes, Stock/Insumos, Auditoría e Impresoras</p>
+        <p class="text-xs text-slate-400">Menú, Cuentas Corrientes, Personal, Auditoría e Impresoras</p>
       </div>
     </div>
     <div class="flex items-center gap-2">
@@ -50,11 +50,14 @@
       <button onclick="switchTab('products')" id="tab-btn-products" class="tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2">
         <i data-lucide="utensils" class="w-4 h-4"></i> Catálogo de Productos
       </button>
+      <button onclick="switchTab('users')" id="tab-btn-users" class="tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2">
+        👤 Personal & Claves Nombradas
+      </button>
       <button onclick="switchTab('audit')" id="tab-btn-audit" class="tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2">
         📜 Bitácora de Auditoría (Nivel 3)
       </button>
       <button onclick="switchTab('settings')" id="tab-btn-settings" class="tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2">
-        <i data-lucide="sliders" class="w-4 h-4"></i> Ajustes & Claves (Niveles 2 y 3)
+        <i data-lucide="sliders" class="w-4 h-4"></i> Ajustes Generales
       </button>
     </div>
 
@@ -255,7 +258,43 @@
       </div>
     </section>
 
-    <!-- PESTAÑA 5: BITÁCORA DE AUDITORÍA (EXCLUSIVO NIVEL 3 - GERENTE / DUEÑO) -->
+    <!-- PESTAÑA 5: GESTIÓN DE PERSONAL & CLAVES NOMBRADAS -->
+    <section id="tab-users" class="hidden space-y-6">
+      <div class="flex justify-between items-center bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+        <div>
+          <h2 class="font-extrabold text-slate-900 text-lg flex items-center gap-2">
+            👤 Personal Nombrado & Claves PIN por Usuario
+            <span class="bg-purple-100 text-purple-700 border border-purple-300 text-[10px] font-black px-2 py-0.5 rounded-md">👑 Exclusivo Nivel 3 (Gerente/Dueño)</span>
+          </h2>
+          <p class="text-xs text-slate-500">Asigna claves PIN individuales a cada encargado o cajero para auditar exactamente quién realizó cada acción</p>
+        </div>
+        <button onclick="openUserModal()" class="bg-purple-700 hover:bg-purple-800 active:scale-95 text-white font-extrabold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-md transition">
+          <i data-lucide="user-plus" class="w-4 h-4"></i> Alta de Personal (Nivel 3)
+        </button>
+      </div>
+
+      <!-- Tabla de Usuarios del Sistema -->
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-sm">
+            <thead>
+              <tr class="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase">
+                <th class="p-4">Nombre y Apellido del Personal</th>
+                <th class="p-4">Nivel / Rol Asignado</th>
+                <th class="p-4">Clave PIN Personal</th>
+                <th class="p-4">Estado</th>
+                <th class="p-4 text-right">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="users-table-body" class="divide-y divide-slate-100">
+              <!-- Dinámico -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- PESTAÑA 6: BITÁCORA DE AUDITORÍA (EXCLUSIVO NIVEL 3 - GERENTE / DUEÑO) -->
     <section id="tab-audit" class="hidden space-y-6">
       <div class="bg-purple-900 text-white p-6 rounded-2xl shadow-md flex justify-between items-center">
         <div>
@@ -382,7 +421,7 @@
         <!-- Sección B: Historial de Aperturas y Cierres de Turno de Caja -->
         <div class="bg-white rounded-2xl border border-amber-200 shadow-sm overflow-hidden space-y-2">
           <div class="p-4 bg-amber-50 border-b border-amber-200 font-extrabold text-amber-900 text-sm flex items-center gap-2">
-            🔑 Historial de Turnos de Caja (Aperturas & Cierres)
+            🔑 Historial de Turnos de Caja (Aperturas & Cierres por Personal Nombrado)
           </div>
           <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse text-sm">
@@ -406,7 +445,7 @@
         <!-- Sección C: Historial de Ingresos de Stock de Proveedores -->
         <div class="bg-white rounded-2xl border border-blue-200 shadow-sm overflow-hidden space-y-2">
           <div class="p-4 bg-blue-50 border-b border-blue-200 font-extrabold text-blue-900 text-sm flex items-center gap-2">
-            📦 Historial de Entregas de Proveedores (Ingresos de Mercadería)
+            📦 Historial de Entregas de Proveedores (Ingresos de Mercadería por Personal Nombrado)
           </div>
           <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse text-sm">
@@ -429,9 +468,9 @@
       </div>
     </section>
 
-    <!-- PESTAÑA 6: CONFIGURACIÓN Y CLAVES -->
+    <!-- PESTAÑA 7: CONFIGURACIÓN Y CLAVES -->
     <section id="tab-settings" class="hidden max-w-2xl bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
-      <h2 class="font-extrabold text-slate-900 text-lg border-b pb-3 border-slate-200">Ajustes, WhatsApp y Niveles de Seguridad (PINs)</h2>
+      <h2 class="font-extrabold text-slate-900 text-lg border-b pb-3 border-slate-200">Ajustes, WhatsApp e Impresoras</h2>
       
       <form id="settings-form" onsubmit="saveSettings(event)" class="space-y-4">
         <div>
@@ -452,26 +491,6 @@
         <hr class="border-slate-200 my-4">
 
         <h3 class="font-bold text-slate-900 text-base flex items-center gap-2">
-          🛡️ Configuración de Claves de Seguridad por Nivel
-        </h3>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div class="bg-blue-50 p-4 rounded-xl border border-blue-200">
-            <label class="block text-xs font-bold text-blue-900 uppercase mb-1">🔑 PIN Nivel 2 (Jefe de Sección / Encargado)</label>
-            <input type="password" id="set-encargado-pin" required placeholder="Ej: 2222" class="w-full px-3 py-2 border border-blue-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 font-mono font-bold">
-            <p class="text-[10px] text-blue-700 mt-1">Autoriza ingreso de mercadería en cocina y apertura de caja.</p>
-          </div>
-
-          <div class="bg-purple-50 p-4 rounded-xl border border-purple-200">
-            <label class="block text-xs font-bold text-purple-900 uppercase mb-1">👑 PIN Nivel 3 (Gerente General / Dueño)</label>
-            <input type="password" id="set-admin-pin" required placeholder="Ej: 9999" class="w-full px-3 py-2 border border-purple-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-purple-500 font-mono font-bold">
-            <p class="text-[10px] text-purple-700 mt-1">Autoriza facturación histórica, conciliaciones y mermas.</p>
-          </div>
-        </div>
-
-        <hr class="border-slate-200 my-4">
-
-        <h3 class="font-bold text-slate-900 text-base flex items-center gap-2">
           🖨️ Impresora Térmica Epson Inalámbrica (Caja)
         </h3>
 
@@ -487,13 +506,62 @@
 
         <div class="pt-4 border-t border-slate-200">
           <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold px-6 py-3 rounded-xl text-sm shadow-md transition flex items-center gap-2">
-            <i data-lucide="check-circle" class="w-4 h-4"></i> Guardar Ajustes & Claves
+            <i data-lucide="check-circle" class="w-4 h-4"></i> Guardar Ajustes Generales
           </button>
         </div>
       </form>
     </section>
 
   </main>
+
+  <!-- MODAL DE ALTA / EDICIÓN DE PERSONAL CON CLAVE INDIVIDUAL (EXCLUSIVO NIVEL 3) -->
+  <div id="user-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+      <div class="flex justify-between items-center border-b pb-3 border-slate-200">
+        <h3 id="user-modal-title" class="font-extrabold text-purple-900 text-lg flex items-center gap-2">
+          👤 Alta / Edición de Personal (Nivel 3)
+        </h3>
+        <button onclick="closeUserModal()" class="text-slate-400 hover:text-slate-700">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="user-form" onsubmit="saveUser(event)" class="space-y-3">
+        <input type="hidden" id="usr-id">
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Nombre y Apellido / Cargo del Personal *</label>
+          <input type="text" id="usr-name" required placeholder="Ej: Marcos Pérez (Encargado Turno Mañana)" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-purple-500">
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Nivel de Seguridad *</label>
+            <select id="usr-level" required class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-purple-500 bg-white font-bold">
+              <option value="1">Nivel 1 (Operativo / Cajero)</option>
+              <option value="2" selected>Nivel 2 (Encargado / Jefe de Sección)</option>
+              <option value="3">Nivel 3 (Gerente General / Dueño)</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Clave PIN Personal (Única) *</label>
+            <input type="password" id="usr-pin" required placeholder="PIN (ej: 4589)" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-purple-500 font-mono font-black">
+          </div>
+        </div>
+
+        <div class="bg-purple-50 border border-purple-200 p-3 rounded-xl">
+          <label class="block text-xs font-bold text-purple-900 mb-1">👑 PIN Nivel 3 del Gerente / Dueño que autoriza el alta *</label>
+          <input type="password" id="usr-admin-pin" required placeholder="PIN de Gerente (ej: 9999)" class="w-full px-3.5 py-2.5 bg-white border border-purple-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-purple-500 font-mono">
+        </div>
+
+        <div class="pt-4 flex justify-end gap-2 border-t border-slate-200">
+          <button type="button" onclick="closeUserModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 font-bold rounded-xl text-xs text-slate-700">Cancelar</button>
+          <button type="submit" class="px-4 py-2 bg-purple-700 hover:bg-purple-800 font-bold rounded-xl text-xs text-white shadow">Guardar Personal (Nivel 3)</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
   <!-- MODAL DE APERTURA DE TURNO DE CAJA (REQUERIDO PIN NIVEL 2) -->
   <div id="open-shift-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200">
@@ -514,8 +582,8 @@
         </div>
 
         <div>
-          <label class="block text-xs font-semibold text-slate-700 mb-1">🔑 PIN Nivel 2 (Encargado) o Nivel 3 (Gerente) *</label>
-          <input type="password" id="shift-open-pin" required placeholder="PIN de Encargado (ej: 2222)" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500 font-mono">
+          <label class="block text-xs font-semibold text-slate-700 mb-1">🔑 Clave / PIN Personal (Encargado Nivel 2 o Gerente Nivel 3) *</label>
+          <input type="password" id="shift-open-pin" required placeholder="Tu PIN personal (ej: 2222)" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500 font-mono">
         </div>
 
         <div class="pt-4 flex justify-end gap-2 border-t border-slate-200">
@@ -545,8 +613,8 @@
         </div>
 
         <div>
-          <label class="block text-xs font-semibold text-slate-700 mb-1">🔑 PIN Nivel 2 (Encargado) o Nivel 3 (Gerente) *</label>
-          <input type="password" id="shift-close-pin" required placeholder="PIN de Encargado (ej: 2222)" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-slate-500 font-mono">
+          <label class="block text-xs font-semibold text-slate-700 mb-1">🔑 Clave / PIN Personal (Encargado Nivel 2 o Gerente Nivel 3) *</label>
+          <input type="password" id="shift-close-pin" required placeholder="Tu PIN personal (ej: 2222)" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-slate-500 font-mono">
         </div>
 
         <div class="pt-4 flex justify-end gap-2 border-t border-slate-200">
@@ -588,8 +656,8 @@
         </div>
 
         <div class="bg-purple-50 border border-purple-200 p-3 rounded-xl">
-          <label class="block text-xs font-bold text-purple-900 mb-1">👑 PIN Nivel 3 de Gerente / Dueño *</label>
-          <input type="password" id="adj-pin" required placeholder="PIN de 4 dígitos (ej: 9999)" class="w-full px-3.5 py-2 bg-white border border-purple-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-purple-500 font-mono">
+          <label class="block text-xs font-bold text-purple-900 mb-1">👑 PIN Personal Nivel 3 de Gerente / Dueño *</label>
+          <input type="password" id="adj-pin" required placeholder="Tu PIN personal (ej: 9999)" class="w-full px-3.5 py-2 bg-white border border-purple-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-purple-500 font-mono">
         </div>
 
         <div class="pt-4 flex justify-end gap-2 border-t border-slate-200">
@@ -640,8 +708,8 @@
         </div>
 
         <div>
-          <label class="block text-xs font-semibold text-slate-700 mb-1">🔑 PIN Nivel 2 (Encargado) o Nivel 3 (Gerente) *</label>
-          <input type="password" id="mat-pin" required placeholder="PIN de Encargado (ej: 2222)" class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 font-mono">
+          <label class="block text-xs font-semibold text-slate-700 mb-1">🔑 Clave PIN Personal (Encargado Nivel 2 o Gerente Nivel 3) *</label>
+          <input type="password" id="mat-pin" required placeholder="Tu PIN personal (ej: 2222)" class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 font-mono">
         </div>
 
         <div class="pt-4 flex justify-end gap-2 border-t border-slate-200">
@@ -703,8 +771,8 @@
         </div>
 
         <div class="bg-purple-50 border border-purple-200 p-3 rounded-xl">
-          <label class="block text-xs font-bold text-purple-900 mb-1">👑 PIN Nivel 3 de Gerente / Dueño *</label>
-          <input type="password" id="acc-pin" required placeholder="PIN de Gerente (ej: 9999)" class="w-full px-3.5 py-2 bg-white border border-purple-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-purple-500 font-mono">
+          <label class="block text-xs font-bold text-purple-900 mb-1">👑 PIN Personal Nivel 3 de Gerente / Dueño *</label>
+          <input type="password" id="acc-pin" required placeholder="Tu PIN personal (ej: 9999)" class="w-full px-3.5 py-2 bg-white border border-purple-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-purple-500 font-mono">
         </div>
 
         <div class="pt-4 flex justify-end gap-2 border-t border-slate-200">
@@ -811,8 +879,8 @@
         </div>
 
         <div class="bg-purple-50 border border-purple-200 p-3 rounded-xl">
-          <label class="block text-xs font-bold text-purple-900 mb-1">👑 PIN Nivel 3 de Gerente / Dueño *</label>
-          <input type="password" id="prod-pin" required placeholder="PIN de Gerente (ej: 9999)" class="w-full px-3.5 py-2 bg-white border border-purple-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-purple-500 font-mono">
+          <label class="block text-xs font-bold text-purple-900 mb-1">👑 PIN Personal Nivel 3 de Gerente / Dueño *</label>
+          <input type="password" id="prod-pin" required placeholder="Tu PIN personal (ej: 9999)" class="w-full px-3.5 py-2 bg-white border border-purple-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-purple-500 font-mono">
         </div>
 
         <div class="flex items-center gap-2 pt-2">

@@ -5,6 +5,7 @@ let cashOrders = [];
 let customerAccounts = [];
 let rawMaterials = [];
 let suppliers = [];
+let staffUsers = [];
 let selectedAdminCat = 'all';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -12,7 +13,153 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function loadData() {
-  await Promise.all([loadCashSummary(), loadProducts(), loadCategories(), loadSettings(), loadAccounts(), loadStockMaterials()]);
+  await Promise.all([loadCashSummary(), loadProducts(), loadCategories(), loadSettings(), loadAccounts(), loadStockMaterials(), loadUsers()]);
+}
+
+// Cargar Usuarios / Personal Nombrado
+async function loadUsers() {
+  try {
+    const res = await fetch('/api/admin/users');
+    const data = await res.json();
+    if (data.success) {
+      staffUsers = data.users || [];
+      renderUsersTable();
+    }
+  } catch (err) {
+    console.error('Error al cargar personal:', err);
+  }
+}
+
+function renderUsersTable() {
+  const tbody = document.getElementById('users-table-body');
+  if (!tbody) return;
+
+  tbody.innerHTML = '';
+
+  if (staffUsers.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-400">No hay personal registrado en el sistema.</td></tr>`;
+    return;
+  }
+
+  staffUsers.forEach(u => {
+    const tr = document.createElement('tr');
+    tr.className = 'hover:bg-slate-50 transition';
+
+    let levelBadge = '';
+    if (u.level === 3) {
+      levelBadge = `<span class="bg-purple-100 text-purple-800 border border-purple-300 text-xs font-black px-2.5 py-1 rounded-lg">👑 Nivel 3 (Gerente / Dueño)</span>`;
+    } else if (u.level === 2) {
+      levelBadge = `<span class="bg-blue-100 text-blue-800 border border-blue-300 text-xs font-bold px-2.5 py-1 rounded-lg">🔑 Nivel 2 (Encargado / Jefe)</span>`;
+    } else {
+      levelBadge = `<span class="bg-slate-100 text-slate-700 border border-slate-300 text-xs font-bold px-2.5 py-1 rounded-lg">📱 Nivel 1 (Operativo / Cajero)</span>`;
+    }
+
+    tr.innerHTML = `
+      <td class="p-4 font-extrabold text-slate-900">
+        👤 ${u.name}
+      </td>
+      <td class="p-4">
+        ${levelBadge}
+      </td>
+      <td class="p-4 font-mono font-bold text-slate-700">
+        •••• (${u.pin})
+      </td>
+      <td class="p-4">
+        <span class="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md">🟢 Activo</span>
+      </td>
+      <td class="p-4 text-right space-x-2">
+        <button onclick="editUser(${u.id})" class="p-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-700 transition" title="Editar Personal">
+          <i data-lucide="edit-2" class="w-4 h-4"></i>
+        </button>
+        <button onclick="deleteUser(${u.id})" class="p-1.5 bg-red-50 hover:bg-red-100 rounded-lg text-red-600 transition" title="Eliminar Personal">
+          <i data-lucide="trash-2" class="w-4 h-4"></i>
+        </button>
+      </td>
+    `;
+
+    tbody.appendChild(tr);
+  });
+
+  lucide.createIcons();
+}
+
+function openUserModal(usr = null) {
+  const modal = document.getElementById('user-modal');
+  const title = document.getElementById('user-modal-title');
+  const form = document.getElementById('user-form');
+
+  form.reset();
+  if (usr) {
+    title.textContent = 'Editar Personal y Clave (Nivel 3)';
+    document.getElementById('usr-id').value = usr.id;
+    document.getElementById('usr-name').value = usr.name;
+    document.getElementById('usr-level').value = usr.level;
+    document.getElementById('usr-pin').value = usr.pin;
+  } else {
+    title.textContent = 'Alta de Personal (Exclusivo Nivel 3)';
+    document.getElementById('usr-id').value = '';
+    document.getElementById('usr-level').value = 2;
+  }
+
+  modal.classList.remove('opacity-0', 'pointer-events-none');
+}
+
+function closeUserModal() {
+  const modal = document.getElementById('user-modal');
+  modal.classList.add('opacity-0', 'pointer-events-none');
+}
+
+function editUser(id) {
+  const usr = staffUsers.find(u => u.id === id);
+  if (usr) openUserModal(usr);
+}
+
+async function saveUser(e) {
+  e.preventDefault();
+  const id = document.getElementById('usr-id').value;
+  const name = document.getElementById('usr-name').value.trim();
+  const level = document.getElementById('usr-level').value;
+  const pin = document.getElementById('usr-pin').value.trim();
+  const admin_pin = document.getElementById('usr-admin-pin').value.trim();
+
+  try {
+    const res = await fetch('/api/admin/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: id ? parseInt(id) : null, name, level, pin, admin_pin })
+    });
+    const data = await res.json();
+    if (data.success) {
+      closeUserModal();
+      await loadUsers();
+      alert(`✅ Personal "${name}" (Nivel ${level}) guardado exitosamente.`);
+    } else {
+      alert(`⚠️ ${data.error}`);
+    }
+  } catch (err) {
+    console.error('Error al guardar personal:', err);
+  }
+}
+
+async function deleteUser(id) {
+  const admin_pin = prompt('Ingrese el PIN de Gerente / Dueño (Nivel 3) para confirmar la baja del personal:');
+  if (!admin_pin) return;
+
+  try {
+    const res = await fetch(`/api/admin/users/${id}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ admin_pin })
+    });
+    const data = await res.json();
+    if (data.success) {
+      await loadUsers();
+    } else {
+      alert(`⚠️ ${data.error}`);
+    }
+  } catch (err) {
+    console.error('Error al eliminar personal:', err);
+  }
 }
 
 // Cargar Bitácora de Auditoría (Exclusivo Nivel 3 - Gerente / Dueño)
@@ -143,7 +290,7 @@ function renderAuditShifts(shifts) {
           ${isOpen ? '🟢 Abierta' : '🔒 Cerrada'}
         </span>
       </td>
-      <td class="p-4 text-xs font-bold text-amber-800">🔑 ${s.opened_by || 'Encargado (Nivel 2)'}</td>
+      <td class="p-4 text-xs font-bold text-amber-800">🔑 ${s.opened_by || 'Encargado'}</td>
     `;
 
     tbody.appendChild(tr);
@@ -172,7 +319,7 @@ function renderAuditEntries(entries) {
       <td class="p-4 font-bold text-slate-900">${e.supplier_name}</td>
       <td class="p-4 font-bold text-blue-900">${e.raw_material_name}</td>
       <td class="p-4 font-mono font-black text-emerald-600">+${e.quantity} ${e.unit}</td>
-      <td class="p-4 text-xs font-bold text-blue-700">🔑 ${e.registered_by || 'Encargado (Nivel 2)'}</td>
+      <td class="p-4 text-xs font-bold text-blue-700">🔑 ${e.registered_by || 'Encargado'}</td>
     `;
 
     tbody.appendChild(tr);
@@ -200,12 +347,12 @@ async function submitOpenShift(e) {
     const res = await fetch('/api/cash/shift/open', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ initial_cash, pin, opened_by: 'Encargado de Turno (Nivel 2)' })
+      body: JSON.stringify({ initial_cash, pin })
     });
     const data = await res.json();
     if (data.success) {
       closeOpenShiftModal();
-      alert(`✅ Turno de Caja Abierto exitosamente con cambio inicial de ${formatCurrency(initial_cash)}.`);
+      alert(`✅ Turno de Caja Abierto por "${data.user_name}" con cambio inicial de ${formatCurrency(initial_cash)}.`);
       await loadCashSummary();
     } else {
       alert(`⚠️ ${data.error}`);
@@ -235,12 +382,12 @@ async function submitCloseShift(e) {
     const res = await fetch('/api/cash/shift/close', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ final_cash, pin, closed_by: 'Encargado de Turno (Nivel 2)' })
+      body: JSON.stringify({ final_cash, pin })
     });
     const data = await res.json();
     if (data.success) {
       closeCloseShiftModal();
-      alert(`🔒 Turno de Caja Cerrado exitosamente con saldo final de ${formatCurrency(final_cash)}.`);
+      alert(`🔒 Turno de Caja Cerrado por "${data.user_name}" con saldo final de ${formatCurrency(final_cash)}.`);
       await loadCashSummary();
     } else {
       alert(`⚠️ ${data.error}`);
@@ -357,7 +504,7 @@ async function submitStockAdjustment(e) {
     if (data.success) {
       closeAdjustStockModal();
       const diffSign = data.difference >= 0 ? `+${data.difference}` : `${data.difference}`;
-      alert(`⚖️ CONCILIACIÓN NIVEL 3 AUTORIZADA EXITOSAMENTE:\n\nInsumo: ${data.raw_material_name}\nStock anterior: ${data.old_stock}\nStock real nuevo: ${data.new_stock}\nDiferencia/Ajuste: ${diffSign}`);
+      alert(`⚖️ CONCILIACIÓN AUTORIZADA POR "${data.user_name}":\n\nInsumo: ${data.raw_material_name}\nStock anterior: ${data.old_stock}\nStock real nuevo: ${data.new_stock}\nDiferencia/Ajuste: ${diffSign}`);
       await loadStockMaterials();
     } else {
       alert(`⚠️ ${data.error}`);
@@ -656,7 +803,7 @@ async function loadCashSummary() {
       const badge = document.getElementById('shift-status-badge');
       if (badge) {
         if (data.active_shift) {
-          badge.textContent = `🟢 Caja Abierta (${formatCurrency(data.active_shift.initial_cash || 0)} cambio inicial)`;
+          badge.textContent = `🟢 Caja Abierta por ${data.active_shift.opened_by} (${formatCurrency(data.active_shift.initial_cash || 0)} cambio)`;
           badge.className = 'bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-bold px-2.5 py-0.5 rounded-full';
         } else {
           badge.textContent = `🔴 Turno de Caja Cerrado`;
@@ -799,8 +946,6 @@ async function loadSettings() {
       document.getElementById('set-restaurant-name').value = settings.restaurant_name || '';
       document.getElementById('set-whatsapp-phone').value = settings.whatsapp_phone || '';
       document.getElementById('set-delivery-cost').value = settings.delivery_cost || '1200';
-      document.getElementById('set-encargado-pin').value = settings.encargado_pin || '2222';
-      document.getElementById('set-admin-pin').value = settings.admin_pin || '9999';
       document.getElementById('set-epson-ip').value = settings.epson_printer_ip || '';
       document.getElementById('set-auto-print').checked = settings.auto_print_epson === '1';
     }
@@ -1000,8 +1145,6 @@ async function saveSettings(e) {
   const restaurant_name = document.getElementById('set-restaurant-name').value.trim();
   const whatsapp_phone = document.getElementById('set-whatsapp-phone').value.trim();
   const delivery_cost = document.getElementById('set-delivery-cost').value.trim();
-  const encargado_pin = document.getElementById('set-encargado-pin').value.trim();
-  const admin_pin = document.getElementById('set-admin-pin').value.trim();
   const epson_printer_ip = document.getElementById('set-epson-ip').value.trim();
   const auto_print_epson = document.getElementById('set-auto-print').checked ? '1' : '0';
 
@@ -1009,11 +1152,11 @@ async function saveSettings(e) {
     const res = await fetch('/api/settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ restaurant_name, whatsapp_phone, delivery_cost, encargado_pin, admin_pin, epson_printer_ip, auto_print_epson })
+      body: JSON.stringify({ restaurant_name, whatsapp_phone, delivery_cost, epson_printer_ip, auto_print_epson })
     });
     const data = await res.json();
     if (data.success) {
-      alert('¡Configuración y Claves PIN (Nivel 2 y Nivel 3) guardadas correctamente!');
+      alert('¡Ajustes guardados correctamente!');
     }
   } catch (err) {
     console.error('Error al guardar ajustes:', err);
@@ -1025,6 +1168,7 @@ function switchTab(tab) {
   const aSection = document.getElementById('tab-accounts');
   const kSection = document.getElementById('tab-stock');
   const pSection = document.getElementById('tab-products');
+  const usrSection = document.getElementById('tab-users');
   const uSection = document.getElementById('tab-audit');
   const sSection = document.getElementById('tab-settings');
   
@@ -1032,6 +1176,7 @@ function switchTab(tab) {
   const aBtn = document.getElementById('tab-btn-accounts');
   const kBtn = document.getElementById('tab-btn-stock');
   const pBtn = document.getElementById('tab-btn-products');
+  const usrBtn = document.getElementById('tab-btn-users');
   const uBtn = document.getElementById('tab-btn-audit');
   const sBtn = document.getElementById('tab-btn-settings');
 
@@ -1039,6 +1184,7 @@ function switchTab(tab) {
   aSection.classList.add('hidden');
   kSection.classList.add('hidden');
   pSection.classList.add('hidden');
+  usrSection.classList.add('hidden');
   uSection.classList.add('hidden');
   sSection.classList.add('hidden');
 
@@ -1046,6 +1192,7 @@ function switchTab(tab) {
   aBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
   kBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
   pBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
+  usrBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
   uBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
   sBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
 
@@ -1064,6 +1211,10 @@ function switchTab(tab) {
   } else if (tab === 'products') {
     pSection.classList.remove('hidden');
     pBtn.className = 'tab-btn pb-3 border-b-2 border-orange-500 text-orange-600 flex items-center gap-2 font-bold';
+  } else if (tab === 'users') {
+    usrSection.classList.remove('hidden');
+    usrBtn.className = 'tab-btn pb-3 border-b-2 border-purple-600 text-purple-700 flex items-center gap-2 font-bold';
+    loadUsers();
   } else if (tab === 'audit') {
     uSection.classList.remove('hidden');
     uBtn.className = 'tab-btn pb-3 border-b-2 border-purple-600 text-purple-700 flex items-center gap-2 font-bold';

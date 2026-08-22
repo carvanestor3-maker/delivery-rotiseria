@@ -13,9 +13,15 @@ const initialData = {
     is_open: '1',
     auto_print_epson: '0',
     epson_printer_ip: '',
-    encargado_pin: '2222', // PIN Nivel 2 (Encargado de Turno / Jefe de Sección)
-    admin_pin: '9999'      // PIN Nivel 3 (Gerente General / Dueño)
+    encargado_pin: '2222', // PIN Nivel 2 por defecto
+    admin_pin: '9999'      // PIN Nivel 3 por defecto
   },
+  users: [
+    { id: 1, name: 'Gerente General / Dueño', pin: '9999', level: 3, active: 1 },
+    { id: 2, name: 'Encargado de Turno Mañana', pin: '2222', level: 2, active: 1 },
+    { id: 3, name: 'Encargado de Turno Noche', pin: '3333', level: 2, active: 1 },
+    { id: 4, name: 'Cajero / Operativo 1', pin: '1111', level: 1, active: 1 }
+  ],
   categories: [
     { id: 1, name: 'Promos y Combos', icon: '🔥', sort_order: 0 },
     { id: 2, name: 'Minutas', icon: '🍳', sort_order: 1 },
@@ -68,7 +74,7 @@ const initialData = {
       initial_cash: 10000,
       final_cash: null,
       status: 'open',
-      opened_by: 'Encargado (Nivel 2)'
+      opened_by: 'Encargado de Turno Mañana (Nivel 2)'
     }
   ],
   orders: [],
@@ -96,6 +102,7 @@ function loadStore() {
     if (fs.existsSync(dbPath)) {
       const content = fs.readFileSync(dbPath, 'utf8');
       store = JSON.parse(content);
+      if (!store.users) store.users = initialData.users;
       if (!store.categories) store.categories = initialData.categories;
       if (!store.products) store.products = initialData.products;
       if (!store.orders) store.orders = initialData.orders;
@@ -141,6 +148,10 @@ const db = {
     return {
       all(...params) {
         const query = sql.toLowerCase();
+
+        if (query.includes('from users')) {
+          return [...store.users];
+        }
 
         if (query.includes('from categories')) {
           return [...store.categories].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));

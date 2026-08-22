@@ -23,7 +23,6 @@ io.on('connection', (socket) => {
   console.log('⚡ Nuevo cliente conectado:', socket.id);
 });
 
-// Helper para obtener ajustes en formato objeto
 function getSettingsMap() {
   const stmt = db.prepare('SELECT key, value FROM settings');
   const rows = stmt.all();
@@ -135,6 +134,7 @@ app.get('/api/orders', (req, res) => {
   }
 });
 
+// PUT /api/orders/:id/status - Cambiar estado del pedido (con validación estricta de ingreso a caja)
 app.put('/api/orders/:id/status', (req, res) => {
   try {
     const { id } = req.params;
@@ -143,6 +143,22 @@ app.put('/api/orders/:id/status', (req, res) => {
     const validStatuses = ['nuevo', 'en_preparacion', 'en_camino', 'entregado', 'cancelado'];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ success: false, error: 'Estado no válido' });
+    }
+
+    // Obtener pedido actual
+    const checkStmt = db.prepare('SELECT * FROM orders WHERE id = ?');
+    const existingOrder = checkStmt.get(id);
+
+    if (!existingOrder) {
+      return res.status(404).json({ success: false, error: 'Pedido no encontrado' });
+    }
+
+    // Validación estricta: No se permite marcar como 'entregado' si no ha sido ingresado a caja (paid = 1)
+    if (status === 'entregado' && existingOrder.paid !== 1) {
+      return res.status(400).json({
+        success: false,
+        error: `No se puede marcar como Entregado el pedido ${existingOrder.order_number} porque aún no ha sido ingresado a Caja ($${existingOrder.total}). Primero debe ingresarse a caja.`
+      });
     }
 
     const updateStmt = db.prepare('UPDATE orders SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
@@ -379,7 +395,6 @@ app.post('/api/admin/products', (req, res) => {
   }
 });
 
-// POST /api/admin/categories - Crear nueva categoría desde el Admin
 app.post('/api/admin/categories', (req, res) => {
   try {
     const { name, icon, sort_order } = req.body;

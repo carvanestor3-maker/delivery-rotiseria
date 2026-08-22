@@ -266,6 +266,14 @@ function renderStatusButtons(order) {
 }
 
 async function updateOrderStatus(orderId, newStatus) {
+  const order = orders.find(o => o.id === orderId);
+
+  // Validación estricta: No se puede finalizar si no ha sido ingresado a caja
+  if (newStatus === 'entregado' && order && order.paid !== 1) {
+    alert(`⚠️ ATENCIÓN: No se puede marcar como ENTREGADO el pedido ${order.order_number} (${formatCurrency(order.total)}).\n\nPrimero debe presionar "💰 Ingresar a Caja" para registrar el cobro del dinero.`);
+    return;
+  }
+
   try {
     const res = await fetch(`/api/orders/${orderId}/status`, {
       method: 'PUT',
@@ -273,6 +281,10 @@ async function updateOrderStatus(orderId, newStatus) {
       body: JSON.stringify({ status: newStatus })
     });
     const data = await res.json();
+    if (!data.success) {
+      alert(`⚠️ ${data.error}`);
+      return;
+    }
     if (data.success) {
       const idx = orders.findIndex(o => o.id === orderId);
       if (idx > -1) {
@@ -285,7 +297,6 @@ async function updateOrderStatus(orderId, newStatus) {
   }
 }
 
-// Marcar/Desmarcar Ingreso a Caja
 async function toggleOrderPaid(orderId, newPaidStatus) {
   try {
     const res = await fetch(`/api/orders/${orderId}/paid`, {
@@ -306,7 +317,6 @@ async function toggleOrderPaid(orderId, newPaidStatus) {
   }
 }
 
-// Abrir Resumen de Caja del Día
 async function openCashModal() {
   const modal = document.getElementById('cash-modal');
   const container = document.getElementById('cash-summary-content');

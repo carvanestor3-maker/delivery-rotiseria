@@ -177,7 +177,7 @@ function createCajaCard(order) {
       </button>
     </div>
 
-    <!-- Botones Secundarios (Impresión y WhatsApp) -->
+    <!-- Botones Secundarios -->
     <div class="grid grid-cols-2 gap-2 pt-1">
       <button onclick="printEpsonOrBrowser(${order.id})" class="bg-slate-700 hover:bg-slate-600 active:scale-95 text-white font-bold py-2 rounded-lg text-xs flex items-center justify-center gap-1 transition">
         🖨️ Imprimir Epson
@@ -186,9 +186,43 @@ function createCajaCard(order) {
         💬 Avisar WhatsApp
       </button>
     </div>
+
+    ${order.status !== 'entregado' ? `
+      <div class="pt-1">
+        <button onclick="markOrderDeliveredFromCaja(${order.id})" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-extrabold py-2 rounded-xl text-xs flex items-center justify-center gap-1 transition">
+          ✅ Marcar como Entregado
+        </button>
+      </div>
+    ` : ''}
   `;
 
   return card;
+}
+
+async function markOrderDeliveredFromCaja(orderId) {
+  const order = orders.find(o => o.id === orderId);
+
+  // Validación estricta: No se permite marcar como entregado si no ha ingresado a caja
+  if (order && order.paid !== 1) {
+    alert(`⚠️ ATENCIÓN CAJA:\n\nNo se puede marcar como ENTREGADO el pedido ${order.order_number} (${formatCurrency(order.total)}).\n\nPrimero debes presionar el botón "💰 CONFIRMAR INGRESO A CAJA" para registrar el dinero.`);
+    return;
+  }
+
+  try {
+    const res = await fetch(`/api/orders/${orderId}/status`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'entregado' })
+    });
+    const data = await res.json();
+    if (!data.success) {
+      alert(`⚠️ ${data.error}`);
+      return;
+    }
+    loadData();
+  } catch (err) {
+    console.error('Error al actualizar estado:', err);
+  }
 }
 
 async function toggleCajaPaid(orderId, newPaidStatus) {

@@ -4,6 +4,8 @@ const { Server } = require('socket.io');
 const cors = require('cors');
 const path = require('path');
 const net = require('net');
+const fs = require('fs');
+const { execSync } = require('child_process');
 const db = require('./db');
 
 const app = express();
@@ -35,7 +37,6 @@ function verifyUserPin(inputPin, requiredLevel = 2) {
 
   if (!strPin) return { isValid: false, user: null };
 
-  // 1. Buscar en la lista de usuarios nombrados del personal
   const users = store.users || [];
   const foundUser = users.find(u => u.active !== 0 && String(u.pin).trim() === strPin);
 
@@ -47,7 +48,6 @@ function verifyUserPin(inputPin, requiredLevel = 2) {
     }
   }
 
-  // 2. Fallback a PINs generales por defecto en settings
   const settings = getSettingsMap();
   const encargadoPin = settings.encargado_pin || '2222';
   const adminPin = settings.admin_pin || '9999';
@@ -66,6 +66,33 @@ function verifyUserPin(inputPin, requiredLevel = 2) {
 
   return { isValid: false, user: null };
 }
+
+// DESCARGA DIRECTA DE COPIA DE SEGURIDAD ZIP (REQUERIDO NIVEL 3)
+app.get('/api/admin/backup/download', (req, res) => {
+  try {
+    const pin = req.query.pin;
+    const auth = verifyUserPin(pin, 3);
+    if (!auth.isValid) {
+      return res.status(401).json({ success: false, error: 'Acceso Denegado: Se requiere PIN Nivel 3 para descargar copias de seguridad.' });
+    }
+
+    const backupDir = path.join(__dirname, '..', 'respaldos_delivery');
+    if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
+
+    const dateStr = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const zipFileName = `backup_rotiseria_${dateStr}.zip`;
+    const zipPath = path.join(backupDir, zipFileName);
+
+    const psCmd = `powershell -Command "Compress-Archive -Path '${__dirname}\\*' -DestinationPath '${zipPath}' -Force"`;
+    execSync(psCmd);
+
+    res.download(zipPath, zipFileName, (err) => {
+      if (err) console.error('Error al enviar archivo zip:', err);
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
 
 // RUTA API DE VERIFICACIÓN DE PIN (PÚBLICA CON RETORNO DE NOMBRE DE USUARIO)
 app.post('/api/verify-pin', (req, res) => {
@@ -121,7 +148,6 @@ app.post('/api/admin/users', (req, res) => {
     const numLevel = parseInt(level);
     const strPin = String(pin).trim();
 
-    // Validar PIN duplicado
     const existingPinUser = store.users.find(u => String(u.pin).trim() === strPin && u.id !== parseInt(id || 0));
     if (existingPinUser) {
       return res.status(400).json({ success: false, error: `La clave PIN "${strPin}" ya pertenece al usuario "${existingPinUser.name}". Debe asignar una clave única por personal.` });
@@ -381,7 +407,6 @@ app.post('/api/production/register', (req, res) => {
       return res.status(404).json({ success: false, error: 'Producto no encontrado' });
     }
 
-    // Calcular y descontar insumos del stock general según receta
     const recipes = store.product_recipes.filter(r => r.product_id === pid);
     let discountedMaterials = [];
 
@@ -1101,7 +1126,7 @@ app.post('/api/settings', (req, res) => {
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`
-🚀 Servidor Delivery, Personal Nombrado & Auditoría por Clave Individual en ejecución:
+🚀 Servidor Delivery, Descarga de Backup ZIP & Auditoría en ejecución:
 👉 Local: http://localhost:${PORT}/admin.html
   `);
 });

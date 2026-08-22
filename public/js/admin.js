@@ -16,6 +16,14 @@ async function loadData() {
   await Promise.all([loadCashSummary(), loadProducts(), loadCategories(), loadSettings(), loadAccounts(), loadStockMaterials(), loadUsers()]);
 }
 
+// Descargar Copia de Seguridad ZIP en el Disco Local (Exclusivo Nivel 3)
+function downloadSystemBackup() {
+  const pin = prompt('👑 Descarga de Respaldo del Sistema:\nIngrese su PIN Personal de Gerente / Dueño (Nivel 3):');
+  if (!pin) return;
+
+  window.location.href = `/api/admin/backup/download?pin=${encodeURIComponent(pin)}`;
+}
+
 // Cargar Usuarios / Personal Nombrado
 async function loadUsers() {
   try {

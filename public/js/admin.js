@@ -32,7 +32,9 @@ async function unlockAuditLogs(e) {
       document.getElementById('audit-pin-prompt').classList.add('hidden');
       document.getElementById('audit-logs-content').classList.remove('hidden');
 
+      renderBillingMultiPeriod(data.billing || {});
       renderAuditAdjustments(data.stock_adjustments || []);
+      renderAuditShifts(data.cash_shifts || []);
       renderAuditEntries(data.stock_entries || []);
     } else {
       alert(`⚠️ ${data.error}`);
@@ -40,6 +42,42 @@ async function unlockAuditLogs(e) {
   } catch (err) {
     console.error('Error al cargar bitácora:', err);
   }
+}
+
+function renderBillingMultiPeriod(b) {
+  if (!b) return;
+
+  // Diario
+  const d = b.diario || {};
+  document.getElementById('bill-day-count').textContent = `${d.count || 0} ped.`;
+  document.getElementById('bill-day-total').textContent = formatCurrency(d.total_sales || 0);
+  document.getElementById('bill-day-cash').textContent = formatCurrency(d.cash_sales || 0);
+  document.getElementById('bill-day-card').textContent = formatCurrency(d.card_sales || 0);
+  document.getElementById('bill-day-dig').textContent = formatCurrency(d.digital_sales || 0);
+
+  // Semanal
+  const w = b.semanal || {};
+  document.getElementById('bill-week-count').textContent = `${w.count || 0} ped.`;
+  document.getElementById('bill-week-total').textContent = formatCurrency(w.total_sales || 0);
+  document.getElementById('bill-week-cash').textContent = formatCurrency(w.cash_sales || 0);
+  document.getElementById('bill-week-card').textContent = formatCurrency(w.card_sales || 0);
+  document.getElementById('bill-week-dig').textContent = formatCurrency(w.digital_sales || 0);
+
+  // Quincenal
+  const q = b.quincenal || {};
+  document.getElementById('bill-fortnight-count').textContent = `${q.count || 0} ped.`;
+  document.getElementById('bill-fortnight-total').textContent = formatCurrency(q.total_sales || 0);
+  document.getElementById('bill-fortnight-cash').textContent = formatCurrency(q.cash_sales || 0);
+  document.getElementById('bill-fortnight-card').textContent = formatCurrency(q.card_sales || 0);
+  document.getElementById('bill-fortnight-dig').textContent = formatCurrency(q.digital_sales || 0);
+
+  // Mensual
+  const m = b.mensual || {};
+  document.getElementById('bill-month-count').textContent = `${m.count || 0} ped.`;
+  document.getElementById('bill-month-total').textContent = formatCurrency(m.total_sales || 0);
+  document.getElementById('bill-month-cash').textContent = formatCurrency(m.cash_sales || 0);
+  document.getElementById('bill-month-card').textContent = formatCurrency(m.card_sales || 0);
+  document.getElementById('bill-month-dig').textContent = formatCurrency(m.digital_sales || 0);
 }
 
 function renderAuditAdjustments(adjustments) {
@@ -76,6 +114,42 @@ function renderAuditAdjustments(adjustments) {
   });
 }
 
+function renderAuditShifts(shifts) {
+  const tbody = document.getElementById('audit-shifts-tbody');
+  if (!tbody) return;
+
+  tbody.innerHTML = '';
+
+  if (shifts.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-slate-400">No hay turnos de caja registrados.</td></tr>`;
+    return;
+  }
+
+  shifts.forEach(s => {
+    const isOpen = s.status === 'open';
+    const tr = document.createElement('tr');
+    tr.className = 'hover:bg-slate-50 transition';
+
+    const openedStr = s.opened_at ? new Date(s.opened_at).toLocaleString('es-AR') : '-';
+    const closedStr = s.closed_at ? new Date(s.closed_at).toLocaleString('es-AR') : 'En curso...';
+
+    tr.innerHTML = `
+      <td class="p-4 text-xs font-mono text-slate-600">${openedStr}</td>
+      <td class="p-4 text-xs font-mono text-slate-600">${closedStr}</td>
+      <td class="p-4 font-mono font-bold text-slate-900">${formatCurrency(s.initial_cash || 0)}</td>
+      <td class="p-4 font-mono font-bold text-emerald-600">${s.final_cash !== null ? formatCurrency(s.final_cash) : '-'}</td>
+      <td class="p-4">
+        <span class="px-2.5 py-0.5 rounded-full text-xs font-bold ${isOpen ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700'}">
+          ${isOpen ? '🟢 Abierta' : '🔒 Cerrada'}
+        </span>
+      </td>
+      <td class="p-4 text-xs font-bold text-amber-800">🔑 ${s.opened_by || 'Encargado (Nivel 2)'}</td>
+    `;
+
+    tbody.appendChild(tr);
+  });
+}
+
 function renderAuditEntries(entries) {
   const tbody = document.getElementById('audit-entries-tbody');
   if (!tbody) return;
@@ -103,6 +177,77 @@ function renderAuditEntries(entries) {
 
     tbody.appendChild(tr);
   });
+}
+
+// Apertura / Cierre de Caja (Nivel 2)
+function openOpenShiftModal() {
+  document.getElementById('open-shift-form').reset();
+  const modal = document.getElementById('open-shift-modal');
+  modal.classList.remove('opacity-0', 'pointer-events-none');
+}
+
+function closeOpenShiftModal() {
+  const modal = document.getElementById('open-shift-modal');
+  modal.classList.add('opacity-0', 'pointer-events-none');
+}
+
+async function submitOpenShift(e) {
+  e.preventDefault();
+  const initial_cash = document.getElementById('shift-initial-cash').value;
+  const pin = document.getElementById('shift-open-pin').value.trim();
+
+  try {
+    const res = await fetch('/api/cash/shift/open', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ initial_cash, pin, opened_by: 'Encargado de Turno (Nivel 2)' })
+    });
+    const data = await res.json();
+    if (data.success) {
+      closeOpenShiftModal();
+      alert(`✅ Turno de Caja Abierto exitosamente con cambio inicial de ${formatCurrency(initial_cash)}.`);
+      await loadCashSummary();
+    } else {
+      alert(`⚠️ ${data.error}`);
+    }
+  } catch (err) {
+    console.error('Error al abrir caja:', err);
+  }
+}
+
+function openCloseShiftModal() {
+  document.getElementById('close-shift-form').reset();
+  const modal = document.getElementById('close-shift-modal');
+  modal.classList.remove('opacity-0', 'pointer-events-none');
+}
+
+function closeCloseShiftModal() {
+  const modal = document.getElementById('close-shift-modal');
+  modal.classList.add('opacity-0', 'pointer-events-none');
+}
+
+async function submitCloseShift(e) {
+  e.preventDefault();
+  const final_cash = document.getElementById('shift-final-cash').value;
+  const pin = document.getElementById('shift-close-pin').value.trim();
+
+  try {
+    const res = await fetch('/api/cash/shift/close', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ final_cash, pin, closed_by: 'Encargado de Turno (Nivel 2)' })
+    });
+    const data = await res.json();
+    if (data.success) {
+      closeCloseShiftModal();
+      alert(`🔒 Turno de Caja Cerrado exitosamente con saldo final de ${formatCurrency(final_cash)}.`);
+      await loadCashSummary();
+    } else {
+      alert(`⚠️ ${data.error}`);
+    }
+  } catch (err) {
+    console.error('Error al cerrar caja:', err);
+  }
 }
 
 // Cargar Insumos y Stock General
@@ -507,6 +652,17 @@ async function loadCashSummary() {
     if (data.success) {
       const s = data.summary;
       cashOrders = data.orders;
+
+      const badge = document.getElementById('shift-status-badge');
+      if (badge) {
+        if (data.active_shift) {
+          badge.textContent = `🟢 Caja Abierta (${formatCurrency(data.active_shift.initial_cash || 0)} cambio inicial)`;
+          badge.className = 'bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-bold px-2.5 py-0.5 rounded-full';
+        } else {
+          badge.textContent = `🔴 Turno de Caja Cerrado`;
+          badge.className = 'bg-red-100 text-red-800 border border-red-300 text-xs font-bold px-2.5 py-0.5 rounded-full';
+        }
+      }
 
       document.getElementById('cash-collected-val').textContent = formatCurrency(s.cash_collected);
       document.getElementById('cash-pending-val').textContent = formatCurrency(s.cash_pending);

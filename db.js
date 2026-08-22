@@ -60,6 +60,17 @@ const initialData = {
   ],
   stock_entries: [],
   stock_adjustments: [],
+  cash_shifts: [
+    {
+      id: 1,
+      opened_at: new Date().toISOString(),
+      closed_at: null,
+      initial_cash: 10000,
+      final_cash: null,
+      status: 'open',
+      opened_by: 'Encargado (Nivel 2)'
+    }
+  ],
   orders: [],
   customer_accounts: [
     {
@@ -95,6 +106,7 @@ function loadStore() {
       if (!store.product_recipes) store.product_recipes = initialData.product_recipes;
       if (!store.stock_entries) store.stock_entries = [];
       if (!store.stock_adjustments) store.stock_adjustments = [];
+      if (!store.cash_shifts) store.cash_shifts = initialData.cash_shifts;
       if (!store.settings) store.settings = initialData.settings;
       if (!store.settings.admin_pin) store.settings.admin_pin = '9999';
       if (!store.settings.encargado_pin) store.settings.encargado_pin = '2222';
@@ -181,6 +193,10 @@ const db = {
 
         if (query.includes('from stock_adjustments')) {
           return [...store.stock_adjustments].sort((a, b) => new Date(b.date) - new Date(a.date));
+        }
+
+        if (query.includes('from cash_shifts')) {
+          return [...store.cash_shifts].sort((a, b) => new Date(b.opened_at) - new Date(a.opened_at));
         }
 
         if (query.includes('from settings')) {

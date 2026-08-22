@@ -102,6 +102,7 @@ function closeProductionModal() {
 
 async function submitProduction(e) {
   e.preventDefault();
+  const pin = document.getElementById('prod-pin').value.trim();
   const product_id = document.getElementById('prod-product-id').value;
   const portions = document.getElementById('prod-portions').value;
 
@@ -109,7 +110,7 @@ async function submitProduction(e) {
     const res = await fetch('/api/production/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ product_id, portions })
+      body: JSON.stringify({ pin, product_id, portions })
     });
     const data = await res.json();
     if (data.success) {

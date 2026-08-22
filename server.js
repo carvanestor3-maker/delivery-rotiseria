@@ -37,10 +37,8 @@ function verifyPin(inputPin, requiredLevel = 2) {
   const strPin = String(inputPin || '').trim();
 
   if (requiredLevel === 3) {
-    // Nivel 3 (Gerente / Dueño): Solo acepta PIN de Administrador General
     return strPin === String(adminPin);
   } else {
-    // Nivel 2 (Encargado / Jefe de Sección): Acepta PIN Encargado (2222) o PIN Administrador (9999)
     return strPin === String(encargadoPin) || strPin === String(adminPin);
   }
 }
@@ -66,7 +64,76 @@ app.post('/api/verify-pin', (req, res) => {
   }
 });
 
-// BITÁCORA DE AUDITORÍA DE MOVIMIENTOS Y MERMAS (EXCLUSIVO NIVEL 3 - GERENTE / DUEÑO)
+// APERTURA DE TURNO DE CAJA (REQUERIDO NIVEL 2 - ENCARGADO / GERENTE)
+app.post('/api/cash/shift/open', (req, res) => {
+  try {
+    const { initial_cash, pin, opened_by } = req.body;
+
+    if (!verifyPin(pin, 2)) {
+      return res.status(401).json({ success: false, error: 'PIN de Encargado (Nivel 2) o Gerente (Nivel 3) incorrecto' });
+    }
+
+    const store = db.getStore();
+    if (!store.cash_shifts) store.cash_shifts = [];
+
+    const activeShift = store.cash_shifts.find(s => s.status === 'open');
+    if (activeShift) {
+      return res.status(400).json({ success: false, error: 'Ya existe una caja abierta en este turno.' });
+    }
+
+    const nextId = store.cash_shifts.length > 0 ? Math.max(...store.cash_shifts.map(s => s.id)) + 1 : 1;
+    const newShift = {
+      id: nextId,
+      opened_at: new Date().toISOString(),
+      closed_at: null,
+      initial_cash: parseFloat(initial_cash || 0),
+      final_cash: null,
+      status: 'open',
+      opened_by: opened_by || 'Encargado (Nivel 2)'
+    };
+
+    store.cash_shifts.unshift(newShift);
+    db.saveStore();
+    io.emit('cash_shift_updated');
+
+    res.json({ success: true, shift: newShift });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// CIERRE DE TURNO DE CAJA (REQUERIDO NIVEL 2)
+app.post('/api/cash/shift/close', (req, res) => {
+  try {
+    const { final_cash, pin, closed_by } = req.body;
+
+    if (!verifyPin(pin, 2)) {
+      return res.status(401).json({ success: false, error: 'PIN de Encargado (Nivel 2) o Gerente (Nivel 3) incorrecto' });
+    }
+
+    const store = db.getStore();
+    if (!store.cash_shifts) store.cash_shifts = [];
+
+    const activeShift = store.cash_shifts.find(s => s.status === 'open');
+    if (!activeShift) {
+      return res.status(400).json({ success: false, error: 'No hay ninguna caja abierta para cerrar.' });
+    }
+
+    activeShift.closed_at = new Date().toISOString();
+    activeShift.final_cash = parseFloat(final_cash || 0);
+    activeShift.status = 'closed';
+    activeShift.closed_by = closed_by || 'Encargado (Nivel 2)';
+
+    db.saveStore();
+    io.emit('cash_shift_updated');
+
+    res.json({ success: true, shift: activeShift });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// BITÁCORA DE AUDITORÍA Y FACTURACIÓN MULTI-PERÍODO (EXCLUSIVO NIVEL 3 - GERENTE / DUEÑO)
 app.post('/api/admin/audit-logs', (req, res) => {
   try {
     const { pin } = req.body;
@@ -76,11 +143,53 @@ app.post('/api/admin/audit-logs', (req, res) => {
     }
 
     const store = db.getStore();
+    const now = new Date();
+
+    // Filtros de facturación: Diario (hoy), Semanal (7 días), Quincenal (15 días), Mensual (30 días)
+    const validOrders = store.orders.filter(o => o.status !== 'cancelado');
+
+    function calculateFinancialMetrics(days) {
+      const cutoff = new Date(now.getTime() - (days * 24 * 60 * 60 * 1000));
+      const periodOrders = validOrders.filter(o => new Date(o.created_at) >= cutoff);
+
+      let total = 0;
+      let cash = 0;
+      let card = 0;
+      let digital = 0;
+      let cc = 0;
+
+      periodOrders.forEach(o => {
+        total += o.total;
+        if (o.payment_method === 'Efectivo') cash += o.total;
+        else if (o.payment_method.includes('Tarjeta')) card += o.total;
+        else if (o.payment_method.includes('Cuenta Corriente')) cc += o.total;
+        else digital += o.total;
+      });
+
+      return {
+        count: periodOrders.length,
+        total_sales: total,
+        cash_sales: cash,
+        card_sales: card,
+        digital_sales: digital,
+        cc_sales: cc
+      };
+    }
+
+    const billing = {
+      diario: calculateFinancialMetrics(1),
+      semanal: calculateFinancialMetrics(7),
+      quincenal: calculateFinancialMetrics(15),
+      mensual: calculateFinancialMetrics(30)
+    };
+
     res.json({
       success: true,
+      billing,
       stock_entries: store.stock_entries || [],
       stock_adjustments: store.stock_adjustments || [],
-      account_payments: store.account_payments || []
+      account_payments: store.account_payments || [],
+      cash_shifts: store.cash_shifts || []
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -140,9 +249,13 @@ app.post('/api/admin/stock/adjust', (req, res) => {
 // REGISTRAR PRODUCCIÓN EN LOTE EN COCINA (Mise en place - Requiere Nivel 2)
 app.post('/api/production/register', (req, res) => {
   try {
-    const { product_id, portions } = req.body;
+    const { product_id, portions, pin } = req.body;
     const pid = parseInt(product_id);
     const qtyPortions = parseFloat(portions || 0);
+
+    if (pin && !verifyPin(pin, 2)) {
+      return res.status(401).json({ success: false, error: 'PIN de Encargado (Nivel 2) o Gerente (Nivel 3) incorrecto' });
+    }
 
     if (!pid || qtyPortions <= 0) {
       return res.status(400).json({ success: false, error: 'Producto y cantidad de porciones producidas son obligatorios' });
@@ -672,8 +785,11 @@ app.get('/api/cash/summary', (req, res) => {
       };
     });
 
+    const activeShift = (store.cash_shifts || []).find(s => s.status === 'open');
+
     res.json({
       success: true,
+      active_shift: activeShift || null,
       summary: {
         total_sales: totalSales,
         cash_total: cashTotal,
@@ -873,7 +989,7 @@ app.post('/api/settings', (req, res) => {
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`
-🚀 Servidor Delivery, Auditoría Nivel 3 & Seguridad en ejecución:
+🚀 Servidor Delivery, Facturación Multi-Período & Apertura de Caja Nivel 2 en ejecución:
 👉 Local: http://localhost:${PORT}/admin.html
   `);
 });

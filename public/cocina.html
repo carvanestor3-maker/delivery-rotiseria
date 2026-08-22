@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Pantalla de Cocina (KDS Celular) - Gestión de Pedidos</title>
+  <title>Pantalla de Cocina (Celular 1) - Comandas & Producción</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="/css/styles.css">
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -11,7 +11,7 @@
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col font-sans select-none">
 
-  <!-- Header de Cocina -->
+  <!-- Header de Cocina (Celular 1) -->
   <header class="bg-slate-800 border-b border-slate-700 px-4 py-2.5 flex justify-between items-center shadow-lg sticky top-0 z-30">
     <div class="flex items-center gap-2">
       <div class="w-9 h-9 bg-orange-500 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow">
@@ -24,135 +24,212 @@
             🟢 En vivo
           </span>
         </h1>
-        <p class="text-[10px] text-slate-400 leading-none">Recepción de pedidos por celular</p>
+        <p class="text-[10px] text-slate-400 leading-none">Celular 1 - Comandas & Producción</p>
       </div>
     </div>
 
     <div class="flex items-center gap-2">
+      <!-- Botón Modo Producción de Comidas -->
+      <button onclick="openProductionModal()" class="px-2.5 py-1.5 bg-amber-600 hover:bg-amber-500 rounded-xl text-xs font-extrabold flex items-center gap-1 text-white shadow transition">
+        👨‍🍳 <span class="hidden sm:inline">Producción</span>
+      </button>
+
+      <!-- Botón Ingreso de Stock General (Nivel 2) -->
+      <button onclick="openStockEntryModal()" class="px-2.5 py-1.5 bg-blue-700 hover:bg-blue-600 rounded-xl text-xs font-bold flex items-center gap-1 text-blue-100 border border-blue-500/40 shadow transition">
+        📦 <span class="hidden sm:inline">Stock (Nivel 2)</span>
+      </button>
+
       <!-- Botón Resumen de Caja -->
       <button onclick="openCashModal()" class="px-2.5 py-1.5 bg-emerald-700 hover:bg-emerald-600 rounded-xl text-xs font-bold flex items-center gap-1 text-emerald-100 border border-emerald-500/40 shadow transition">
-        💰 <span class="hidden sm:inline">Caja del Día</span>
+        💰 <span class="hidden sm:inline">Caja</span>
       </button>
 
       <!-- Botón de Sonido -->
       <button id="sound-btn" onclick="toggleAudio()" class="px-2.5 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-xl text-xs font-bold flex items-center gap-1 border border-slate-600 transition">
         <i data-lucide="volume-2" class="w-4 h-4 text-emerald-400"></i>
-        <span class="hidden sm:inline">Sonido</span>
-      </button>
-
-      <!-- Botón Recargar -->
-      <button onclick="loadOrders()" class="p-1.5 bg-slate-700 hover:bg-slate-600 rounded-xl text-xs font-bold border border-slate-600 transition">
-        <i data-lucide="refresh-cw" class="w-4 h-4 text-slate-300"></i>
       </button>
     </div>
   </header>
 
-  <!-- PESTAÑAS MÓVILES (Solo visibles en Celulares / Pantallas Pequeñas) -->
-  <nav class="md:hidden bg-slate-850 border-b border-slate-700 px-2 py-2 flex gap-1.5 overflow-x-auto no-scrollbar sticky top-[53px] z-20 bg-slate-800">
+  <!-- Pestañas Móviles por Estado de Pedido -->
+  <nav class="bg-slate-800 px-2 py-2 flex md:hidden gap-1.5 overflow-x-auto no-scrollbar border-b border-slate-700 sticky top-[53px] z-20">
     <button onclick="setMobileTab('all')" id="mtab-all" class="mtab-btn active bg-orange-500 text-white font-bold px-3 py-1.5 rounded-xl text-xs whitespace-nowrap shadow transition">
-      🔥 Todos
+      🔥 Todos los Pedidos
     </button>
     <button onclick="setMobileTab('nuevo')" id="mtab-nuevo" class="mtab-btn bg-slate-700 text-slate-300 font-bold px-3 py-1.5 rounded-xl text-xs whitespace-nowrap transition flex items-center gap-1">
-      🔴 Nuevos <span id="mcount-nuevo" class="bg-red-500/30 text-red-200 px-1.5 rounded-full text-[10px]">0</span>
+      🔴 Nuevos <span id="mcount-nuevo" class="bg-red-500 text-white px-1.5 rounded-full text-[10px]">0</span>
     </button>
     <button onclick="setMobileTab('en_preparacion')" id="mtab-en_preparacion" class="mtab-btn bg-slate-700 text-slate-300 font-bold px-3 py-1.5 rounded-xl text-xs whitespace-nowrap transition flex items-center gap-1">
-      🟡 En Cocina <span id="mcount-en_preparacion" class="bg-amber-500/30 text-amber-200 px-1.5 rounded-full text-[10px]">0</span>
+      🟡 En Cocina <span id="mcount-en_preparacion" class="bg-amber-500 text-slate-900 px-1.5 rounded-full text-[10px] font-black">0</span>
     </button>
     <button onclick="setMobileTab('en_camino')" id="mtab-en_camino" class="mtab-btn bg-slate-700 text-slate-300 font-bold px-3 py-1.5 rounded-xl text-xs whitespace-nowrap transition flex items-center gap-1">
-      🛵 Listos <span id="mcount-en_camino" class="bg-blue-500/30 text-blue-200 px-1.5 rounded-full text-[10px]">0</span>
-    </button>
-    <button onclick="setMobileTab('entregado')" id="mtab-entregado" class="mtab-btn bg-slate-700 text-slate-300 font-bold px-3 py-1.5 rounded-xl text-xs whitespace-nowrap transition flex items-center gap-1">
-      ✅ Entregados
+      🛵 Listos para Despacho <span id="mcount-en_camino" class="bg-blue-500 text-white px-1.5 rounded-full text-[10px]">0</span>
     </button>
   </nav>
 
-  <!-- TABLERO KANBAN / LISTA DE PEDIDOS -->
-  <main class="flex-1 p-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 overflow-hidden">
-    
-    <!-- COLUMNA 1: NUEVOS -->
-    <div id="col-box-nuevo" class="bg-slate-800/80 rounded-2xl border border-red-500/30 flex flex-col overflow-hidden shadow-inner">
-      <div class="bg-gradient-to-r from-red-600 to-rose-700 text-white px-3 py-2.5 font-extrabold flex justify-between items-center shadow text-xs sm:text-sm">
-        <div class="flex items-center gap-2">
-          <span>🔴</span>
-          <span>NUEVOS</span>
+  <!-- Kanban de Cocina en Escritorio / Tarjetas en Móvil -->
+  <main class="flex-1 p-3 overflow-y-auto">
+    <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 h-full min-h-[calc(100vh-120px)]">
+      
+      <!-- Columna 1: Pedidos Nuevos -->
+      <div id="col-box-nuevo" class="flex flex-col bg-slate-950/60 rounded-2xl border border-red-500/30 overflow-hidden shadow-md">
+        <div class="bg-red-950/80 text-red-200 px-3 py-2 border-b border-red-500/30 flex justify-between items-center font-bold text-sm">
+          <span class="flex items-center gap-1.5">🔴 1. NUEVOS</span>
+          <span id="count-nuevo" class="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full font-black">0</span>
         </div>
-        <span id="count-nuevo" class="bg-white/20 text-white text-xs px-2 py-0.5 rounded-full font-bold">0</span>
-      </div>
-      <div id="col-nuevo" class="flex-1 p-2.5 space-y-3 overflow-y-auto max-h-[calc(100vh-140px)]">
-        <!-- Tarjetas -->
-      </div>
-    </div>
-
-    <!-- COLUMNA 2: EN PREPARACIÓN -->
-    <div id="col-box-en_preparacion" class="bg-slate-800/80 rounded-2xl border border-amber-500/30 flex flex-col overflow-hidden shadow-inner">
-      <div class="bg-gradient-to-r from-amber-600 to-yellow-600 text-white px-3 py-2.5 font-extrabold flex justify-between items-center shadow text-xs sm:text-sm">
-        <div class="flex items-center gap-2">
-          <span>🟡</span>
-          <span>EN PREPARACIÓN</span>
+        <div id="col-nuevo" class="p-2 space-y-3 overflow-y-auto flex-1">
+          <!-- Tarjetas de pedidos dinámicas -->
         </div>
-        <span id="count-en_preparacion" class="bg-white/20 text-white text-xs px-2 py-0.5 rounded-full font-bold">0</span>
       </div>
-      <div id="col-en_preparacion" class="flex-1 p-2.5 space-y-3 overflow-y-auto max-h-[calc(100vh-140px)]">
-        <!-- Tarjetas -->
-      </div>
-    </div>
 
-    <!-- COLUMNA 3: EN CAMINO / LISTO -->
-    <div id="col-box-en_camino" class="bg-slate-800/80 rounded-2xl border border-blue-500/30 flex flex-col overflow-hidden shadow-inner">
-      <div class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-3 py-2.5 font-extrabold flex justify-between items-center shadow text-xs sm:text-sm">
-        <div class="flex items-center gap-2">
-          <span>🛵</span>
-          <span>EN CAMINO / LISTO</span>
+      <!-- Columna 2: En Preparación -->
+      <div id="col-box-en_preparacion" class="flex flex-col bg-slate-950/60 rounded-2xl border border-amber-500/30 overflow-hidden shadow-md">
+        <div class="bg-amber-950/80 text-amber-200 px-3 py-2 border-b border-amber-500/30 flex justify-between items-center font-bold text-sm">
+          <span class="flex items-center gap-1.5">🟡 2. EN COCINA</span>
+          <span id="count-en_preparacion" class="bg-amber-500 text-slate-950 text-xs px-2 py-0.5 rounded-full font-black">0</span>
         </div>
-        <span id="count-en_camino" class="bg-white/20 text-white text-xs px-2 py-0.5 rounded-full font-bold">0</span>
-      </div>
-      <div id="col-en_camino" class="flex-1 p-2.5 space-y-3 overflow-y-auto max-h-[calc(100vh-140px)]">
-        <!-- Tarjetas -->
-      </div>
-    </div>
-
-    <!-- COLUMNA 4: COMPLETADOS -->
-    <div id="col-box-entregado" class="bg-slate-800/80 rounded-2xl border border-emerald-500/30 flex flex-col overflow-hidden shadow-inner opacity-90">
-      <div class="bg-gradient-to-r from-emerald-600 to-teal-700 text-white px-3 py-2.5 font-extrabold flex justify-between items-center shadow text-xs sm:text-sm">
-        <div class="flex items-center gap-2">
-          <span>✅</span>
-          <span>COMPLETADOS</span>
+        <div id="col-en_preparacion" class="p-2 space-y-3 overflow-y-auto flex-1">
+          <!-- Tarjetas de pedidos dinámicas -->
         </div>
-        <span id="count-entregado" class="bg-white/20 text-white text-xs px-2 py-0.5 rounded-full font-bold">0</span>
       </div>
-      <div id="col-entregado" class="flex-1 p-2.5 space-y-3 overflow-y-auto max-h-[calc(100vh-140px)]">
-        <!-- Tarjetas -->
-      </div>
-    </div>
 
+      <!-- Columna 3: Listos / En Camino -->
+      <div id="col-box-en_camino" class="flex flex-col bg-slate-950/60 rounded-2xl border border-blue-500/30 overflow-hidden shadow-md">
+        <div class="bg-blue-950/80 text-blue-200 px-3 py-2 border-b border-blue-500/30 flex justify-between items-center font-bold text-sm">
+          <span class="flex items-center gap-1.5">🛵 3. LISTOS / DESPACHO</span>
+          <span id="count-en_camino" class="bg-blue-500 text-white text-xs px-2 py-0.5 rounded-full font-black">0</span>
+        </div>
+        <div id="col-en_camino" class="p-2 space-y-3 overflow-y-auto flex-1">
+          <!-- Tarjetas de pedidos dinámicas -->
+        </div>
+      </div>
+
+      <!-- Columna 4: Entregados -->
+      <div id="col-box-entregado" class="flex flex-col bg-slate-950/60 rounded-2xl border border-emerald-500/30 overflow-hidden shadow-md hidden lg:flex">
+        <div class="bg-emerald-950/80 text-emerald-200 px-3 py-2 border-b border-emerald-500/30 flex justify-between items-center font-bold text-sm">
+          <span class="flex items-center gap-1.5">✅ 4. ENTREGADOS</span>
+          <span id="count-entregado" class="bg-emerald-500 text-slate-950 text-xs px-2 py-0.5 rounded-full font-black">0</span>
+        </div>
+        <div id="col-entregado" class="p-2 space-y-3 overflow-y-auto flex-1 opacity-70">
+          <!-- Tarjetas de pedidos dinámicas -->
+        </div>
+      </div>
+
+    </div>
   </main>
 
-  <!-- MODAL DE RESUMEN Y ARQUEO DE CAJA DEL DÍA -->
-  <div id="cash-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200">
-    <div class="bg-slate-850 bg-slate-900 border border-slate-700 text-white rounded-2xl max-w-md w-full p-5 shadow-2xl space-y-4">
-      <div class="flex justify-between items-center border-b border-slate-700 pb-3">
-        <h3 class="font-extrabold text-lg flex items-center gap-2 text-emerald-400">
-          💰 Control y Arqueo de Caja del Día
+  <!-- MODAL MODO PRODUCCIÓN EN COCINA (REGISTRAR LOTES Y DESCONTAR INSUMOS) -->
+  <div id="production-modal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200">
+    <div class="bg-slate-900 border border-amber-500/40 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+      <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+        <h3 class="font-extrabold text-amber-400 text-lg flex items-center gap-2">
+          👨‍🍳 Registrar Producción en Lote (Mise en Place)
         </h3>
-        <button onclick="closeCashModal()" class="text-slate-400 hover:text-white p-1">
+        <button onclick="closeProductionModal()" class="text-slate-400 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="production-form" onsubmit="submitProduction(event)" class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Plato / Comida Producida *</label>
+          <select id="prod-product-id" required class="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-sm text-white font-bold outline-none focus:ring-2 focus:ring-amber-500">
+            <!-- Dinámico -->
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Cantidad de Porciones Producidas *</label>
+          <input type="number" step="1" min="1" id="prod-portions" required placeholder="Ej: 40 porciones de Milanesas" class="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-sm text-white font-mono font-bold outline-none focus:ring-2 focus:ring-amber-500">
+        </div>
+
+        <div class="bg-amber-950/30 border border-amber-500/20 p-3 rounded-xl text-xs text-amber-200">
+          💡 <strong>Descuento de Insumos:</strong> Al registrar este lote producido, el sistema calculará y descontará automáticamente la materia prima del Stock General según el porcionado asignado en el Admin.
+        </div>
+
+        <div class="pt-4 flex justify-end gap-2 border-t border-slate-800">
+          <button type="button" onclick="closeProductionModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 font-bold rounded-xl text-xs text-slate-300">Cancelar</button>
+          <button type="submit" class="px-4 py-2 bg-amber-600 hover:bg-amber-500 font-extrabold rounded-xl text-xs text-white shadow">Confirmar Producción en Lote</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL DE INGRESO DE MERCADERÍA EN COCINA (REQUERIDO PIN NIVEL 2) -->
+  <div id="stock-entry-modal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+      <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+        <h3 class="font-extrabold text-white text-lg flex items-center gap-2">
+          📦 Ingresar Mercadería a Stock General
+        </h3>
+        <button onclick="closeStockEntryModal()" class="text-slate-400 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="stock-entry-form" onsubmit="submitStockEntry(event)" class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">🔒 Clave / PIN de Encargado (Nivel 2) *</label>
+          <input type="password" id="stock-pin" required placeholder="PIN de 4 dígitos (ej: 9999)" class="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-sm text-white font-mono outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Insumo / Materia Prima Habilitada *</label>
+          <select id="stock-material-id" required class="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-sm text-white font-bold outline-none focus:ring-2 focus:ring-blue-500">
+            <!-- Dinámico -->
+          </select>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Cantidad Recibida *</label>
+            <input type="number" step="0.01" id="stock-qty" required placeholder="Ej: 50" class="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-sm text-white font-mono font-bold outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Proveedor (Opcional)</label>
+            <select id="stock-supplier-id" class="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-sm text-white outline-none focus:ring-2 focus:ring-blue-500">
+              <!-- Dinámico -->
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Notas / Observación</label>
+          <input type="text" id="stock-notes" placeholder="Ej: Ingresado por Encargado de turno noche" class="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+
+        <div class="pt-4 flex justify-end gap-2 border-t border-slate-800">
+          <button type="button" onclick="closeStockEntryModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 font-bold rounded-xl text-xs text-slate-300">Cancelar</button>
+          <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 font-extrabold rounded-xl text-xs text-white shadow">Autorizar e Ingresar Stock</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL DE RESUMEN DE CAJA -->
+  <div id="cash-modal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+      <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+        <h3 class="font-extrabold text-white text-lg flex items-center gap-2">
+          💰 Arqueo de Caja del Día
+        </h3>
+        <button onclick="closeCashModal()" class="text-slate-400 hover:text-white">
           <i data-lucide="x" class="w-5 h-5"></i>
         </button>
       </div>
 
       <div id="cash-summary-content" class="space-y-3">
-        <!-- Carga dinámicamente -->
+        <!-- Se llena dinámicamente -->
       </div>
 
-      <div class="pt-3 border-t border-slate-700 flex justify-end">
-        <button onclick="closeCashModal()" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 font-bold rounded-xl text-xs text-white">Cerrar</button>
+      <div class="pt-2 flex justify-end">
+        <button onclick="closeCashModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 font-bold rounded-xl text-xs text-slate-300">Cerrar</button>
       </div>
     </div>
   </div>
 
-  <!-- ÁREA DE IMPRESIÓN DE TICKET TÉRMICO -->
-  <div id="print-area">
-    <!-- Se llena dinámicamente -->
-  </div>
+  <!-- ÁREA DE IMPRESIÓN -->
+  <div id="print-area"></div>
 
   <script src="/js/cocina.js"></script>
   <script>

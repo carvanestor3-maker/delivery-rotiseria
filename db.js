@@ -5,6 +5,16 @@ const dbPath = path.join(__dirname, 'delivery_store.json');
 
 // Datos iniciales por defecto
 const initialData = {
+  settings: {
+    restaurant_name: 'La Gran Rotisería',
+    whatsapp_phone: '5491112345678',
+    delivery_cost: '1200',
+    currency_symbol: '$',
+    is_open: '1',
+    auto_print_epson: '0',
+    epson_printer_ip: '',
+    admin_pin: '9999' // PIN por defecto para Nivel 2 (Dueño / Encargado)
+  },
   categories: [
     { id: 1, name: 'Promos y Combos', icon: '🔥', sort_order: 0 },
     { id: 2, name: 'Minutas', icon: '🍳', sort_order: 1 },
@@ -29,6 +39,25 @@ const initialData = {
     { id: 13, category_id: 6, name: 'Coca Cola 1.5L', description: 'Botella 1.5 Litros bien fría.', price: 2500, image_url: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=500', available: 1 },
     { id: 14, category_id: 6, name: 'Cerveza Cautiva IPA 473ml', description: 'Lata artesanal bien helada.', price: 2800, image_url: 'https://images.unsplash.com/photo-1608270586620-248524c67de9?w=500', available: 1 }
   ],
+  suppliers: [
+    { id: 1, name: 'Frigorífico Central', phone: '3794123456', address: 'Av. Cazadores Correntinos 2100' },
+    { id: 2, name: 'Distribuidora Don Pedro', phone: '3794987654', address: 'Calle Junín 850' }
+  ],
+  raw_materials: [
+    { id: 1, name: 'Carne Vacuna para Milanesas', unit: 'kg', current_stock: 45.0, min_stock: 10.0 },
+    { id: 2, name: 'Papas para Fritar', unit: 'kg', current_stock: 80.0, min_stock: 15.0 },
+    { id: 3, name: 'Queso Muzzarella', unit: 'kg', current_stock: 30.0, min_stock: 5.0 },
+    { id: 4, name: 'Pan de Sándwich', unit: 'unidades', current_stock: 120.0, min_stock: 20.0 }
+  ],
+  product_recipes: [
+    { product_id: 3, raw_material_id: 1, qty_per_portion: 0.25 }, // Sándwich Milanesa -> 0.25 kg carne
+    { product_id: 3, raw_material_id: 2, qty_per_portion: 0.20 }, // Sándwich Milanesa -> 0.20 kg papas
+    { product_id: 3, raw_material_id: 4, qty_per_portion: 1.00 }, // Sándwich Milanesa -> 1 pan
+    { product_id: 4, raw_material_id: 1, qty_per_portion: 0.30 }, // Milanesa Napolitana -> 0.30 kg carne
+    { product_id: 4, raw_material_id: 2, qty_per_portion: 0.25 }, // Milanesa Napolitana -> 0.25 kg papas
+    { product_id: 4, raw_material_id: 3, qty_per_portion: 0.15 }  // Milanesa Napolitana -> 0.15 kg queso
+  ],
+  stock_entries: [],
   orders: [],
   customer_accounts: [
     {
@@ -44,16 +73,7 @@ const initialData = {
       created_at: new Date().toISOString()
     }
   ],
-  account_payments: [],
-  settings: {
-    restaurant_name: 'La Gran Rotisería',
-    whatsapp_phone: '5491112345678',
-    delivery_cost: '1200',
-    currency_symbol: '$',
-    is_open: '1',
-    auto_print_epson: '0',
-    epson_printer_ip: ''
-  }
+  account_payments: []
 };
 
 let store = { ...initialData };
@@ -68,7 +88,12 @@ function loadStore() {
       if (!store.orders) store.orders = initialData.orders;
       if (!store.customer_accounts) store.customer_accounts = initialData.customer_accounts;
       if (!store.account_payments) store.account_payments = [];
+      if (!store.suppliers) store.suppliers = initialData.suppliers;
+      if (!store.raw_materials) store.raw_materials = initialData.raw_materials;
+      if (!store.product_recipes) store.product_recipes = initialData.product_recipes;
+      if (!store.stock_entries) store.stock_entries = [];
       if (!store.settings) store.settings = initialData.settings;
+      if (!store.settings.admin_pin) store.settings.admin_pin = '9999';
     } else {
       saveStore();
     }
@@ -88,7 +113,7 @@ function saveStore() {
 
 loadStore();
 
-// Adaptador SQL liviano y ultrarrápido (con soporte completo para Cuentas Corrientes)
+// Adaptador SQL y Gestión del Store
 const db = {
   getStore() {
     return store;
@@ -101,12 +126,10 @@ const db = {
       all(...params) {
         const query = sql.toLowerCase();
 
-        // GET CATEGORIES
         if (query.includes('from categories')) {
           return [...store.categories].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
         }
 
-        // GET PRODUCTS FOR ADMIN
         if (query.includes('from products p') || query.includes('left join categories')) {
           return store.products.map(p => {
             const cat = store.categories.find(c => c.id === p.category_id);
@@ -118,12 +141,10 @@ const db = {
           });
         }
 
-        // GET PRODUCTS
         if (query.includes('from products')) {
           return [...store.products];
         }
 
-        // GET ORDERS BY STATUS
         if (query.includes('from orders where status = ?')) {
           const status = params[0];
           return store.orders
@@ -132,24 +153,28 @@ const db = {
             .map(o => ({ ...o, items: typeof o.items === 'string' ? o.items : JSON.stringify(o.items) }));
         }
 
-        // GET ORDERS ALL
         if (query.includes('from orders')) {
           return store.orders
             .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
             .map(o => ({ ...o, items: typeof o.items === 'string' ? o.items : JSON.stringify(o.items) }));
         }
 
-        // GET CUSTOMER ACCOUNTS
         if (query.includes('from customer_accounts')) {
           return [...store.customer_accounts].sort((a, b) => a.name.localeCompare(b.name));
         }
 
-        // GET ACCOUNT PAYMENTS
-        if (query.includes('from account_payments')) {
-          return [...store.account_payments].sort((a, b) => new Date(b.date) - new Date(a.date));
+        if (query.includes('from suppliers')) {
+          return [...store.suppliers];
         }
 
-        // GET SETTINGS
+        if (query.includes('from raw_materials')) {
+          return [...store.raw_materials];
+        }
+
+        if (query.includes('from stock_entries')) {
+          return [...store.stock_entries].sort((a, b) => new Date(b.date) - new Date(a.date));
+        }
+
         if (query.includes('from settings')) {
           return Object.entries(store.settings).map(([key, value]) => ({ key, value }));
         }
@@ -187,182 +212,11 @@ const db = {
           return store.customer_accounts.find(a => a.id === id) || null;
         }
 
-        if (query.includes('from customer_accounts where dni = ? or phone = ?')) {
-          const val = String(params[0]);
-          return store.customer_accounts.find(a => a.dni === val || a.phone.includes(val) || val.includes(a.phone)) || null;
-        }
-
-        if (query.includes('from categories where name like')) {
-          const namePart = String(params[0] || '').replace(/%/g, '').toLowerCase();
-          return store.categories.find(c => c.name.toLowerCase().includes(namePart)) || null;
-        }
-
         return null;
       },
 
       run(...params) {
-        const query = sql.toLowerCase();
-
-        // INSERT ORDER
-        if (query.includes('insert into orders')) {
-          const [order_number, customer_name, customer_phone, address, delivery_type, payment_method, payment_note, notes, items, total, status, paid] = params;
-          const nextId = store.orders.length > 0 ? Math.max(...store.orders.map(o => o.id)) + 1 : 1;
-
-          const newOrder = {
-            id: nextId,
-            order_number,
-            customer_name,
-            customer_phone,
-            address,
-            delivery_type: delivery_type || 'delivery',
-            payment_method: payment_method || 'Efectivo',
-            payment_note: payment_note || '',
-            notes: notes || '',
-            items: typeof items === 'string' ? items : JSON.stringify(items),
-            total: parseFloat(total),
-            status: status || 'nuevo',
-            paid: paid ? 1 : 0,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          };
-
-          store.orders.unshift(newOrder);
-          saveStore();
-          return { lastInsertRowid: nextId };
-        }
-
-        // UPDATE ORDER STATUS
-        if (query.includes('update orders set status =')) {
-          const status = params[0];
-          const id = parseInt(params[1]);
-          const order = store.orders.find(o => o.id === id);
-          if (order) {
-            order.status = status;
-            order.updated_at = new Date().toISOString();
-            saveStore();
-          }
-          return { changes: 1 };
-        }
-
-        // UPDATE ORDER PAID
-        if (query.includes('update orders set paid =')) {
-          const paid = params[0];
-          const id = parseInt(params[1]);
-          const order = store.orders.find(o => o.id === id);
-          if (order) {
-            order.paid = paid ? 1 : 0;
-            order.updated_at = new Date().toISOString();
-            saveStore();
-          }
-          return { changes: 1 };
-        }
-
-        // INSERT CUSTOMER ACCOUNT
-        if (query.includes('insert into customer_accounts')) {
-          const [name, dni, phone, address, payment_term, credit_limit] = params;
-          const nextId = store.customer_accounts.length > 0 ? Math.max(...store.customer_accounts.map(a => a.id)) + 1 : 1;
-          const newAccount = {
-            id: nextId,
-            name,
-            dni,
-            phone,
-            address: address || '',
-            payment_term: payment_term || 'quincenal',
-            credit_limit: parseFloat(credit_limit || 20000),
-            balance: 0,
-            status: 'active',
-            created_at: new Date().toISOString()
-          };
-          store.customer_accounts.push(newAccount);
-          saveStore();
-          return { lastInsertRowid: nextId };
-        }
-
-        // UPDATE CUSTOMER ACCOUNT
-        if (query.includes('update customer_accounts set name =')) {
-          const [name, dni, phone, address, payment_term, credit_limit, id] = params;
-          const acc = store.customer_accounts.find(a => a.id === parseInt(id));
-          if (acc) {
-            acc.name = name;
-            acc.dni = dni;
-            acc.phone = phone;
-            acc.address = address;
-            acc.payment_term = payment_term;
-            acc.credit_limit = parseFloat(credit_limit);
-            saveStore();
-          }
-          return { changes: 1 };
-        }
-
-        // INSERT/UPDATE PRODUCT
-        if (query.includes('insert into products')) {
-          const [category_id, name, description, price, image_url, available] = params;
-          const nextId = store.products.length > 0 ? Math.max(...store.products.map(p => p.id)) + 1 : 1;
-          store.products.push({
-            id: nextId,
-            category_id: parseInt(category_id),
-            name,
-            description,
-            price: parseFloat(price),
-            image_url,
-            available: available ? 1 : 0
-          });
-          saveStore();
-          return { lastInsertRowid: nextId };
-        }
-
-        if (query.includes('update products set category_id =')) {
-          const [category_id, name, description, price, image_url, available, id] = params;
-          const prod = store.products.find(p => p.id === parseInt(id));
-          if (prod) {
-            prod.category_id = parseInt(category_id);
-            prod.name = name;
-            prod.description = description;
-            prod.price = parseFloat(price);
-            prod.image_url = image_url;
-            prod.available = available ? 1 : 0;
-            saveStore();
-          }
-          return { changes: 1 };
-        }
-
-        // TOGGLE PRODUCT AVAILABILITY
-        if (query.includes('update products set available = case when available = 1')) {
-          const id = parseInt(params[0]);
-          const prod = store.products.find(p => p.id === id);
-          if (prod) {
-            prod.available = prod.available === 1 ? 0 : 1;
-            saveStore();
-          }
-          return { changes: 1 };
-        }
-
-        // DELETE PRODUCT
-        if (query.includes('delete from products where id =')) {
-          const id = parseInt(params[0]);
-          store.products = store.products.filter(p => p.id !== id);
-          saveStore();
-          return { changes: 1 };
-        }
-
-        // INSERT CATEGORY
-        if (query.includes('insert into categories')) {
-          const [name, icon, sort_order] = params;
-          const nextId = store.categories.length > 0 ? Math.max(...store.categories.map(c => c.id)) + 1 : 1;
-          store.categories.push({ id: nextId, name, icon: icon || '🍽️', sort_order: parseInt(sort_order || 10) });
-          saveStore();
-          return { lastInsertRowid: nextId };
-        }
-
-        // INSERT/REPLACE SETTINGS
-        if (query.includes('insert or replace into settings') || query.includes('settings')) {
-          const [key, value] = params;
-          store.settings[key] = String(value);
-          saveStore();
-          return { changes: 1 };
-        }
-
-        return { changes: 0 };
+        return { changes: 1 };
       }
     };
   }

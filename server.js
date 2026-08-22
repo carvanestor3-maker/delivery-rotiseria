@@ -24,24 +24,77 @@ io.on('connection', (socket) => {
 });
 
 function getSettingsMap() {
-  const stmt = db.prepare('SELECT key, value FROM settings');
-  const rows = stmt.all();
-  const settings = {};
-  rows.forEach(row => {
-    settings[row.key] = row.value;
-  });
-  return settings;
+  const store = db.getStore();
+  return store.settings || {};
 }
+
+// VERIFICAR PIN DE SEGURIDAD (NIVEL 2 - ENCARGADO / DUEÑO)
+app.post('/api/verify-pin', (req, res) => {
+  try {
+    const { pin } = req.body;
+    const settings = getSettingsMap();
+    const validPin = settings.admin_pin || '9999';
+
+    if (String(pin) === String(validPin)) {
+      return res.json({ success: true, authorized: true });
+    } else {
+      return res.status(401).json({ success: false, authorized: false, error: 'PIN de Administrador (Nivel 2) incorrecto' });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// REGISTRAR PRODUCCIÓN EN LOTE EN COCINA (Mise en place de porciones)
+app.post('/api/production/register', (req, res) => {
+  try {
+    const { product_id, portions } = req.body;
+    const pid = parseInt(product_id);
+    const qtyPortions = parseFloat(portions || 0);
+
+    if (!pid || qtyPortions <= 0) {
+      return res.status(400).json({ success: false, error: 'Producto y cantidad de porciones producidas son obligatorios' });
+    }
+
+    const store = db.getStore();
+    const prod = store.products.find(p => p.id === pid);
+    if (!prod) {
+      return res.status(404).json({ success: false, error: 'Producto no encontrado' });
+    }
+
+    // Calcular y descontar insumos del stock general según receta
+    const recipes = store.product_recipes.filter(r => r.product_id === pid);
+    let discountedMaterials = [];
+
+    recipes.forEach(r => {
+      const rawMat = store.raw_materials.find(m => m.id === r.raw_material_id);
+      if (rawMat) {
+        const discountQty = (r.qty_per_portion || 0) * qtyPortions;
+        rawMat.current_stock = Math.max(0, (rawMat.current_stock || 0) - discountQty);
+        discountedMaterials.push(`${rawMat.name}: -${discountQty.toFixed(2)}${rawMat.unit}`);
+      }
+    });
+
+    db.saveStore();
+    io.emit('stock_updated');
+
+    res.json({
+      success: true,
+      product_name: prod.name,
+      portions: qtyPortions,
+      discounted: discountedMaterials
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
 
 // RUTAS API DE MENÚ Y CLIENTE
 app.get('/api/menu', (req, res) => {
   try {
-    const categoriesStmt = db.prepare('SELECT * FROM categories ORDER BY sort_order ASC');
-    const categories = categoriesStmt.all();
-
-    const productsStmt = db.prepare('SELECT * FROM products ORDER BY name ASC');
-    const products = productsStmt.all();
-
+    const store = db.getStore();
+    const categories = [...store.categories].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+    const products = store.products;
     const settings = getSettingsMap();
 
     res.json({
@@ -63,15 +116,14 @@ app.post('/api/orders', (req, res) => {
       return res.status(400).json({ success: false, error: 'Faltan datos obligatorios del pedido' });
     }
 
-    const countStmt = db.prepare('SELECT COUNT(*) as count FROM orders');
-    const totalOrders = countStmt.get().count;
+    const store = db.getStore();
+    const totalOrders = store.orders.length;
     const orderNumber = `#${101 + totalOrders}`;
 
     const itemsJson = typeof items === 'string' ? items : JSON.stringify(items);
 
     // Si es Cuenta Corriente, validar registro previo
     if (payment_method && payment_method.includes('Cuenta Corriente')) {
-      const store = db.getStore();
       const account = store.customer_accounts.find(a => 
         a.dni === payment_note || 
         a.phone.includes(customer_phone) || 
@@ -86,27 +138,27 @@ app.post('/api/orders', (req, res) => {
       }
     }
 
-    const insertStmt = db.prepare(`
-      INSERT INTO orders (order_number, customer_name, customer_phone, address, delivery_type, payment_method, payment_note, notes, items, total, status, paid)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'nuevo', 0)
-    `);
-
-    const info = insertStmt.run(
-      orderNumber,
+    const nextId = store.orders.length > 0 ? Math.max(...store.orders.map(o => o.id)) + 1 : 1;
+    const newOrder = {
+      id: nextId,
+      order_number: orderNumber,
       customer_name,
       customer_phone,
-      address || 'Retiro en local',
-      delivery_type || 'delivery',
-      payment_method || 'Efectivo',
-      payment_note || '',
-      notes || '',
-      itemsJson,
-      parseFloat(total)
-    );
+      address: address || 'Retiro en local',
+      delivery_type: delivery_type || 'delivery',
+      payment_method: payment_method || 'Efectivo',
+      payment_note: payment_note || '',
+      notes: notes || '',
+      items: typeof items === 'string' ? items : JSON.parse(itemsJson),
+      total: parseFloat(total),
+      status: 'nuevo',
+      paid: 0,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
 
-    const newOrderStmt = db.prepare('SELECT * FROM orders WHERE id = ?');
-    const newOrder = newOrderStmt.get(info.lastInsertRowid);
-    newOrder.items = JSON.parse(newOrder.items);
+    store.orders.unshift(newOrder);
+    db.saveStore();
 
     io.emit('new_order', newOrder);
 
@@ -130,19 +182,15 @@ app.post('/api/orders', (req, res) => {
 // RUTAS API DE PANTALLA DE COCINA (KDS), CAJA & ADMIN
 app.get('/api/orders', (req, res) => {
   try {
+    const store = db.getStore();
     const { status } = req.query;
-    let stmt;
+    let orders = store.orders;
     if (status) {
-      stmt = db.prepare('SELECT * FROM orders WHERE status = ? ORDER BY created_at DESC');
-      var orders = stmt.all(status);
-    } else {
-      stmt = db.prepare('SELECT * FROM orders ORDER BY created_at DESC LIMIT 100');
-      var orders = stmt.all();
+      orders = orders.filter(o => o.status === status);
     }
-
     orders = orders.map(o => ({
       ...o,
-      items: JSON.parse(o.items)
+      items: typeof o.items === 'string' ? JSON.parse(o.items) : o.items
     }));
 
     res.json({ success: true, orders });
@@ -151,7 +199,7 @@ app.get('/api/orders', (req, res) => {
   }
 });
 
-// PUT /api/orders/:id/status - Cambiar estado con validación estricta de caja y límite de crédito
+// PUT /api/orders/:id/status - Cambiar estado con validaciones
 app.put('/api/orders/:id/status', (req, res) => {
   try {
     const { id } = req.params;
@@ -212,7 +260,6 @@ app.put('/api/orders/:id/status', (req, res) => {
       );
       if (account) {
         account.balance = (account.balance || 0) + existingOrder.total;
-        db.saveStore();
       }
     }
 
@@ -238,18 +285,151 @@ app.put('/api/orders/:id/paid', (req, res) => {
     const { id } = req.params;
     const { paid } = req.body;
 
-    const newPaidVal = paid !== undefined ? (paid ? 1 : 0) : 1;
-    const stmt = db.prepare('UPDATE orders SET paid = ? WHERE id = ?');
-    stmt.run(newPaidVal, id);
+    const store = db.getStore();
+    const order = store.orders.find(o => o.id === parseInt(id));
+    if (order) {
+      order.paid = paid ? 1 : 0;
+      order.updated_at = new Date().toISOString();
+      db.saveStore();
 
-    const updatedOrderStmt = db.prepare('SELECT * FROM orders WHERE id = ?');
-    const updatedOrder = updatedOrderStmt.get(id);
-    if (updatedOrder) {
-      updatedOrder.items = JSON.parse(updatedOrder.items);
+      const updatedOrder = {
+        ...order,
+        items: typeof order.items === 'string' ? JSON.parse(order.items) : order.items
+      };
       io.emit('order_updated', updatedOrder);
+      return res.json({ success: true, order: updatedOrder });
+    }
+    res.status(404).json({ success: false, error: 'Pedido no encontrado' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// APIS DE MERCADERÍA, INSUMOS, PROVEEDORES Y RECETAS (CON RESTRICCIÓN DE PIN NIVEL 2)
+app.get('/api/admin/stock', (req, res) => {
+  try {
+    const store = db.getStore();
+    res.json({
+      success: true,
+      suppliers: store.suppliers || [],
+      raw_materials: store.raw_materials || [],
+      product_recipes: store.product_recipes || [],
+      stock_entries: store.stock_entries || []
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Ingreso de Mercadería al Stock General (en Admin o Cocina - Requiere PIN Nivel 2)
+app.post('/api/stock/entry', (req, res) => {
+  try {
+    const { pin, supplier_id, raw_material_id, quantity, unit_cost, notes, registered_by } = req.body;
+    const settings = getSettingsMap();
+    const validPin = settings.admin_pin || '9999';
+
+    if (String(pin) !== String(validPin)) {
+      return res.status(401).json({ success: false, error: 'PIN de Administrador (Nivel 2) incorrecto' });
     }
 
-    res.json({ success: true, order: updatedOrder });
+    const store = db.getStore();
+    const rawMat = store.raw_materials.find(m => m.id === parseInt(raw_material_id));
+    if (!rawMat) {
+      return res.status(404).json({ success: false, error: 'Insumo de materia prima no encontrado' });
+    }
+
+    const qtyAdd = parseFloat(quantity || 0);
+    if (qtyAdd <= 0) {
+      return res.status(400).json({ success: false, error: 'La cantidad ingresada debe ser mayor a 0' });
+    }
+
+    rawMat.current_stock = (rawMat.current_stock || 0) + qtyAdd;
+
+    const supplier = store.suppliers.find(s => s.id === parseInt(supplier_id));
+
+    const nextId = store.stock_entries.length > 0 ? Math.max(...store.stock_entries.map(e => e.id)) + 1 : 1;
+    store.stock_entries.unshift({
+      id: nextId,
+      date: new Date().toISOString(),
+      supplier_name: supplier ? supplier.name : 'Proveedor General',
+      raw_material_name: rawMat.name,
+      unit: rawMat.unit,
+      quantity: qtyAdd,
+      unit_cost: parseFloat(unit_cost || 0),
+      total_cost: qtyAdd * parseFloat(unit_cost || 0),
+      notes: notes || '',
+      registered_by: registered_by || 'Encargado (Nivel 2)'
+    });
+
+    db.saveStore();
+    io.emit('stock_updated');
+
+    res.json({ success: true, raw_material: rawMat });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Guardar Insumo / Materia Prima
+app.post('/api/admin/materials', (req, res) => {
+  try {
+    const { id, name, unit, min_stock, current_stock, pin } = req.body;
+    const settings = getSettingsMap();
+    if (String(pin) !== String(settings.admin_pin || '9999')) {
+      return res.status(401).json({ success: false, error: 'PIN de Nivel 2 requerido' });
+    }
+
+    const store = db.getStore();
+    if (id) {
+      const mat = store.raw_materials.find(m => m.id === parseInt(id));
+      if (mat) {
+        mat.name = name;
+        mat.unit = unit || 'kg';
+        mat.min_stock = parseFloat(min_stock || 5);
+        if (current_stock !== undefined) mat.current_stock = parseFloat(current_stock);
+      }
+    } else {
+      const nextId = store.raw_materials.length > 0 ? Math.max(...store.raw_materials.map(m => m.id)) + 1 : 1;
+      store.raw_materials.push({
+        id: nextId,
+        name,
+        unit: unit || 'kg',
+        current_stock: parseFloat(current_stock || 0),
+        min_stock: parseFloat(min_stock || 5)
+      });
+    }
+    db.saveStore();
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Guardar Receta / Porcionado por Plato
+app.post('/api/admin/recipes', (req, res) => {
+  try {
+    const { product_id, ingredients, pin } = req.body;
+    const settings = getSettingsMap();
+    if (String(pin) !== String(settings.admin_pin || '9999')) {
+      return res.status(401).json({ success: false, error: 'PIN de Nivel 2 requerido' });
+    }
+
+    const store = db.getStore();
+    const pid = parseInt(product_id);
+    store.product_recipes = store.product_recipes.filter(r => r.product_id !== pid);
+
+    if (Array.isArray(ingredients)) {
+      ingredients.forEach(ing => {
+        store.product_recipes.push({
+          product_id: pid,
+          raw_material_id: parseInt(ing.raw_material_id),
+          qty_per_portion: parseFloat(ing.qty_per_portion)
+        });
+      });
+    }
+
+    db.saveStore();
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -271,7 +451,12 @@ app.get('/api/admin/accounts', (req, res) => {
 
 app.post('/api/admin/accounts', (req, res) => {
   try {
-    const { id, name, dni, phone, address, payment_term, credit_limit } = req.body;
+    const { id, name, dni, phone, address, payment_term, credit_limit, pin } = req.body;
+    const settings = getSettingsMap();
+    if (String(pin) !== String(settings.admin_pin || '9999')) {
+      return res.status(401).json({ success: false, error: 'PIN de Administrador (Nivel 2) requerido para gestionar Cuentas Corrientes.' });
+    }
+
     if (!name || !dni || !phone) {
       return res.status(400).json({ success: false, error: 'Nombre, DNI y Teléfono son obligatorios' });
     }
@@ -311,7 +496,7 @@ app.post('/api/admin/accounts', (req, res) => {
   }
 });
 
-// Registrar Cobro Parcial o Total de Cuenta Corriente (ingresa efectivo a la caja del día)
+// Registrar Cobro Parcial o Total de Cuenta Corriente
 app.post('/api/admin/accounts/:id/payment', (req, res) => {
   try {
     const { id } = req.params;
@@ -341,9 +526,7 @@ app.post('/api/admin/accounts/:id/payment', (req, res) => {
       date: new Date().toISOString()
     });
 
-    // Registrar pago como ingreso de efectivo en ordenes diarias de caja
-    const countStmt = db.prepare('SELECT COUNT(*) as count FROM orders');
-    const totalOrders = countStmt.get().count;
+    const totalOrders = store.orders.length;
     const orderNumber = `#PAGO-CC-${101 + totalOrders}`;
 
     store.orders.unshift({
@@ -365,7 +548,6 @@ app.post('/api/admin/accounts/:id/payment', (req, res) => {
     });
 
     db.saveStore();
-
     io.emit('order_updated');
 
     res.json({ success: true, account });
@@ -433,8 +615,8 @@ app.get('/api/cash/summary', (req, res) => {
 app.post('/api/print-epson/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const stmt = db.prepare('SELECT * FROM orders WHERE id = ?');
-    const order = stmt.get(id);
+    const store = db.getStore();
+    const order = store.orders.find(o => o.id === parseInt(id));
     if (!order) return res.status(404).json({ success: false, error: 'Pedido no encontrado' });
 
     order.items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
@@ -535,13 +717,16 @@ function printToEpsonNetwork(order, ip, port = 9100) {
 // RUTAS API PRODUCTOS & CATEGORÍAS
 app.get('/api/admin/products', (req, res) => {
   try {
-    const stmt = db.prepare(`
-      SELECT p.*, c.name as category_name, c.icon as category_icon 
-      FROM products p 
-      LEFT JOIN categories c ON p.category_id = c.id 
-      ORDER BY p.category_id ASC, p.name ASC
-    `);
-    res.json({ success: true, products: stmt.all() });
+    const store = db.getStore();
+    const products = store.products.map(p => {
+      const cat = store.categories.find(c => c.id === p.category_id);
+      return {
+        ...p,
+        category_name: cat ? cat.name : 'Sin categoría',
+        category_icon: cat ? cat.icon : '🍽️'
+      };
+    });
+    res.json({ success: true, products });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -549,57 +734,36 @@ app.get('/api/admin/products', (req, res) => {
 
 app.post('/api/admin/products', (req, res) => {
   try {
-    const { id, category_id, name, description, price, image_url, available } = req.body;
-    if (id) {
-      const updateStmt = db.prepare(`
-        UPDATE products 
-        SET category_id = ?, name = ?, description = ?, price = ?, image_url = ?, available = ?
-        WHERE id = ?
-      `);
-      updateStmt.run(category_id, name, description, parseFloat(price), image_url, available ? 1 : 0, id);
-    } else {
-      const insertStmt = db.prepare(`
-        INSERT INTO products (category_id, name, description, price, image_url, available)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `);
-      insertStmt.run(category_id, name, description, parseFloat(price), image_url, available !== undefined ? (available ? 1 : 0) : 1);
+    const { id, category_id, name, description, price, image_url, available, pin } = req.body;
+    const settings = getSettingsMap();
+    if (String(pin) !== String(settings.admin_pin || '9999')) {
+      return res.status(401).json({ success: false, error: 'PIN de Administrador (Nivel 2) requerido para modificar el menú.' });
     }
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
 
-app.post('/api/admin/categories', (req, res) => {
-  try {
-    const { name, icon, sort_order } = req.body;
-    if (!name) return res.status(400).json({ success: false, error: 'El nombre es obligatorio' });
-
-    const insertStmt = db.prepare('INSERT INTO categories (name, icon, sort_order) VALUES (?, ?, ?)');
-    insertStmt.run(name, icon || '🍽️', parseInt(sort_order || 10));
-
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-app.put('/api/admin/products/:id/toggle', (req, res) => {
-  try {
-    const { id } = req.params;
-    const stmt = db.prepare('UPDATE products SET available = CASE WHEN available = 1 THEN 0 ELSE 1 END WHERE id = ?');
-    stmt.run(id);
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-app.delete('/api/admin/products/:id', (req, res) => {
-  try {
-    const { id } = req.params;
-    const stmt = db.prepare('DELETE FROM products WHERE id = ?');
-    stmt.run(id);
+    const store = db.getStore();
+    if (id) {
+      const prod = store.products.find(p => p.id === parseInt(id));
+      if (prod) {
+        prod.category_id = parseInt(category_id);
+        prod.name = name;
+        prod.description = description;
+        prod.price = parseFloat(price);
+        prod.image_url = image_url;
+        prod.available = available ? 1 : 0;
+      }
+    } else {
+      const nextId = store.products.length > 0 ? Math.max(...store.products.map(p => p.id)) + 1 : 1;
+      store.products.push({
+        id: nextId,
+        category_id: parseInt(category_id),
+        name,
+        description,
+        price: parseFloat(price),
+        image_url,
+        available: available !== undefined ? (available ? 1 : 0) : 1
+      });
+    }
+    db.saveStore();
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -617,10 +781,11 @@ app.get('/api/settings', (req, res) => {
 app.post('/api/settings', (req, res) => {
   try {
     const settings = req.body;
-    const stmt = db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)');
+    const store = db.getStore();
     for (const [key, value] of Object.entries(settings)) {
-      stmt.run(key, String(value));
+      store.settings[key] = String(value);
     }
+    db.saveStore();
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -630,7 +795,7 @@ app.post('/api/settings', (req, res) => {
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`
-🚀 Servidor Delivery & Cuentas Corrientes en ejecución:
+🚀 Servidor Delivery, Producción & Seguridad Nivel 2 en ejecución:
 👉 Local: http://localhost:${PORT}/admin.html
   `);
 });

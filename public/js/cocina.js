@@ -1,15 +1,19 @@
 const socket = io();
 let orders = [];
 let audioEnabled = true;
-let activeMobileTab = 'all'; // 'all' | 'nuevo' | 'en_preparacion' | 'en_camino' | 'entregado'
+let activeMobileTab = 'all';
+let rawMaterials = [];
+let suppliers = [];
+let menuProducts = [];
 
 document.addEventListener('DOMContentLoaded', () => {
   loadOrders();
+  loadStockMaterials();
+  loadMenuProducts();
   setupSocket();
   setInterval(updateTimers, 30000);
 });
 
-// Helper para formatear número de teléfono a código internacional WhatsApp
 function formatWhatsAppNumber(phone) {
   if (!phone) return '';
   let clean = phone.replace(/[^0-9]/g, '');
@@ -23,7 +27,6 @@ function formatWhatsAppNumber(phone) {
   return clean;
 }
 
-// Inicializar conexión WebSocket
 function setupSocket() {
   socket.on('connect', () => {
     document.getElementById('socket-status').innerHTML = '🟢 En vivo';
@@ -36,8 +39,6 @@ function setupSocket() {
   });
 
   socket.on('new_order', (newOrder) => {
-    console.log('🔔 Nuevo pedido recibido por Socket.io:', newOrder);
-
     const exists = orders.some(o => o.id === newOrder.id);
     if (!exists) {
       orders.unshift(newOrder);
@@ -55,7 +56,6 @@ function setupSocket() {
   });
 }
 
-// Cargar pedidos desde API
 async function loadOrders() {
   try {
     const res = await fetch('/api/orders');
@@ -69,7 +69,131 @@ async function loadOrders() {
   }
 }
 
-// Cambiar pestaña en celulares
+async function loadMenuProducts() {
+  try {
+    const res = await fetch('/api/menu');
+    const data = await res.json();
+    if (data.success) {
+      menuProducts = data.products || [];
+      populateProductionSelect();
+    }
+  } catch (err) {
+    console.error('Error al cargar menú:', err);
+  }
+}
+
+function populateProductionSelect() {
+  const sel = document.getElementById('prod-product-id');
+  if (!sel) return;
+  sel.innerHTML = menuProducts.map(p => `<option value="${p.id}">${p.name} ($${p.price})</option>`).join('');
+}
+
+function openProductionModal() {
+  loadMenuProducts();
+  const modal = document.getElementById('production-modal');
+  document.getElementById('production-form').reset();
+  modal.classList.remove('opacity-0', 'pointer-events-none');
+}
+
+function closeProductionModal() {
+  const modal = document.getElementById('production-modal');
+  modal.classList.add('opacity-0', 'pointer-events-none');
+}
+
+async function submitProduction(e) {
+  e.preventDefault();
+  const product_id = document.getElementById('prod-product-id').value;
+  const portions = document.getElementById('prod-portions').value;
+
+  try {
+    const res = await fetch('/api/production/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ product_id, portions })
+    });
+    const data = await res.json();
+    if (data.success) {
+      closeProductionModal();
+      const discText = data.discounted && data.discounted.length > 0 ? `\n\nInsumos descontados de Stock:\n${data.discounted.join('\n')}` : '';
+      alert(`👨‍🍳 PRODUCCIÓN REGISTRADA: ${data.portions} porciones de "${data.product_name}" listas.${discText}`);
+      loadStockMaterials();
+    } else {
+      alert(`⚠️ ${data.error}`);
+    }
+  } catch (err) {
+    console.error('Error al registrar producción:', err);
+  }
+}
+
+async function loadStockMaterials() {
+  try {
+    const res = await fetch('/api/admin/stock');
+    const data = await res.json();
+    if (data.success) {
+      rawMaterials = data.raw_materials || [];
+      suppliers = data.suppliers || [];
+      populateStockSelects();
+    }
+  } catch (err) {
+    console.error('Error al cargar insumos de stock:', err);
+  }
+}
+
+function populateStockSelects() {
+  const matSel = document.getElementById('stock-material-id');
+  const supSel = document.getElementById('stock-supplier-id');
+  if (!matSel || !supSel) return;
+
+  matSel.innerHTML = rawMaterials.map(m => `<option value="${m.id}">${m.name} (Stock: ${m.current_stock} ${m.unit})</option>`).join('');
+  supSel.innerHTML = suppliers.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+}
+
+function openStockEntryModal() {
+  loadStockMaterials();
+  const modal = document.getElementById('stock-entry-modal');
+  document.getElementById('stock-entry-form').reset();
+  modal.classList.remove('opacity-0', 'pointer-events-none');
+}
+
+function closeStockEntryModal() {
+  const modal = document.getElementById('stock-entry-modal');
+  modal.classList.add('opacity-0', 'pointer-events-none');
+}
+
+async function submitStockEntry(e) {
+  e.preventDefault();
+  const pin = document.getElementById('stock-pin').value.trim();
+  const raw_material_id = document.getElementById('stock-material-id').value;
+  const supplier_id = document.getElementById('stock-supplier-id').value;
+  const quantity = parseFloat(document.getElementById('stock-qty').value);
+  const notes = document.getElementById('stock-notes').value.trim();
+
+  try {
+    const res = await fetch('/api/stock/entry', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        pin,
+        supplier_id,
+        raw_material_id,
+        quantity,
+        notes,
+        registered_by: 'Encargado (Cocina - Nivel 2)'
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      closeStockEntryModal();
+      alert(`✅ INGRESO DE STOCK AUTORIZADO: Se agregaron +${quantity} al stock de ${data.raw_material.name}.`);
+      loadStockMaterials();
+    } else {
+      alert(`⚠️ ${data.error}`);
+    }
+  } catch (err) {
+    console.error('Error al ingresar mercadería:', err);
+  }
+}
+
 function setMobileTab(tab) {
   activeMobileTab = tab;
   renderKanban();
@@ -87,7 +211,6 @@ function setMobileTab(tab) {
   });
 }
 
-// Renderizar las 4 columnas / vista móvil
 function renderKanban() {
   const cols = {
     nuevo: document.getElementById('col-nuevo'),
@@ -268,8 +391,8 @@ function renderStatusButtons(order) {
 async function updateOrderStatus(orderId, newStatus) {
   const order = orders.find(o => o.id === orderId);
 
-  // Validación estricta: No se puede finalizar si no ha sido ingresado a caja
-  if (newStatus === 'entregado' && order && order.paid !== 1) {
+  // Validación estricta: No se puede finalizar si no ha sido ingresado a caja (salvo Cuenta Corriente autorizada)
+  if (newStatus === 'entregado' && order && order.paid !== 1 && (!order.payment_method || !order.payment_method.includes('Cuenta Corriente'))) {
     alert(`⚠️ ATENCIÓN: No se puede marcar como ENTREGADO el pedido ${order.order_number} (${formatCurrency(order.total)}).\n\nPrimero debe presionar "💰 Ingresar a Caja" para registrar el cobro del dinero.`);
     return;
   }

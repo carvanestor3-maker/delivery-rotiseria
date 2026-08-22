@@ -3,6 +3,8 @@ let categories = [];
 let settings = {};
 let cashOrders = [];
 let customerAccounts = [];
+let rawMaterials = [];
+let suppliers = [];
 let selectedAdminCat = 'all';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -10,7 +12,128 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function loadData() {
-  await Promise.all([loadCashSummary(), loadProducts(), loadCategories(), loadSettings(), loadAccounts()]);
+  await Promise.all([loadCashSummary(), loadProducts(), loadCategories(), loadSettings(), loadAccounts(), loadStockMaterials()]);
+}
+
+// Cargar Insumos y Stock General
+async function loadStockMaterials() {
+  try {
+    const res = await fetch('/api/admin/stock');
+    const data = await res.json();
+    if (data.success) {
+      rawMaterials = data.raw_materials || [];
+      suppliers = data.suppliers || [];
+      renderMaterialsTable();
+    }
+  } catch (err) {
+    console.error('Error al cargar materias primas:', err);
+  }
+}
+
+function renderMaterialsTable() {
+  const tbody = document.getElementById('materials-table-body');
+  if (!tbody) return;
+
+  tbody.innerHTML = '';
+
+  if (rawMaterials.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-400">No hay insumos registrados en el stock general.</td></tr>`;
+    return;
+  }
+
+  rawMaterials.forEach(m => {
+    const isLow = (m.current_stock || 0) <= (m.min_stock || 0);
+    const tr = document.createElement('tr');
+    tr.className = 'hover:bg-slate-50 transition';
+
+    tr.innerHTML = `
+      <td class="p-4 font-extrabold text-slate-900 flex items-center gap-2">
+        <span>📦 ${m.name}</span>
+        ${isLow ? `<span class="bg-red-100 text-red-700 text-[10px] font-black px-2 py-0.5 rounded-md">⚠️ Stock Bajo</span>` : ''}
+      </td>
+      <td class="p-4 text-xs font-bold text-slate-600 uppercase">
+        ${m.unit}
+      </td>
+      <td class="p-4 font-mono">
+        <span class="text-base font-black ${isLow ? 'text-red-600' : 'text-slate-900'}">
+          ${m.current_stock || 0} ${m.unit}
+        </span>
+      </td>
+      <td class="p-4 font-mono text-xs text-slate-500 font-bold">
+        ${m.min_stock || 0} ${m.unit}
+      </td>
+      <td class="p-4 text-right space-x-2">
+        <button onclick="editRawMaterial(${m.id})" class="p-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-700 transition" title="Editar Insumo">
+          <i data-lucide="edit-2" class="w-4 h-4"></i>
+        </button>
+      </td>
+    `;
+
+    tbody.appendChild(tr);
+  });
+
+  lucide.createIcons();
+}
+
+function openRawMaterialModal(mat = null) {
+  const modal = document.getElementById('material-modal');
+  const title = document.getElementById('material-modal-title');
+  const form = document.getElementById('material-form');
+
+  form.reset();
+  if (mat) {
+    title.textContent = 'Editar Insumo de Stock';
+    document.getElementById('mat-id').value = mat.id;
+    document.getElementById('mat-name').value = mat.name;
+    document.getElementById('mat-unit').value = mat.unit || 'kg';
+    document.getElementById('mat-min').value = mat.min_stock || 5;
+    document.getElementById('mat-current').value = mat.current_stock || 0;
+  } else {
+    title.textContent = 'Nuevo Insumo de Stock';
+    document.getElementById('mat-id').value = '';
+    document.getElementById('mat-unit').value = 'kg';
+    document.getElementById('mat-min').value = 5;
+    document.getElementById('mat-current').value = 0;
+  }
+
+  modal.classList.remove('opacity-0', 'pointer-events-none');
+}
+
+function closeRawMaterialModal() {
+  const modal = document.getElementById('material-modal');
+  modal.classList.add('opacity-0', 'pointer-events-none');
+}
+
+function editRawMaterial(id) {
+  const mat = rawMaterials.find(m => m.id === id);
+  if (mat) openRawMaterialModal(mat);
+}
+
+async function saveRawMaterial(e) {
+  e.preventDefault();
+  const id = document.getElementById('mat-id').value;
+  const name = document.getElementById('mat-name').value.trim();
+  const unit = document.getElementById('mat-unit').value;
+  const min_stock = document.getElementById('mat-min').value;
+  const current_stock = document.getElementById('mat-current').value;
+  const pin = document.getElementById('mat-pin').value.trim();
+
+  try {
+    const res = await fetch('/api/admin/materials', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: id ? parseInt(id) : null, name, unit, min_stock, current_stock, pin })
+    });
+    const data = await res.json();
+    if (data.success) {
+      closeRawMaterialModal();
+      await loadStockMaterials();
+    } else {
+      alert(`⚠️ ${data.error}`);
+    }
+  } catch (err) {
+    console.error('Error al guardar insumo:', err);
+  }
 }
 
 // Cargar Cuentas Corrientes
@@ -125,12 +248,13 @@ async function saveAccount(e) {
   const address = document.getElementById('acc-address').value.trim();
   const payment_term = document.getElementById('acc-term').value;
   const credit_limit = document.getElementById('acc-limit').value;
+  const pin = document.getElementById('acc-pin').value.trim();
 
   try {
     const res = await fetch('/api/admin/accounts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: id ? parseInt(id) : null, name, dni, phone, address, payment_term, credit_limit })
+      body: JSON.stringify({ id: id ? parseInt(id) : null, name, dni, phone, address, payment_term, credit_limit, pin })
     });
     const data = await res.json();
     if (data.success) {
@@ -372,6 +496,7 @@ async function loadSettings() {
       document.getElementById('set-restaurant-name').value = settings.restaurant_name || '';
       document.getElementById('set-whatsapp-phone').value = settings.whatsapp_phone || '';
       document.getElementById('set-delivery-cost').value = settings.delivery_cost || '1200';
+      document.getElementById('set-admin-pin').value = settings.admin_pin || '9999';
       document.getElementById('set-epson-ip').value = settings.epson_printer_ip || '';
       document.getElementById('set-auto-print').checked = settings.auto_print_epson === '1';
     }
@@ -518,6 +643,7 @@ async function saveProduct(e) {
   const description = document.getElementById('prod-desc').value.trim();
   const image_url = document.getElementById('prod-image').value.trim();
   const available = document.getElementById('prod-available').checked;
+  const pin = document.getElementById('prod-pin').value.trim();
 
   try {
     const res = await fetch('/api/admin/products', {
@@ -525,13 +651,15 @@ async function saveProduct(e) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         id: id ? parseInt(id) : null,
-        name, category_id, price, description, image_url, available
+        name, category_id, price, description, image_url, available, pin
       })
     });
     const data = await res.json();
     if (data.success) {
       closeProductModal();
       await loadProducts();
+    } else {
+      alert(`⚠️ ${data.error}`);
     }
   } catch (err) {
     console.error('Error al guardar producto:', err);
@@ -568,6 +696,7 @@ async function saveSettings(e) {
   const restaurant_name = document.getElementById('set-restaurant-name').value.trim();
   const whatsapp_phone = document.getElementById('set-whatsapp-phone').value.trim();
   const delivery_cost = document.getElementById('set-delivery-cost').value.trim();
+  const admin_pin = document.getElementById('set-admin-pin').value.trim();
   const epson_printer_ip = document.getElementById('set-epson-ip').value.trim();
   const auto_print_epson = document.getElementById('set-auto-print').checked ? '1' : '0';
 
@@ -575,7 +704,7 @@ async function saveSettings(e) {
     const res = await fetch('/api/settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ restaurant_name, whatsapp_phone, delivery_cost, epson_printer_ip, auto_print_epson })
+      body: JSON.stringify({ restaurant_name, whatsapp_phone, delivery_cost, admin_pin, epson_printer_ip, auto_print_epson })
     });
     const data = await res.json();
     if (data.success) {
@@ -589,21 +718,25 @@ async function saveSettings(e) {
 function switchTab(tab) {
   const cSection = document.getElementById('tab-cash');
   const aSection = document.getElementById('tab-accounts');
+  const kSection = document.getElementById('tab-stock');
   const pSection = document.getElementById('tab-products');
   const sSection = document.getElementById('tab-settings');
   
   const cBtn = document.getElementById('tab-btn-cash');
   const aBtn = document.getElementById('tab-btn-accounts');
+  const kBtn = document.getElementById('tab-btn-stock');
   const pBtn = document.getElementById('tab-btn-products');
   const sBtn = document.getElementById('tab-btn-settings');
 
   cSection.classList.add('hidden');
   aSection.classList.add('hidden');
+  kSection.classList.add('hidden');
   pSection.classList.add('hidden');
   sSection.classList.add('hidden');
 
   cBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
   aBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
+  kBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
   pBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
   sBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
 
@@ -615,6 +748,10 @@ function switchTab(tab) {
     aSection.classList.remove('hidden');
     aBtn.className = 'tab-btn pb-3 border-b-2 border-orange-500 text-orange-600 flex items-center gap-2 font-bold';
     loadAccounts();
+  } else if (tab === 'stock') {
+    kSection.classList.remove('hidden');
+    kBtn.className = 'tab-btn pb-3 border-b-2 border-orange-500 text-orange-600 flex items-center gap-2 font-bold';
+    loadStockMaterials();
   } else if (tab === 'products') {
     pSection.classList.remove('hidden');
     pBtn.className = 'tab-btn pb-3 border-b-2 border-orange-500 text-orange-600 flex items-center gap-2 font-bold';

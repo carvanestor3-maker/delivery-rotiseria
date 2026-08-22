@@ -18,7 +18,7 @@
       </div>
       <div>
         <h1 class="font-black text-lg">PANEL DE ADMINISTRACIÓN</h1>
-        <p class="text-xs text-slate-400">Gestión de Menú, Minutas, Cuentas Corrientes, Caja e Impresoras</p>
+        <p class="text-xs text-slate-400">Menú, Cuentas Corrientes, Stock/Insumos, Caja e Impresoras</p>
       </div>
     </div>
     <div class="flex items-center gap-2">
@@ -44,11 +44,14 @@
       <button onclick="switchTab('accounts')" id="tab-btn-accounts" class="tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2">
         📖 Cuentas Corrientes (Fiado)
       </button>
+      <button onclick="switchTab('stock')" id="tab-btn-stock" class="tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2">
+        📦 Insumos & Recetas de Porciones
+      </button>
       <button onclick="switchTab('products')" id="tab-btn-products" class="tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2">
         <i data-lucide="utensils" class="w-4 h-4"></i> Catálogo de Productos y Minutas
       </button>
       <button onclick="switchTab('settings')" id="tab-btn-settings" class="tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2">
-        <i data-lucide="sliders" class="w-4 h-4"></i> Ajustes, WhatsApp e Impresora
+        <i data-lucide="sliders" class="w-4 h-4"></i> Ajustes & Clave Nivel 2
       </button>
     </div>
 
@@ -124,7 +127,7 @@
           <h2 class="font-extrabold text-slate-900 text-lg flex items-center gap-2">
             📖 Clientes en Cuenta Corriente (Fiado Autorizado)
           </h2>
-          <p class="text-xs text-slate-500">Administra límites de crédito, plazos (semanal/quincenal/mensual) y cobros parciales o totales</p>
+          <p class="text-xs text-slate-500">Administra límites de crédito, plazos (semanal/quincenal/mensual) y cobros parciales o totales (Requiere PIN Nivel 2)</p>
         </div>
         <button onclick="openAccountModal()" class="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-extrabold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-md transition">
           <i data-lucide="user-plus" class="w-4 h-4"></i> Registrar Cliente en CC
@@ -153,7 +156,45 @@
       </div>
     </section>
 
-    <!-- PESTAÑA 3: PRODUCTOS Y MINUTAS -->
+    <!-- PESTAÑA 3: INSUMOS & RECETAS DE PORCIÓN -->
+    <section id="tab-stock" class="hidden space-y-6">
+      <div class="flex justify-between items-center bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+        <div>
+          <h2 class="font-extrabold text-slate-900 text-lg flex items-center gap-2">
+            📦 Insumos / Materias Primas & Porcionado por Plato
+          </h2>
+          <p class="text-xs text-slate-500">Configura los insumos recibidos de proveedores y las porciones que descuenta cada plato al prepararse en cocina</p>
+        </div>
+        <button onclick="openRawMaterialModal()" class="bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-extrabold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-md transition">
+          <i data-lucide="plus" class="w-4 h-4"></i> Nuevo Insumo de Stock
+        </button>
+      </div>
+
+      <!-- Tabla de Insumos de Stock General -->
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="p-4 bg-slate-50 border-b border-slate-200 font-extrabold text-slate-800 text-sm">
+          Inventario de Materias Primas en Stock General
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-sm">
+            <thead>
+              <tr class="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase">
+                <th class="p-4">Materia Prima / Insumo</th>
+                <th class="p-4">Unidad de Medida</th>
+                <th class="p-4">Stock Actual</th>
+                <th class="p-4">Stock Mínimo (Alerta)</th>
+                <th class="p-4 text-right">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="materials-table-body" class="divide-y divide-slate-100">
+              <!-- Dinámico -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- PESTAÑA 4: PRODUCTOS Y MINUTAS -->
     <section id="tab-products" class="hidden space-y-4">
       <div class="flex justify-between items-center bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
         <div>
@@ -194,9 +235,9 @@
       </div>
     </section>
 
-    <!-- PESTAÑA 4: CONFIGURACIÓN -->
+    <!-- PESTAÑA 5: CONFIGURACIÓN -->
     <section id="tab-settings" class="hidden max-w-2xl bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
-      <h2 class="font-extrabold text-slate-900 text-lg border-b pb-3 border-slate-200">Ajustes del Local y WhatsApp</h2>
+      <h2 class="font-extrabold text-slate-900 text-lg border-b pb-3 border-slate-200">Ajustes, WhatsApp y Seguridad Nivel 2</h2>
       
       <form id="settings-form" onsubmit="saveSettings(event)" class="space-y-4">
         <div>
@@ -212,6 +253,18 @@
         <div>
           <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Costo de Envío por Defecto ($)</label>
           <input type="number" id="set-delivery-cost" required class="w-full px-4 py-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-orange-500 font-mono">
+        </div>
+
+        <hr class="border-slate-200 my-4">
+
+        <h3 class="font-bold text-slate-900 text-base flex items-center gap-2">
+          🔒 Clave de Seguridad Nivel 2 (Dueño / Encargado)
+        </h3>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">PIN / Clave de Autorización para Acciones Críticas</label>
+          <input type="password" id="set-admin-pin" required placeholder="Ej: 9999" class="w-full px-4 py-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-orange-500 font-mono">
+          <p class="text-[11px] text-slate-400 mt-1">Este PIN autoriza el ingreso de mercadería, la apertura de Cuentas Corrientes y cambios de menú.</p>
         </div>
 
         <hr class="border-slate-200 my-4">
@@ -239,6 +292,58 @@
     </section>
 
   </main>
+
+  <!-- MODAL REGISTRO DE INSUMO / MATERIA PRIMA -->
+  <div id="material-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+      <div class="flex justify-between items-center border-b pb-3 border-slate-200">
+        <h3 id="material-modal-title" class="font-extrabold text-slate-900 text-lg">Nuevo Insumo de Stock</h3>
+        <button onclick="closeRawMaterialModal()" class="text-slate-400 hover:text-slate-700">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="material-form" onsubmit="saveRawMaterial(event)" class="space-y-3">
+        <input type="hidden" id="mat-id">
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Nombre del Insumo / Materia Prima *</label>
+          <input type="text" id="mat-name" required placeholder="Ej: Carne Vacuna para Milanesas" class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Unidad de Medida *</label>
+            <select id="mat-unit" required class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-white font-bold">
+              <option value="kg">Kilos (kg)</option>
+              <option value="unidades">Unidades (hs/u)</option>
+              <option value="litros">Litros (lts)</option>
+              <option value="gramos">Gramos (gr)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Stock Mínimo (Alerta)</label>
+            <input type="number" step="0.01" id="mat-min" required placeholder="Ej: 10" class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 font-mono">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Stock Inicial Actual</label>
+          <input type="number" step="0.01" id="mat-current" placeholder="Ej: 45" class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 font-mono font-bold">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">🔒 Clave / PIN Nivel 2 de Administrador *</label>
+          <input type="password" id="mat-pin" required placeholder="PIN de 4 dígitos (ej: 9999)" class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 font-mono">
+        </div>
+
+        <div class="pt-4 flex justify-end gap-2 border-t border-slate-200">
+          <button type="button" onclick="closeRawMaterialModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 font-bold rounded-xl text-xs text-slate-700">Cancelar</button>
+          <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 font-bold rounded-xl text-xs text-white shadow">Guardar Insumo</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
   <!-- MODAL REGISTRO DE CLIENTE EN CUENTA CORRIENTE -->
   <div id="account-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200">
@@ -290,6 +395,11 @@
           </div>
         </div>
 
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">🔒 Clave / PIN Nivel 2 de Administrador *</label>
+          <input type="password" id="acc-pin" required placeholder="PIN de 4 dígitos (ej: 9999)" class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-orange-500 font-mono">
+        </div>
+
         <div class="pt-4 flex justify-end gap-2 border-t border-slate-200">
           <button type="button" onclick="closeAccountModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 font-bold rounded-xl text-xs text-slate-700">Cancelar</button>
           <button type="submit" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 font-bold rounded-xl text-xs text-white shadow">Guardar Cliente en CC</button>
@@ -298,7 +408,7 @@
     </div>
   </div>
 
-  <!-- MODAL REGISTRO DE COBRO DE CUENTA CORRIENTE (PARCIAL O TOTAL) -->
+  <!-- MODAL REGISTRO DE COBRO DE CUENTA CORRIENTE -->
   <div id="payment-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200">
     <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl space-y-4">
       <div class="flex justify-between items-center border-b pb-3 border-slate-200">
@@ -343,7 +453,7 @@
     </div>
   </div>
 
-  <!-- MODAL DE AGREGAR / EDITAR PRODUCTO -->
+  <!-- MODAL DE AGREGAR / EDITAR PRODUCTO CON PIN NIVEL 2 -->
   <div id="product-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200">
     <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
       <div class="flex justify-between items-center border-b pb-3 border-slate-200">
@@ -391,6 +501,11 @@
             <img id="image-preview" src="" class="w-16 h-16 object-cover rounded-lg">
             <span class="text-xs text-slate-500 font-medium">Vista previa de imagen cargada</span>
           </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">🔒 Clave / PIN Nivel 2 de Administrador *</label>
+          <input type="password" id="prod-pin" required placeholder="PIN de 4 dígitos (ej: 9999)" class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-orange-500 font-mono">
         </div>
 
         <div class="flex items-center gap-2 pt-2">

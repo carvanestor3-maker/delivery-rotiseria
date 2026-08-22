@@ -51,17 +51,19 @@ async function loadMenuData() {
 
 function renderCategoryTabs() {
   const container = document.getElementById('category-tabs');
+  if (!container) return;
+
   container.innerHTML = `
-    <button onclick="selectCategory('all')" class="category-tab active px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all shadow-sm ${state.selectedCategory === 'all' ? 'bg-orange-500 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}">
-      🔥 Todos
+    <button onclick="selectCategory('all')" class="category-tab px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all shadow-sm ${state.selectedCategory === 'all' ? 'bg-orange-500 text-white shadow-md' : 'bg-white text-slate-700 hover:bg-slate-200'}">
+      🔥 Todo el Menú
     </button>
   `;
 
   state.categories.forEach(cat => {
-    const isSelected = state.selectedCategory === String(cat.id);
+    const isActive = state.selectedCategory === String(cat.id);
     const btn = document.createElement('button');
     btn.onclick = () => selectCategory(String(cat.id));
-    btn.className = `category-tab px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all shadow-sm ${isSelected ? 'bg-orange-500 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`;
+    btn.className = `category-tab px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all shadow-sm ${isActive ? 'bg-orange-500 text-white shadow-md' : 'bg-white text-slate-700 hover:bg-slate-200'}`;
     btn.textContent = `${cat.icon || '🍽️'} ${cat.name}`;
     container.appendChild(btn);
   });
@@ -73,53 +75,36 @@ function selectCategory(catId) {
   renderMenuSections();
 }
 
-function scrollToCategory(catId) {
-  selectCategory(String(catId));
-  const el = document.getElementById(`cat-section-${catId}`);
-  if (el) el.scrollIntoView({ behavior: 'smooth' });
-}
-
 function renderMenuSections() {
-  const container = document.getElementById('menu-sections');
+  const container = document.getElementById('menu-container');
+  if (!container) return;
+
   container.innerHTML = '';
 
-  let filteredProducts = state.products.filter(p => p.available === 1);
-
+  let filteredCategories = state.categories;
   if (state.selectedCategory !== 'all') {
-    filteredProducts = filteredProducts.filter(p => String(p.category_id) === state.selectedCategory);
+    filteredCategories = state.categories.filter(c => String(c.id) === String(state.selectedCategory));
   }
 
-  if (filteredProducts.length === 0) {
-    container.innerHTML = `
-      <div class="text-center py-12 text-slate-400">
-        <div class="text-4xl mb-2">🍽️</div>
-        <p class="font-semibold text-sm">No hay platos disponibles en esta categoría en este momento.</p>
-      </div>
-    `;
+  if (filteredCategories.length === 0) {
+    container.innerHTML = `<p class="text-center py-8 text-slate-400 text-sm">No hay productos en esta categoría.</p>`;
     return;
   }
 
-  const grouped = {};
-  filteredProducts.forEach(p => {
-    if (!grouped[p.category_id]) grouped[p.category_id] = [];
-    grouped[p.category_id].push(p);
-  });
+  filteredCategories.forEach(cat => {
+    const catProducts = state.products.filter(p => String(p.category_id) === String(cat.id) && p.available === 1);
+    if (catProducts.length === 0) return;
 
-  state.categories.forEach(cat => {
-    const prodsInCat = grouped[cat.id];
-    if (!prodsInCat || prodsInCat.length === 0) return;
-
-    const section = document.createElement('section');
-    section.id = `cat-section-${cat.id}`;
+    const section = document.createElement('div');
     section.className = 'space-y-3';
 
     section.innerHTML = `
-      <div class="flex items-center gap-2 border-b border-slate-200 pb-2">
+      <h2 class="font-black text-slate-900 text-base flex items-center gap-2 border-b border-slate-200 pb-2">
         <span class="text-xl">${cat.icon || '🍽️'}</span>
-        <h3 class="font-extrabold text-slate-900 text-base sm:text-lg uppercase tracking-wide">${cat.name}</h3>
-      </div>
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        ${prodsInCat.map(p => createProductCardHtml(p)).join('')}
+        <span>${cat.name}</span>
+      </h2>
+      <div class="grid grid-cols-1 gap-3">
+        ${catProducts.map(p => renderProductCard(p)).join('')}
       </div>
     `;
 
@@ -127,25 +112,24 @@ function renderMenuSections() {
   });
 }
 
-function createProductCardHtml(prod) {
-  const cartItem = state.cart.find(i => i.id === prod.id);
+function renderProductCard(prod) {
+  const cartItem = state.cart.find(item => item.id === prod.id);
   const qty = cartItem ? cartItem.qty : 0;
 
   return `
-    <div class="bg-white rounded-2xl p-3.5 shadow-sm border border-slate-200/80 flex gap-3.5 justify-between items-center transition hover:shadow-md">
+    <div class="bg-white rounded-2xl p-3.5 shadow-sm border border-slate-200 flex gap-3.5 items-center hover:shadow-md transition">
+      <img src="${prod.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200'}" alt="${prod.name}" class="w-20 h-20 rounded-xl object-cover bg-slate-100 flex-shrink-0">
+      
       <div class="flex-1 min-w-0">
-        <h4 class="font-extrabold text-slate-900 text-sm sm:text-base leading-snug truncate">${prod.name}</h4>
-        <p class="text-xs text-slate-500 mt-1 line-clamp-2 leading-relaxed">${prod.description || ''}</p>
-        <div class="mt-2 font-mono font-black text-orange-600 text-base">
-          ${formatCurrency(prod.price)}
-        </div>
+        <h3 class="font-extrabold text-slate-900 text-sm truncate">${prod.name}</h3>
+        <p class="text-slate-500 text-xs mt-0.5 line-clamp-2 leading-snug">${prod.description || ''}</p>
+        <div class="font-black text-slate-900 text-base font-mono mt-1.5">${formatCurrency(prod.price)}</div>
       </div>
-      <div class="relative flex-shrink-0 flex flex-col items-end gap-2">
-        <img src="${prod.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200'}" alt="${prod.name}" class="w-20 h-20 rounded-xl object-cover bg-slate-100 border border-slate-100">
-        
+
+      <div class="flex-shrink-0">
         ${qty === 0 ? `
-          <button onclick="addToCart(${prod.id})" class="bg-orange-500 hover:bg-orange-600 active:scale-95 text-white font-extrabold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1 shadow-md transition">
-            <i data-lucide="plus" class="w-3.5 h-3.5"></i> Agregar
+          <button onclick="addToCart(${prod.id})" class="bg-orange-500 hover:bg-orange-600 active:scale-95 text-white font-extrabold text-xs px-3.5 py-2 rounded-xl shadow transition flex items-center gap-1">
+            <span>+</span> Agregar
           </button>
         ` : `
           <div class="flex items-center bg-slate-900 text-white rounded-xl overflow-hidden shadow-md">
@@ -295,6 +279,11 @@ function closeCartModal() {
   modal.classList.add('opacity-0', 'pointer-events-none');
 }
 
+function closeOrderSuccessModal() {
+  const modal = document.getElementById('order-success-modal');
+  modal.classList.add('opacity-0', 'pointer-events-none');
+}
+
 function saveCartToStorage() {
   localStorage.setItem('rotiseria_cart', JSON.stringify(state.cart));
 }
@@ -314,7 +303,7 @@ function formatCurrency(val) {
   return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(val);
 }
 
-// ENVIAR PEDIDO POR WHATSAPP Y REGISTRAR EN COCINA
+// ENVIAR PEDIDO A LA BASE DE DATOS Y WHATSAPP
 async function submitOrderToWhatsApp() {
   if (state.cart.length === 0) {
     alert('Tu carrito está vacío. Agrega comidas antes de continuar.');
@@ -395,14 +384,24 @@ async function submitOrderToWhatsApp() {
     if (state.deliveryType === 'delivery') message += `Envío: ${formatCurrency(deliveryCost)}\n`;
     message += `💰 *TOTAL A PAGAR: ${formatCurrency(total)}*`;
 
+    // Vaciar carrito y cerrar modal checkout
     state.cart = [];
     saveCartToStorage();
     updateCartUI();
     closeCartModal();
 
+    // Formatear destino de WhatsApp
     const targetPhone = formatWhatsAppNumber(state.settings.whatsapp_phone || '5491112345678');
     const waUrl = `https://wa.me/${targetPhone}?text=${encodeURIComponent(message)}`;
 
+    // Mostrar Modal de Confirmación de Éxito en pantalla
+    document.getElementById('success-order-number').textContent = `ORDEN ${orderNumber}`;
+    document.getElementById('success-wa-btn').href = waUrl;
+    
+    const successModal = document.getElementById('order-success-modal');
+    successModal.classList.remove('opacity-0', 'pointer-events-none');
+
+    // Intentar abrir WhatsApp en pestaña nueva
     window.open(waUrl, '_blank');
   } catch (err) {
     console.error('Error al enviar pedido:', err);

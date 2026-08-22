@@ -2,151 +2,152 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Menú Online - La Gran Rotisería Delivery</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>La Gran Rotisería - Menú de Comidas y Minutas</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="/css/styles.css">
   <script src="https://unpkg.com/lucide@latest"></script>
 </head>
-<body class="bg-slate-100 text-slate-800 antialiased pb-24">
+<body class="bg-slate-100 text-slate-800 font-sans antialiased min-h-screen pb-24">
 
-  <!-- Header Fijo con Nombre de la Rotisería -->
+  <!-- Header Cliente -->
   <header class="bg-slate-900 text-white sticky top-0 z-30 shadow-md">
-    <div class="max-w-4xl mx-auto px-4 py-3 flex justify-between items-center">
-      <div class="flex items-center gap-3">
-        <div class="w-10 h-10 bg-orange-500 rounded-2xl flex items-center justify-center font-bold text-xl shadow-lg">
-          🍔
+    <div class="max-w-xl mx-auto px-4 py-3 flex justify-between items-center">
+      <div class="flex items-center gap-2.5">
+        <div class="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center font-bold text-xl shadow-inner">
+          🍱
         </div>
         <div>
-          <h1 id="restaurant-title" class="font-black text-lg sm:text-xl tracking-tight leading-none text-orange-400">
-            LA GRAN ROTISERÍA
-          </h1>
-          <p class="text-xs text-slate-400 font-medium">Delivery & Minutas al Instante</p>
+          <h1 id="restaurant-title" class="font-extrabold text-base leading-tight tracking-wide">La Gran Rotisería</h1>
+          <p class="text-xs text-orange-400 font-medium">Comidas Caseras, Minutas & Promos</p>
         </div>
       </div>
-      
-      <!-- Indicador de Abierto/Cerrado -->
-      <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-        🟢 Abierto
-      </span>
+      <div class="flex items-center gap-2">
+        <a href="/cocina.html" target="_blank" class="px-2.5 py-1 bg-orange-600 hover:bg-orange-500 text-[11px] font-bold rounded-lg text-white">
+          🍳 Cocina
+        </a>
+        <a href="/caja.html" target="_blank" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-[11px] font-bold rounded-lg text-white">
+          💰 Caja
+        </a>
+      </div>
     </div>
-
-    <!-- Pestañas de Categorías (Promos, Minutas, etc.) -->
-    <nav id="category-tabs" class="max-w-4xl mx-auto px-4 pb-2.5 flex gap-2 overflow-x-auto no-scrollbar scroll-smooth">
-      <!-- Se pueblan dinámicamente -->
-    </nav>
   </header>
 
-  <!-- Lista de Productos y Menú -->
-  <main class="max-w-4xl mx-auto p-4 space-y-6">
-    <!-- Banner Promocional -->
-    <div class="bg-gradient-to-r from-orange-600 to-amber-500 rounded-2xl p-4 text-white shadow-md flex justify-between items-center">
-      <div>
-        <span class="bg-white/20 text-white text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md tracking-wider">🔥 PROMO DEL DÍA</span>
-        <h2 class="font-black text-lg sm:text-xl mt-1">2x1 en Hamburguesas Dobles</h2>
-        <p class="text-xs text-orange-100">Incluye papas fritas familiares + gaseosa 1.5L</p>
-      </div>
-      <button onclick="scrollToCategory(1)" class="bg-slate-900 hover:bg-slate-800 text-orange-400 font-bold px-3 py-2 rounded-xl text-xs shadow transition">
-        Ver Promos
-      </button>
-    </div>
-
-    <!-- Secciones por Categorías de Comida -->
-    <div id="menu-sections" class="space-y-8">
-      <!-- Se llena dinámicamente -->
-    </div>
-  </main>
-
-  <!-- BARRA INFERIOR FLOTANTE DEL CARRITO -->
-  <div id="cart-bar" class="fixed bottom-4 left-4 right-4 max-w-lg mx-auto z-40 transform translate-y-32 opacity-0 transition-all duration-300 pointer-events-none">
-    <button onclick="openCartModal()" class="w-full bg-slate-900 hover:bg-slate-800 text-white p-4 rounded-2xl shadow-2xl flex justify-between items-center border border-slate-700 active:scale-95 transition">
-      <div class="flex items-center gap-3">
-        <div class="relative bg-orange-500 text-white font-black w-8 h-8 rounded-xl flex items-center justify-center text-sm shadow">
-          <span id="cart-badge-count">0</span>
-        </div>
-        <div class="text-left">
-          <div class="text-xs text-slate-400 font-bold">TU PEDIDO</div>
-          <div class="text-sm font-extrabold text-slate-200">Ver Carrito</div>
-        </div>
-      </div>
-      <div class="text-right">
-        <span id="cart-bar-total" class="text-lg font-black text-orange-400 font-mono">$0</span>
-        <span class="text-xs text-slate-400 block font-semibold">Confirmar ➔</span>
-      </div>
-    </button>
+  <!-- Banner Informativo -->
+  <div class="bg-orange-50 border-b border-orange-200 py-2 px-4 text-center text-xs font-semibold text-orange-900">
+    🛵 Envíos a domicilio en 35 min • Retiros por local en 20 min
   </div>
 
-  <!-- MODAL DEL CARRITO Y FINALIZACIÓN DE PEDIDO -->
+  <main class="max-w-xl mx-auto p-4 space-y-6">
+
+    <!-- Navegación por Categorías (Tabs) -->
+    <nav id="category-tabs" class="flex gap-2 overflow-x-auto pb-2 scrollbar-none sticky top-14 bg-slate-100/90 backdrop-blur-sm py-2 z-20">
+      <!-- Se llenará dinámicamente -->
+    </nav>
+
+    <!-- Listado de Productos por Categoría -->
+    <div id="menu-container" class="space-y-6">
+      <!-- Se llenará dinámicamente -->
+    </div>
+
+  </main>
+
+  <!-- Barra Flotante de Carrito (Bottom Bar) -->
+  <div id="cart-bar" class="fixed bottom-0 left-0 right-0 p-4 bg-transparent z-40 transition-transform duration-300 translate-y-32 opacity-0 pointer-events-none">
+    <div class="max-w-xl mx-auto">
+      <button onclick="openCartModal()" class="w-full bg-slate-900 hover:bg-slate-800 text-white p-4 rounded-2xl shadow-2xl flex justify-between items-center transition active:scale-98 border border-slate-700">
+        <div class="flex items-center gap-3">
+          <div class="relative">
+            <span class="text-2xl">🛒</span>
+            <span id="cart-badge-count" class="absolute -top-2 -right-2 bg-orange-500 text-white font-black text-xs w-5 h-5 rounded-full flex items-center justify-center border-2 border-slate-900">0</span>
+          </div>
+          <div class="text-left">
+            <div class="font-extrabold text-sm">Ver Carrito de Compras</div>
+            <div class="text-xs text-slate-400">Toca para finalizar pedido</div>
+          </div>
+        </div>
+        <div class="font-black text-lg text-orange-400 font-mono" id="cart-bar-total">
+          $0
+        </div>
+      </button>
+    </div>
+  </div>
+
+  <!-- Modal Checkout / Finalizar Pedido -->
   <div id="cart-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 opacity-0 pointer-events-none transition-opacity duration-200">
     <div class="bg-white rounded-t-3xl sm:rounded-2xl max-w-lg w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
       
       <!-- Modal Header -->
-      <div class="p-4 bg-slate-900 text-white flex justify-between items-center border-b border-slate-800">
+      <div class="p-4 bg-slate-900 text-white flex justify-between items-center">
         <div class="flex items-center gap-2">
-          <span class="text-xl">🛒</span>
-          <h3 class="font-extrabold text-base">Tu Pedido</h3>
+          <span class="text-xl">🛍️</span>
+          <h2 class="font-extrabold text-base">Finalizar Pedido</h2>
         </div>
         <button onclick="closeCartModal()" class="text-slate-400 hover:text-white p-1">
-          <i data-lucide="x" class="w-6 h-6"></i>
+          <i data-lucide="x" class="w-5 h-5"></i>
         </button>
       </div>
 
-      <!-- Modal Body (Scrollable) -->
-      <div class="p-4 flex-1 overflow-y-auto space-y-4">
-        
-        <!-- Tipo de Pedido: Delivery o Retiro -->
-        <div class="grid grid-cols-2 gap-2 bg-slate-100 p-1 rounded-xl font-bold text-xs">
-          <button type="button" onclick="setDeliveryType('delivery')" id="btn-type-delivery" class="py-2.5 rounded-lg transition bg-orange-500 text-white shadow">
-            🛵 Delivery a Domicilio
-          </button>
-          <button type="button" onclick="setDeliveryType('takeaway')" id="btn-type-takeaway" class="py-2.5 rounded-lg transition text-slate-600 hover:text-slate-900">
-            🏪 Retiro en Local
-          </button>
+      <!-- Modal Body -->
+      <div class="p-4 overflow-y-auto space-y-4 flex-1">
+
+        <!-- Selección Tipo de Entrega -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5">Tipo de Entrega</label>
+          <div class="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl text-xs font-bold">
+            <button type="button" onclick="setDeliveryType('delivery')" id="btn-type-delivery" class="py-2.5 rounded-lg transition bg-orange-500 text-white shadow">
+              🛵 Delivery a Domicilio
+            </button>
+            <button type="button" onclick="setDeliveryType('takeaway')" id="btn-type-takeaway" class="py-2.5 rounded-lg transition text-slate-600 hover:text-slate-900">
+              🛍️ Retiro en el Local
+            </button>
+          </div>
         </div>
 
-        <!-- Lista de Ítems en Carrito -->
-        <div id="cart-items-list" class="divide-y divide-slate-100 border-b border-slate-100 pb-2">
-          <!-- Dinámico -->
+        <!-- Detalle del Carrito -->
+        <div class="border border-slate-200 rounded-xl p-3 bg-slate-50 space-y-2">
+          <div class="font-extrabold text-xs text-slate-700 uppercase tracking-wider border-b pb-1 border-slate-200">Productos seleccionados</div>
+          <div id="cart-items-list" class="divide-y divide-slate-200">
+            <!-- Dinámico -->
+          </div>
         </div>
 
-        <!-- Formulario de Datos del Cliente -->
-        <form id="checkout-form" class="space-y-3 pt-2">
+        <!-- Formulario Datos del Cliente -->
+        <form id="checkout-form" class="space-y-3">
           <div>
-            <label class="block text-xs font-semibold text-slate-600 mb-1">Nombre y Apellido *</label>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Nombre Completo *</label>
             <input type="text" id="cust-name" required placeholder="Ej: Juan Pérez" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none">
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-slate-600 mb-1">Teléfono / WhatsApp *</label>
-            <input type="tel" id="cust-phone" required placeholder="Ej: 3794123456" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none font-mono">
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Celular / WhatsApp *</label>
+            <input type="tel" id="cust-phone" required placeholder="Ej: 1112345678" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none font-mono">
           </div>
 
           <div id="address-field-container">
-            <label class="block text-xs font-semibold text-slate-600 mb-1">Dirección de Entrega *</label>
-            <input type="text" id="cust-address" placeholder="Ej: Calle Belgrano 1234, Dpto 2B" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none">
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Dirección de Entrega *</label>
+            <input type="text" id="cust-address" placeholder="Ej: Av. San Martín 1234, Dpto 2B" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none">
           </div>
 
-          <!-- Forma de Pago -->
-          <div>
-            <label class="block text-xs font-semibold text-slate-600 mb-1">Forma de Pago *</label>
-            <select id="cust-payment" onchange="handlePaymentMethodChange()" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none bg-white font-medium">
-              <option value="Efectivo">💵 Efectivo (Pagas al recibir)</option>
-              <option value="Tarjeta de Débito">💳 Tarjeta de Débito (Llevar Posnet)</option>
-              <option value="Tarjeta de Crédito">💳 Tarjeta de Crédito (Llevar Posnet)</option>
-              <option value="MercadoPago">📱 MercadoPago / QR</option>
-              <option value="Transferencia">🏦 Transferencia bancaria / CBU</option>
-              <option value="Link de Pago">🔗 Link de Pago por WhatsApp</option>
-              <option value="Cuenta Corriente (Fiado Autorizado)">📖 Cuenta Corriente (Pago Diferido / Fiado)</option>
-            </select>
-          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Método de Pago *</label>
+              <select id="cust-payment" onchange="handlePaymentMethodChange()" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none bg-white font-bold text-slate-800">
+                <option value="Efectivo">💵 Efectivo (al entregar)</option>
+                <option value="MercadoPago / Transferencia">📱 MercadoPago / Transferencia</option>
+                <option value="Tarjeta Posnet en Domicilio">💳 Tarjeta / Posnet en Domicilio</option>
+                <option value="Cuenta Corriente (Fiado Autorizado)">📖 Cuenta Corriente (Fiado Autorizado)</option>
+              </select>
+            </div>
 
-          <div id="payment-note-container">
-            <label id="payment-note-label" class="block text-xs font-semibold text-slate-600 mb-1">¿Con cuánto abonas? (para el vuelto)</label>
-            <input type="text" id="cust-payment-note" placeholder="Ej: Pago con $10.000 o DNI de Cuenta Corriente" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none">
+            <div id="payment-note-container">
+              <label id="payment-note-label" class="block text-xs font-semibold text-slate-700 mb-1">¿Con cuánto abonas?</label>
+              <input type="text" id="cust-payment-note" placeholder="Ej: Pago con $10.000" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none">
+            </div>
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-slate-600 mb-1">Notas / Aclaraciones para Cocina</label>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Aclaraciones sobre el pedido (Opcional)</label>
             <textarea id="cust-notes" rows="2" placeholder="Ej: Sin salsa barbacoa, timbre no funciona llamar por cel." class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"></textarea>
           </div>
         </form>
@@ -177,6 +178,31 @@
         </button>
       </div>
 
+    </div>
+  </div>
+
+  <!-- MODAL DE CONFIRMACIÓN ÉXITO DE PEDIDO EN PANTALLA -->
+  <div id="order-success-modal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200">
+    <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
+      <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center text-3xl mx-auto font-bold shadow-inner">
+        🎉
+      </div>
+
+      <div>
+        <h3 class="font-extrabold text-slate-900 text-xl">¡PEDIDO RECIBIDO CON ÉXITO!</h3>
+        <p id="success-order-number" class="text-base font-black text-orange-600 font-mono mt-1">ORDEN #101</p>
+        <p class="text-xs text-slate-500 mt-2">Tu comanda ya ingresó en tiempo real a la cocina del local.</p>
+      </div>
+
+      <div class="space-y-2 pt-2">
+        <a id="success-wa-btn" href="#" target="_blank" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold py-3.5 px-4 rounded-2xl shadow-md flex items-center justify-center gap-2 text-sm transition">
+          <span class="text-lg">💬</span> Enviar Comanda por WhatsApp al Local
+        </a>
+        
+        <button type="button" onclick="closeOrderSuccessModal()" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl text-xs transition">
+          Cerrar y Volver al Menú
+        </button>
+      </div>
     </div>
   </div>
 

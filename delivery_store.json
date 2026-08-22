@@ -165,7 +165,62 @@
       "available": 1
     }
   ],
-  "orders": [],
+  "orders": [
+    {
+      "id": 2,
+      "order_number": "#102",
+      "customer_name": "meliza",
+      "customer_phone": "3794676365",
+      "address": "chubut",
+      "delivery_type": "delivery",
+      "payment_method": "Efectivo",
+      "payment_note": "",
+      "notes": "",
+      "items": [
+        {
+          "id": 4,
+          "name": "Milanesa Napolitana con Papas Fritas",
+          "price": 8200,
+          "qty": 1
+        }
+      ],
+      "total": 9400,
+      "status": "entregado",
+      "paid": 1,
+      "created_at": "2026-08-22T07:43:50.677Z",
+      "updated_at": "2026-08-22T07:44:21.599Z"
+    },
+    {
+      "id": 1,
+      "order_number": "#101",
+      "customer_name": "juan",
+      "customer_phone": "3512307121",
+      "address": "ituzan 345",
+      "delivery_type": "delivery",
+      "payment_method": "Efectivo",
+      "payment_note": "",
+      "notes": "",
+      "items": [
+        {
+          "id": 1,
+          "name": "Promo 2x1 Hamburguesas Clásicas",
+          "price": 9500,
+          "qty": 1
+        },
+        {
+          "id": 2,
+          "name": "Combo Familiar Pizza + 6 Empanadas",
+          "price": 12500,
+          "qty": 1
+        }
+      ],
+      "total": 23200,
+      "status": "entregado",
+      "paid": 1,
+      "created_at": "2026-08-22T07:34:15.069Z",
+      "updated_at": "2026-08-22T07:37:26.374Z"
+    }
+  ],
   "settings": {
     "restaurant_name": "La Gran Rotisería",
     "whatsapp_phone": "5491112345678",
@@ -219,6 +274,18 @@
       "balance": 0,
       "status": "active",
       "created_at": "2026-08-22T05:46:43.588Z"
+    },
+    {
+      "id": 2,
+      "name": "Nestor Carvallo",
+      "dni": "18574887",
+      "phone": "3794218138",
+      "address": "chubut 1993",
+      "payment_term": "mensual",
+      "credit_limit": 20000,
+      "balance": 0,
+      "status": "active",
+      "created_at": "2026-08-22T07:10:18.540Z"
     }
   ],
   "account_payments": [],
@@ -241,21 +308,21 @@
       "id": 1,
       "name": "Carne Vacuna para Milanesas",
       "unit": "kg",
-      "current_stock": 39,
+      "current_stock": 38.7,
       "min_stock": 10
     },
     {
       "id": 2,
       "name": "Papas para Fritar",
       "unit": "kg",
-      "current_stock": 75,
+      "current_stock": 74.75,
       "min_stock": 15
     },
     {
       "id": 3,
       "name": "Queso Muzzarella",
       "unit": "kg",
-      "current_stock": 27,
+      "current_stock": 26.85,
       "min_stock": 5
     },
     {
@@ -302,13 +369,33 @@
   "stock_adjustments": [],
   "cash_shifts": [
     {
-      "id": 1,
-      "opened_at": "2026-08-22T05:46:43.586Z",
+      "id": 3,
+      "opened_at": "2026-08-22T07:41:30.262Z",
       "closed_at": null,
-      "initial_cash": 10000,
+      "initial_cash": 23200,
       "final_cash": null,
       "status": "open",
       "opened_by": "Encargado de Turno Mañana (Nivel 2)"
+    },
+    {
+      "id": 2,
+      "opened_at": "2026-08-22T07:31:06.014Z",
+      "closed_at": "2026-08-22T07:39:11.413Z",
+      "initial_cash": 10000,
+      "final_cash": 23200,
+      "status": "closed",
+      "opened_by": "Encargado de Turno Mañana (Nivel 2)",
+      "closed_by": "Encargado de Turno Mañana (Nivel 2)"
+    },
+    {
+      "id": 1,
+      "opened_at": "2026-08-22T05:46:43.586Z",
+      "closed_at": "2026-08-22T07:30:22.212Z",
+      "initial_cash": 10000,
+      "final_cash": 0,
+      "status": "closed",
+      "opened_by": "Encargado de Turno Mañana (Nivel 2)",
+      "closed_by": "Encargado de Turno Mañana (Nivel 2)"
     }
   ]
 }

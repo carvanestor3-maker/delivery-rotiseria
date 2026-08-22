@@ -64,8 +64,8 @@ function renderMaterialsTable() {
         ${m.min_stock || 0} ${m.unit}
       </td>
       <td class="p-4 text-right space-x-2">
-        <button onclick="openAdjustStockModal(${m.id})" class="px-2.5 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-800 font-extrabold rounded-lg text-xs transition" title="Conciliar Stock Real">
-          ⚖️ Conciliar
+        <button onclick="openAdjustStockModal(${m.id})" class="px-2.5 py-1.5 bg-purple-100 hover:bg-purple-200 text-purple-900 font-extrabold rounded-lg text-xs transition" title="Conciliar Stock Real (Exclusivo Nivel 3)">
+          👑 Conciliar (Nivel 3)
         </button>
         <button onclick="editRawMaterial(${m.id})" class="p-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-700 transition" title="Editar Insumo">
           <i data-lucide="edit-2" class="w-4 h-4"></i>
@@ -122,7 +122,7 @@ async function submitStockAdjustment(e) {
     if (data.success) {
       closeAdjustStockModal();
       const diffSign = data.difference >= 0 ? `+${data.difference}` : `${data.difference}`;
-      alert(`⚖️ STOCK CONCILIADO EXITOSAMENTE:\n\nInsumo: ${data.raw_material_name}\nStock anterior: ${data.old_stock}\nStock real nuevo: ${data.new_stock}\nDiferencia/Ajuste: ${diffSign}`);
+      alert(`⚖️ CONCILIACIÓN NIVEL 3 AUTORIZADA EXITOSAMENTE:\n\nInsumo: ${data.raw_material_name}\nStock anterior: ${data.old_stock}\nStock real nuevo: ${data.new_stock}\nDiferencia/Ajuste: ${diffSign}`);
       await loadStockMaterials();
     } else {
       alert(`⚠️ ${data.error}`);
@@ -250,7 +250,7 @@ function renderAccountsTable() {
         <button onclick="openPaymentModal(${a.id})" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl text-xs shadow-sm transition">
           💰 Registrar Cobro
         </button>
-        <button onclick="editAccount(${a.id})" class="p-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-700 transition" title="Editar">
+        <button onclick="editAccount(${a.id})" class="p-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-700 transition" title="Editar (Nivel 3)">
           <i data-lucide="edit-2" class="w-4 h-4"></i>
         </button>
       </td>
@@ -269,7 +269,7 @@ function openAccountModal(acc = null) {
 
   form.reset();
   if (acc) {
-    title.textContent = 'Editar Cliente en Cuenta Corriente';
+    title.textContent = 'Editar Cliente en Cuenta Corriente (Nivel 3)';
     document.getElementById('acc-id').value = acc.id;
     document.getElementById('acc-name').value = acc.name;
     document.getElementById('acc-dni').value = acc.dni;
@@ -278,7 +278,7 @@ function openAccountModal(acc = null) {
     document.getElementById('acc-term').value = acc.payment_term || 'quincenal';
     document.getElementById('acc-limit').value = acc.credit_limit || 20000;
   } else {
-    title.textContent = 'Registrar Cliente en Cuenta Corriente';
+    title.textContent = 'Registrar Cliente en CC (Exclusivo Nivel 3)';
     document.getElementById('acc-id').value = '';
     document.getElementById('acc-limit').value = 20000;
   }
@@ -553,6 +553,7 @@ async function loadSettings() {
       document.getElementById('set-restaurant-name').value = settings.restaurant_name || '';
       document.getElementById('set-whatsapp-phone').value = settings.whatsapp_phone || '';
       document.getElementById('set-delivery-cost').value = settings.delivery_cost || '1200';
+      document.getElementById('set-encargado-pin').value = settings.encargado_pin || '2222';
       document.getElementById('set-admin-pin').value = settings.admin_pin || '9999';
       document.getElementById('set-epson-ip').value = settings.epson_printer_ip || '';
       document.getElementById('set-auto-print').checked = settings.auto_print_epson === '1';
@@ -603,7 +604,7 @@ function renderProductsTable() {
         </button>
       </td>
       <td class="p-4 text-right space-x-2">
-        <button onclick="editProduct(${p.id})" class="p-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-700 transition" title="Editar">
+        <button onclick="editProduct(${p.id})" class="p-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-700 transition" title="Editar (Nivel 3)">
           <i data-lucide="edit-2" class="w-4 h-4"></i>
         </button>
         <button onclick="deleteProduct(${p.id})" class="p-1.5 bg-red-50 hover:bg-red-100 rounded-lg text-red-600 transition" title="Eliminar">
@@ -632,7 +633,7 @@ function openProductModal(prod = null) {
   showImagePreview('');
 
   if (prod) {
-    title.textContent = 'Editar Producto';
+    title.textContent = 'Editar Producto (Exclusivo Nivel 3)';
     document.getElementById('prod-id').value = prod.id;
     document.getElementById('prod-name').value = prod.name;
     document.getElementById('prod-category').value = prod.category_id;
@@ -642,7 +643,7 @@ function openProductModal(prod = null) {
     showImagePreview(prod.image_url || '');
     document.getElementById('prod-available').checked = prod.available === 1;
   } else {
-    title.textContent = 'Nuevo Producto';
+    title.textContent = 'Nuevo Producto (Exclusivo Nivel 3)';
     document.getElementById('prod-id').value = '';
     document.getElementById('prod-available').checked = true;
   }
@@ -753,6 +754,7 @@ async function saveSettings(e) {
   const restaurant_name = document.getElementById('set-restaurant-name').value.trim();
   const whatsapp_phone = document.getElementById('set-whatsapp-phone').value.trim();
   const delivery_cost = document.getElementById('set-delivery-cost').value.trim();
+  const encargado_pin = document.getElementById('set-encargado-pin').value.trim();
   const admin_pin = document.getElementById('set-admin-pin').value.trim();
   const epson_printer_ip = document.getElementById('set-epson-ip').value.trim();
   const auto_print_epson = document.getElementById('set-auto-print').checked ? '1' : '0';
@@ -761,11 +763,11 @@ async function saveSettings(e) {
     const res = await fetch('/api/settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ restaurant_name, whatsapp_phone, delivery_cost, admin_pin, epson_printer_ip, auto_print_epson })
+      body: JSON.stringify({ restaurant_name, whatsapp_phone, delivery_cost, encargado_pin, admin_pin, epson_printer_ip, auto_print_epson })
     });
     const data = await res.json();
     if (data.success) {
-      alert('¡Configuración guardada correctamente!');
+      alert('¡Configuración y Claves PIN (Nivel 2 y Nivel 3) guardadas correctamente!');
     }
   } catch (err) {
     console.error('Error al guardar ajustes:', err);

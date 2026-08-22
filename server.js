@@ -28,32 +28,51 @@ function getSettingsMap() {
   return store.settings || {};
 }
 
-// VERIFICAR PIN DE SEGURIDAD (NIVEL 2 - ENCARGADO / DUEÑO)
+// HELPER: VERIFICACIÓN DE PIN POR NIVEL (NIVEL 2 VS NIVEL 3)
+function verifyPin(inputPin, requiredLevel = 2) {
+  const settings = getSettingsMap();
+  const encargadoPin = settings.encargado_pin || '2222';
+  const adminPin = settings.admin_pin || '9999';
+
+  const strPin = String(inputPin || '').trim();
+
+  if (requiredLevel === 3) {
+    // Nivel 3 (Gerente / Dueño): Solo acepta PIN de Administrador General
+    return strPin === String(adminPin);
+  } else {
+    // Nivel 2 (Encargado / Jefe de Sección): Acepta PIN Encargado (2222) o PIN Administrador (9999)
+    return strPin === String(encargadoPin) || strPin === String(adminPin);
+  }
+}
+
+// VERIFICAR PIN DE SEGURIDAD (APIS PUBLICAS)
 app.post('/api/verify-pin', (req, res) => {
   try {
-    const { pin } = req.body;
-    const settings = getSettingsMap();
-    const validPin = settings.admin_pin || '9999';
+    const { pin, level } = req.body;
+    const reqLevel = parseInt(level || 2);
+    const isValid = verifyPin(pin, reqLevel);
 
-    if (String(pin) === String(validPin)) {
-      return res.json({ success: true, authorized: true });
+    if (isValid) {
+      return res.json({ success: true, authorized: true, level: reqLevel });
     } else {
-      return res.status(401).json({ success: false, authorized: false, error: 'PIN de Administrador (Nivel 2) incorrecto' });
+      return res.status(401).json({ 
+        success: false, 
+        authorized: false, 
+        error: reqLevel === 3 ? 'PIN de Gerente/Dueño (Nivel 3) incorrecto' : 'PIN de Encargado/Gerente (Nivel 2) incorrecto' 
+      });
     }
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-// CONCILIAR / AJUSTAR STOCK REAL VS VIRTUAL (Requiere PIN Nivel 2)
+// CONCILIAR / AJUSTAR STOCK REAL VS VIRTUAL (REQUERIDO NIVEL 3 - GERENTE / DUEÑO)
 app.post('/api/admin/stock/adjust', (req, res) => {
   try {
     const { raw_material_id, real_stock, reason, pin } = req.body;
-    const settings = getSettingsMap();
-    const validPin = settings.admin_pin || '9999';
 
-    if (String(pin) !== String(validPin)) {
-      return res.status(401).json({ success: false, error: 'PIN de Administrador (Nivel 2) incorrecto' });
+    if (!verifyPin(pin, 3)) {
+      return res.status(401).json({ success: false, error: 'Acceso Denegado: La Conciliación de Stock requiere PIN de Gerente / Dueño (Nivel 3).' });
     }
 
     const store = db.getStore();
@@ -79,7 +98,7 @@ app.post('/api/admin/stock/adjust', (req, res) => {
       new_stock: newStock,
       difference: diff,
       reason: reason || 'Conciliación de inventario físico real',
-      registered_by: 'Dueño (Nivel 2)'
+      registered_by: 'Gerente / Dueño (Nivel 3)'
     });
 
     db.saveStore();
@@ -97,7 +116,7 @@ app.post('/api/admin/stock/adjust', (req, res) => {
   }
 });
 
-// REGISTRAR PRODUCCIÓN EN LOTE EN COCINA (Mise en place de porciones)
+// REGISTRAR PRODUCCIÓN EN LOTE EN COCINA (Mise en place - Requiere Nivel 2)
 app.post('/api/production/register', (req, res) => {
   try {
     const { product_id, portions } = req.body;
@@ -374,7 +393,7 @@ app.put('/api/orders/:id/paid', (req, res) => {
   }
 });
 
-// APIS DE MERCADERÍA, INSUMOS, PROVEEDORES Y RECETAS (CON RESTRICCIÓN DE PIN NIVEL 2)
+// APIS DE MERCADERÍA, INSUMOS, PROVEEDORES Y RECETAS
 app.get('/api/admin/stock', (req, res) => {
   try {
     const store = db.getStore();
@@ -391,15 +410,13 @@ app.get('/api/admin/stock', (req, res) => {
   }
 });
 
-// Ingreso de Mercadería al Stock General (en Admin o Cocina - Requiere PIN Nivel 2)
+// Ingreso de Mercadería al Stock General (Requiere PIN Nivel 2)
 app.post('/api/stock/entry', (req, res) => {
   try {
     const { pin, supplier_id, raw_material_id, quantity, unit_cost, notes, registered_by } = req.body;
-    const settings = getSettingsMap();
-    const validPin = settings.admin_pin || '9999';
 
-    if (String(pin) !== String(validPin)) {
-      return res.status(401).json({ success: false, error: 'PIN de Administrador (Nivel 2) incorrecto' });
+    if (!verifyPin(pin, 2)) {
+      return res.status(401).json({ success: false, error: 'PIN de Encargado (Nivel 2) o Gerente (Nivel 3) incorrecto' });
     }
 
     const store = db.getStore();
@@ -440,13 +457,13 @@ app.post('/api/stock/entry', (req, res) => {
   }
 });
 
-// Guardar Insumo / Materia Prima
+// Guardar Insumo / Materia Prima (Requiere PIN Nivel 2)
 app.post('/api/admin/materials', (req, res) => {
   try {
     const { id, name, unit, min_stock, current_stock, pin } = req.body;
-    const settings = getSettingsMap();
-    if (String(pin) !== String(settings.admin_pin || '9999')) {
-      return res.status(401).json({ success: false, error: 'PIN de Nivel 2 requerido' });
+
+    if (!verifyPin(pin, 2)) {
+      return res.status(401).json({ success: false, error: 'PIN de Encargado (Nivel 2) o Gerente (Nivel 3) requerido' });
     }
 
     const store = db.getStore();
@@ -475,7 +492,7 @@ app.post('/api/admin/materials', (req, res) => {
   }
 });
 
-// RUTAS DE CUENTAS CORRIENTES (FIADO)
+// RUTAS DE CUENTAS CORRIENTES (REQUERIDO NIVEL 3 - GERENTE / DUEÑO)
 app.get('/api/admin/accounts', (req, res) => {
   try {
     const store = db.getStore();
@@ -492,9 +509,9 @@ app.get('/api/admin/accounts', (req, res) => {
 app.post('/api/admin/accounts', (req, res) => {
   try {
     const { id, name, dni, phone, address, payment_term, credit_limit, pin } = req.body;
-    const settings = getSettingsMap();
-    if (String(pin) !== String(settings.admin_pin || '9999')) {
-      return res.status(401).json({ success: false, error: 'PIN de Administrador (Nivel 2) requerido para gestionar Cuentas Corrientes.' });
+
+    if (!verifyPin(pin, 3)) {
+      return res.status(401).json({ success: false, error: 'Acceso Denegado: La apertura y gestión de Cuentas Corrientes requiere PIN de Gerente / Dueño (Nivel 3).' });
     }
 
     if (!name || !dni || !phone) {
@@ -754,7 +771,7 @@ function printToEpsonNetwork(order, ip, port = 9100) {
   });
 }
 
-// RUTAS API PRODUCTOS & CATEGORÍAS
+// RUTAS API PRODUCTOS & CATEGORÍAS (REQUERIDO NIVEL 3 - GERENTE / DUEÑO)
 app.get('/api/admin/products', (req, res) => {
   try {
     const store = db.getStore();
@@ -775,9 +792,9 @@ app.get('/api/admin/products', (req, res) => {
 app.post('/api/admin/products', (req, res) => {
   try {
     const { id, category_id, name, description, price, image_url, available, pin } = req.body;
-    const settings = getSettingsMap();
-    if (String(pin) !== String(settings.admin_pin || '9999')) {
-      return res.status(401).json({ success: false, error: 'PIN de Administrador (Nivel 2) requerido para modificar el menú.' });
+
+    if (!verifyPin(pin, 3)) {
+      return res.status(401).json({ success: false, error: 'Acceso Denegado: La modificación del menú requiere PIN de Gerente / Dueño (Nivel 3).' });
     }
 
     const store = db.getStore();
@@ -835,7 +852,7 @@ app.post('/api/settings', (req, res) => {
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`
-🚀 Servidor Delivery, Producción, Stock & Conciliación en ejecución:
+🚀 Servidor Delivery, Producción, Stock & Seguridad 3 Niveles en ejecución:
 👉 Local: http://localhost:${PORT}/admin.html
   `);
 });

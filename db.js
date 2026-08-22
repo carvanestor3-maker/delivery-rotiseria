@@ -13,7 +13,8 @@ const initialData = {
     is_open: '1',
     auto_print_epson: '0',
     epson_printer_ip: '',
-    admin_pin: '9999'
+    encargado_pin: '2222', // PIN Nivel 2 (Encargado de Turno / Jefe de Sección)
+    admin_pin: '9999'      // PIN Nivel 3 (Gerente General / Dueño)
   },
   categories: [
     { id: 1, name: 'Promos y Combos', icon: '🔥', sort_order: 0 },
@@ -96,6 +97,7 @@ function loadStore() {
       if (!store.stock_adjustments) store.stock_adjustments = [];
       if (!store.settings) store.settings = initialData.settings;
       if (!store.settings.admin_pin) store.settings.admin_pin = '9999';
+      if (!store.settings.encargado_pin) store.settings.encargado_pin = '2222';
     } else {
       saveStore();
     }

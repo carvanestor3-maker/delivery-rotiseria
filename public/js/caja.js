@@ -55,7 +55,7 @@ async function loadCashSummary() {
       const btnClose = document.getElementById('btn-close-shift-caja');
 
       if (activeShiftsListCaja.length > 0) {
-        const boxSummaryStr = activeShiftsListCaja.map(s => `Caja N°${s.box_number || 1}: ${s.opened_by.split(' ')[0]}`).join(' | ');
+        const boxSummaryStr = activeShiftsListCaja.map(s => `Caja N°${s.box_number || 1}: ${s.cashier_name || s.opened_by.split(' ')[0]}`).join(' | ');
         if (badge) {
           badge.textContent = `🟢 ${activeShiftsListCaja.length} Abierta(s) [${boxSummaryStr}]`;
           badge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
@@ -351,6 +351,7 @@ function closeOpenShiftModal() {
 async function submitOpenShift(e) {
   e.preventDefault();
   const box_number = document.getElementById('shift-box-number').value;
+  const cashier_name = document.getElementById('shift-cashier-name').value.trim();
   const initial_cash = document.getElementById('shift-initial-cash').value;
   const pin = document.getElementById('shift-open-pin').value.trim();
 
@@ -358,12 +359,12 @@ async function submitOpenShift(e) {
     const res = await fetch('/api/cash/shift/open', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ box_number, initial_cash, pin })
+      body: JSON.stringify({ box_number, cashier_name, initial_cash, pin })
     });
     const data = await res.json();
     if (data.success) {
       closeOpenShiftModal();
-      alert(`✅ Caja N° ${data.box_number} Abierta por "${data.user_name}" con cambio inicial de ${formatCurrency(initial_cash)}.`);
+      alert(`✅ Caja N° ${data.box_number} Abierta con éxito:\n\nCajero Asignado: ${data.cashier_name}\nAutorizado por: ${data.user_name}\nCambio Inicial: ${formatCurrency(initial_cash)}`);
       await loadCashSummary();
     } else {
       alert(`⚠️ ${data.error}`);
@@ -384,7 +385,7 @@ function openCloseShiftModal() {
   const selCloseBox = document.getElementById('shift-close-box-id');
   if (selCloseBox) {
     selCloseBox.innerHTML = activeShiftsListCaja.map(s => 
-      `<option value="${s.id}">Caja N° ${s.box_number || 1} - ${s.opened_by} (${formatCurrency(s.initial_cash || 0)} cambio)</option>`
+      `<option value="${s.id}">Caja N° ${s.box_number || 1} - Cajero: ${s.cashier_name || 'Sin asignar'} (Autorizó: ${s.opened_by}) - ${formatCurrency(s.initial_cash || 0)} cambio</option>`
     ).join('');
   }
 

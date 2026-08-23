@@ -198,16 +198,18 @@ app.delete('/api/admin/users/:id', (req, res) => {
   }
 });
 
-// APERTURA DE TURNO DE CAJA POR NÚMERO DE CAJA Y USUARIO INDIVIDUAL (REQUERIDO NIVEL 2 O 3)
+// APERTURA DE TURNO DE CAJA POR NÚMERO DE CAJA, CAJERO ASIGNADO Y AUTORIZANTE (REQUERIDO NIVEL 2 O 3)
 app.post('/api/cash/shift/open', (req, res) => {
   try {
-    const { box_number, initial_cash, pin } = req.body;
+    const { box_number, cashier_name, initial_cash, pin } = req.body;
     const numBox = parseInt(box_number || 1);
 
     const auth = verifyUserPin(pin, 2);
     if (!auth.isValid) {
       return res.status(401).json({ success: false, error: auth.levelTooLow ? `El usuario ${auth.user.name} no posee Nivel 2 o superior.` : 'PIN de Encargado (Nivel 2) o Gerente (Nivel 3) incorrecto' });
     }
+
+    const strCashierName = (cashier_name || auth.user.name).trim();
 
     const store = db.getStore();
     if (!store.cash_shifts) store.cash_shifts = [];
@@ -216,7 +218,7 @@ app.post('/api/cash/shift/open', (req, res) => {
     if (activeShiftOnBox) {
       return res.status(400).json({ 
         success: false, 
-        error: `⚠️ LA CAJA N° ${numBox} YA ESTÁ ABIERTA: Fue habilitada por "${activeShiftOnBox.opened_by}". No se puede abrir dos veces la misma caja en el mismo turno. Elija otro número de caja o cierre la Caja N° ${numBox} previa.` 
+        error: `⚠️ LA CAJA N° ${numBox} YA ESTÁ ABIERTA: Fue habilitada por "${activeShiftOnBox.opened_by}" para el cajero "${activeShiftOnBox.cashier_name || 'Sin asignar'}". Elija otro número de caja o cierre la Caja N° ${numBox} previa.` 
       });
     }
 
@@ -224,19 +226,20 @@ app.post('/api/cash/shift/open', (req, res) => {
     const newShift = {
       id: nextId,
       box_number: numBox,
+      cashier_name: strCashierName,
       opened_at: new Date().toISOString(),
       closed_at: null,
       initial_cash: parseFloat(initial_cash || 0),
       final_cash: null,
       status: 'open',
-      opened_by: `${auth.user.name} (Caja N° ${numBox} - Nivel ${auth.user.level})`
+      opened_by: `${auth.user.name} (Nivel ${auth.user.level})`
     };
 
     store.cash_shifts.unshift(newShift);
     db.saveStore();
     io.emit('cash_shift_updated');
 
-    res.json({ success: true, shift: newShift, user_name: auth.user.name, box_number: numBox });
+    res.json({ success: true, shift: newShift, user_name: auth.user.name, cashier_name: strCashierName, box_number: numBox });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

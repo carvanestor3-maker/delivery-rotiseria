@@ -25,7 +25,13 @@ function setupSocket() {
   socket.on('order_updated', () => {
     loadData();
   });
+
+  socket.on('cash_shift_updated', () => {
+    loadCashSummary();
+  });
 }
+
+let activeShiftsListCaja = [];
 
 async function loadData() {
   await Promise.all([loadCashSummary(), loadOrders()]);
@@ -37,10 +43,49 @@ async function loadCashSummary() {
     const data = await res.json();
     if (data.success) {
       const s = data.summary;
+      activeShiftsListCaja = data.active_shifts || (data.active_shift ? [data.active_shift] : []);
+
       document.getElementById('cash-collected-val').textContent = formatCurrency(s.cash_collected);
       document.getElementById('cash-pending-val').textContent = formatCurrency(s.cash_pending);
       document.getElementById('card-total-val').textContent = formatCurrency(s.card_total);
       document.getElementById('digital-total-val').textContent = formatCurrency(s.digital_total);
+
+      const badge = document.getElementById('shift-status-badge-caja');
+      const btnOpen = document.getElementById('btn-open-shift-caja');
+      const btnClose = document.getElementById('btn-close-shift-caja');
+
+      if (activeShiftsListCaja.length > 0) {
+        const boxSummaryStr = activeShiftsListCaja.map(s => `Caja N°${s.box_number || 1}: ${s.opened_by.split(' ')[0]}`).join(' | ');
+        if (badge) {
+          badge.textContent = `🟢 ${activeShiftsListCaja.length} Abierta(s) [${boxSummaryStr}]`;
+          badge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+        }
+        if (btnOpen) {
+          btnOpen.disabled = false;
+          btnOpen.className = 'px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition cursor-pointer';
+          btnOpen.title = 'Abrir otra estación de caja (Caja N° 2, 3...)';
+        }
+        if (btnClose) {
+          btnClose.disabled = false;
+          btnClose.className = 'px-2.5 py-1 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-xs font-bold border border-slate-600 transition cursor-pointer';
+          btnClose.title = 'Cerrar una caja abierta';
+        }
+      } else {
+        if (badge) {
+          badge.textContent = `🔴 Sin Cajas Abiertas`;
+          badge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/30';
+        }
+        if (btnOpen) {
+          btnOpen.disabled = false;
+          btnOpen.className = 'px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition cursor-pointer';
+          btnOpen.title = 'Abrir turno de caja';
+        }
+        if (btnClose) {
+          btnClose.disabled = true;
+          btnClose.className = 'px-2.5 py-1 bg-slate-800 text-slate-500 rounded-lg text-xs font-bold border border-slate-700 opacity-50 cursor-not-allowed';
+          btnClose.title = 'No hay turno de caja abierto para cerrar';
+        }
+      }
     }
   } catch (err) {
     console.error('Error al cargar métricas de caja:', err);
@@ -273,4 +318,106 @@ function formatWhatsAppNumber(phone) {
 
 function formatCurrency(val) {
   return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(val);
+}
+
+// Apertura / Cierre de Caja por Número (Nivel 2 o 3 en Celular 2)
+function openOpenShiftModal() {
+  document.getElementById('open-shift-form').reset();
+  
+  const selBox = document.getElementById('shift-box-number');
+  if (selBox) {
+    const openBoxNums = activeShiftsListCaja.map(s => s.box_number || 1);
+    for (let opt of selBox.options) {
+      const val = parseInt(opt.value);
+      if (openBoxNums.includes(val)) {
+        opt.disabled = true;
+        opt.text = `Caja N° ${val} (⚠️ Ya abierta)`;
+      } else {
+        opt.disabled = false;
+        opt.text = `Caja N° ${val} ${val === 1 ? '(Estación Principal)' : val === 2 ? '(Estación Secundaria)' : ''}`;
+      }
+    }
+  }
+
+  const modal = document.getElementById('open-shift-modal');
+  modal.classList.remove('opacity-0', 'pointer-events-none');
+}
+
+function closeOpenShiftModal() {
+  const modal = document.getElementById('open-shift-modal');
+  modal.classList.add('opacity-0', 'pointer-events-none');
+}
+
+async function submitOpenShift(e) {
+  e.preventDefault();
+  const box_number = document.getElementById('shift-box-number').value;
+  const initial_cash = document.getElementById('shift-initial-cash').value;
+  const pin = document.getElementById('shift-open-pin').value.trim();
+
+  try {
+    const res = await fetch('/api/cash/shift/open', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ box_number, initial_cash, pin })
+    });
+    const data = await res.json();
+    if (data.success) {
+      closeOpenShiftModal();
+      alert(`✅ Caja N° ${data.box_number} Abierta por "${data.user_name}" con cambio inicial de ${formatCurrency(initial_cash)}.`);
+      await loadCashSummary();
+    } else {
+      alert(`⚠️ ${data.error}`);
+    }
+  } catch (err) {
+    console.error('Error al abrir caja:', err);
+  }
+}
+
+function openCloseShiftModal() {
+  if (activeShiftsListCaja.length === 0) {
+    alert(`⚠️ NO SE PUEDE CERRAR CAJA: No hay ningún turno de caja abierto en este momento.`);
+    return;
+  }
+
+  document.getElementById('close-shift-form').reset();
+
+  const selCloseBox = document.getElementById('shift-close-box-id');
+  if (selCloseBox) {
+    selCloseBox.innerHTML = activeShiftsListCaja.map(s => 
+      `<option value="${s.id}">Caja N° ${s.box_number || 1} - ${s.opened_by} (${formatCurrency(s.initial_cash || 0)} cambio)</option>`
+    ).join('');
+  }
+
+  const modal = document.getElementById('close-shift-modal');
+  modal.classList.remove('opacity-0', 'pointer-events-none');
+}
+
+function closeCloseShiftModal() {
+  const modal = document.getElementById('close-shift-modal');
+  modal.classList.add('opacity-0', 'pointer-events-none');
+}
+
+async function submitCloseShift(e) {
+  e.preventDefault();
+  const shift_id = document.getElementById('shift-close-box-id').value;
+  const final_cash = document.getElementById('shift-final-cash').value;
+  const pin = document.getElementById('shift-close-pin').value.trim();
+
+  try {
+    const res = await fetch('/api/cash/shift/close', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ shift_id, final_cash, pin })
+    });
+    const data = await res.json();
+    if (data.success) {
+      closeCloseShiftModal();
+      alert(`🔒 Caja N° ${data.box_number} Cerrada por "${data.user_name}" con saldo final de ${formatCurrency(final_cash)}.`);
+      await loadCashSummary();
+    } else {
+      alert(`⚠️ ${data.error}`);
+    }
+  } catch (err) {
+    console.error('Error al cerrar caja:', err);
+  }
 }

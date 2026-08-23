@@ -29,6 +29,13 @@
     </div>
 
     <div class="flex items-center gap-2">
+      <span id="shift-status-badge-caja" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">🟢 Caja Abierta</span>
+      <button id="btn-open-shift-caja" onclick="openOpenShiftModal()" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition flex items-center gap-1">
+        🔓 Abrir
+      </button>
+      <button id="btn-close-shift-caja" onclick="openCloseShiftModal()" class="px-2.5 py-1 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-xs font-bold border border-slate-600 transition flex items-center gap-1">
+        🔒 Cerrar
+      </button>
       <button onclick="loadCashSummary()" class="p-1.5 bg-slate-700 hover:bg-slate-600 rounded-xl text-xs font-bold border border-slate-600 transition">
         <i data-lucide="refresh-cw" class="w-4 h-4 text-slate-300"></i>
       </button>
@@ -83,6 +90,85 @@
   <!-- ÁREA DE IMPRESIÓN DE TICKET TÉRMICO -->
   <div id="print-area">
     <!-- Se llena dinámicamente -->
+  </div>
+
+  <!-- MODAL DE APERTURA DE TURNO DE CAJA (REQUERIDO PIN NIVEL 2 O 3) -->
+  <div id="open-shift-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200 text-slate-900">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+      <div class="flex justify-between items-center border-b pb-3 border-slate-200">
+        <h3 class="font-extrabold text-emerald-900 text-lg flex items-center gap-2">
+          🔓 Abrir Turno de Caja (Nivel 2)
+        </h3>
+        <button onclick="closeOpenShiftModal()" class="text-slate-400 hover:text-slate-700">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="open-shift-form" onsubmit="submitOpenShift(event)" class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Número de Caja a Habilitar *</label>
+          <select id="shift-box-number" required class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500 font-extrabold bg-white text-slate-900">
+            <option value="1">Caja N° 1 (Estación Principal)</option>
+            <option value="2" selected>Caja N° 2 (Estación Secundaria / Celular 2)</option>
+            <option value="3">Caja N° 3 (Estación Auxiliar)</option>
+            <option value="4">Caja N° 4</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Monto Inicial de Cambio en Caja ($) *</label>
+          <input type="number" step="100" id="shift-initial-cash" required placeholder="Ej: 10000" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500 font-mono font-bold">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">🔑 Clave / PIN Personal (Encargado Nivel 2 o Gerente Nivel 3) *</label>
+          <input type="password" id="shift-open-pin" required placeholder="Tu PIN personal (ej: 2222)" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500 font-mono">
+        </div>
+
+        <div class="pt-4 flex justify-end gap-2 border-t border-slate-200">
+          <button type="button" onclick="closeOpenShiftModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 font-bold rounded-xl text-xs text-slate-700">Cancelar</button>
+          <button type="submit" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 font-bold rounded-xl text-xs text-white shadow">Abrir Turno de Caja</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL DE CIERRE DE TURNO DE CAJA (REQUERIDO PIN NIVEL 2 O 3) -->
+  <div id="close-shift-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200 text-slate-900">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+      <div class="flex justify-between items-center border-b pb-3 border-slate-200">
+        <h3 class="font-extrabold text-slate-900 text-lg flex items-center gap-2">
+          🔒 Cerrar Turno de Caja (Nivel 2)
+        </h3>
+        <button onclick="closeCloseShiftModal()" class="text-slate-400 hover:text-slate-700">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="close-shift-form" onsubmit="submitCloseShift(event)" class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Seleccionar Caja Abierta a Cerrar *</label>
+          <select id="shift-close-box-id" required class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-slate-500 font-extrabold bg-white text-slate-900">
+            <!-- Se llena dinámicamente -->
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Monto Final Arqueado en Efectivo ($) *</label>
+          <input type="number" step="100" id="shift-final-cash" required placeholder="Ej: 45000" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-slate-500 font-mono font-bold">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">🔑 Clave / PIN Personal (Encargado Nivel 2 o Gerente Nivel 3) *</label>
+          <input type="password" id="shift-close-pin" required placeholder="Tu PIN personal (ej: 2222)" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-slate-500 font-mono">
+        </div>
+
+        <div class="pt-4 flex justify-end gap-2 border-t border-slate-200">
+          <button type="button" onclick="closeCloseShiftModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 font-bold rounded-xl text-xs text-slate-700">Cancelar</button>
+          <button type="submit" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 font-bold rounded-xl text-xs text-white shadow">Cerrar Turno y Rendir Caja</button>
+        </div>
+      </form>
+    </div>
   </div>
 
   <script src="/js/caja.js"></script>

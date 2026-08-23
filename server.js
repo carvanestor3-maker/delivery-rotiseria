@@ -198,10 +198,11 @@ app.delete('/api/admin/users/:id', (req, res) => {
   }
 });
 
-// APERTURA DE TURNO DE CAJA CON USUARIO INDIVIDUAL (REQUERIDO NIVEL 2)
+// APERTURA DE TURNO DE CAJA POR NÚMERO DE CAJA Y USUARIO INDIVIDUAL (REQUERIDO NIVEL 2 O 3)
 app.post('/api/cash/shift/open', (req, res) => {
   try {
-    const { initial_cash, pin } = req.body;
+    const { box_number, initial_cash, pin } = req.body;
+    const numBox = parseInt(box_number || 1);
 
     const auth = verifyUserPin(pin, 2);
     if (!auth.isValid) {
@@ -211,36 +212,42 @@ app.post('/api/cash/shift/open', (req, res) => {
     const store = db.getStore();
     if (!store.cash_shifts) store.cash_shifts = [];
 
-    const activeShift = store.cash_shifts.find(s => s.status === 'open');
-    if (activeShift) {
-      return res.status(400).json({ success: false, error: `Ya existe un turno de caja abierto por "${activeShift.opened_by}".` });
+    const activeShiftOnBox = store.cash_shifts.find(s => s.status === 'open' && (s.box_number || 1) === numBox);
+    if (activeShiftOnBox) {
+      return res.status(400).json({ 
+        success: false, 
+        error: `⚠️ LA CAJA N° ${numBox} YA ESTÁ ABIERTA: Fue habilitada por "${activeShiftOnBox.opened_by}". No se puede abrir dos veces la misma caja en el mismo turno. Elija otro número de caja o cierre la Caja N° ${numBox} previa.` 
+      });
     }
 
     const nextId = store.cash_shifts.length > 0 ? Math.max(...store.cash_shifts.map(s => s.id)) + 1 : 1;
     const newShift = {
       id: nextId,
+      box_number: numBox,
       opened_at: new Date().toISOString(),
       closed_at: null,
       initial_cash: parseFloat(initial_cash || 0),
       final_cash: null,
       status: 'open',
-      opened_by: `${auth.user.name} (Nivel ${auth.user.level})`
+      opened_by: `${auth.user.name} (Caja N° ${numBox} - Nivel ${auth.user.level})`
     };
 
     store.cash_shifts.unshift(newShift);
     db.saveStore();
     io.emit('cash_shift_updated');
 
-    res.json({ success: true, shift: newShift, user_name: auth.user.name });
+    res.json({ success: true, shift: newShift, user_name: auth.user.name, box_number: numBox });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-// CIERRE DE TURNO DE CAJA CON USUARIO INDIVIDUAL (REQUERIDO NIVEL 2)
+// CIERRE DE TURNO DE CAJA POR NÚMERO DE CAJA Y USUARIO INDIVIDUAL (REQUERIDO NIVEL 2 O 3)
 app.post('/api/cash/shift/close', (req, res) => {
   try {
-    const { final_cash, pin } = req.body;
+    const { box_number, shift_id, final_cash, pin } = req.body;
+    const numBox = box_number ? parseInt(box_number) : null;
+    const shiftId = shift_id ? parseInt(shift_id) : null;
 
     const auth = verifyUserPin(pin, 2);
     if (!auth.isValid) {
@@ -250,9 +257,17 @@ app.post('/api/cash/shift/close', (req, res) => {
     const store = db.getStore();
     if (!store.cash_shifts) store.cash_shifts = [];
 
-    const activeShift = store.cash_shifts.find(s => s.status === 'open');
+    let activeShift = null;
+    if (shiftId) {
+      activeShift = store.cash_shifts.find(s => s.id === shiftId && s.status === 'open');
+    } else if (numBox) {
+      activeShift = store.cash_shifts.find(s => s.status === 'open' && (s.box_number || 1) === numBox);
+    } else {
+      activeShift = store.cash_shifts.find(s => s.status === 'open');
+    }
+
     if (!activeShift) {
-      return res.status(400).json({ success: false, error: 'No hay ninguna caja abierta para cerrar.' });
+      return res.status(400).json({ success: false, error: numBox ? `La Caja N° ${numBox} no está abierta o ya fue cerrada.` : 'No hay ninguna caja abierta para cerrar.' });
     }
 
     activeShift.closed_at = new Date().toISOString();
@@ -263,7 +278,7 @@ app.post('/api/cash/shift/close', (req, res) => {
     db.saveStore();
     io.emit('cash_shift_updated');
 
-    res.json({ success: true, shift: activeShift, user_name: auth.user.name });
+    res.json({ success: true, shift: activeShift, user_name: auth.user.name, box_number: activeShift.box_number || 1 });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -921,11 +936,14 @@ app.get('/api/cash/summary', (req, res) => {
       };
     });
 
-    const activeShift = (store.cash_shifts || []).find(s => s.status === 'open');
+    const activeShifts = (store.cash_shifts || []).filter(s => s.status === 'open');
+    const openBoxNumbers = activeShifts.map(s => s.box_number || 1);
 
     res.json({
       success: true,
-      active_shift: activeShift || null,
+      active_shift: activeShifts.length > 0 ? activeShifts[0] : null,
+      active_shifts: activeShifts,
+      open_box_numbers: openBoxNumbers,
       summary: {
         total_sales: totalSales,
         cash_total: cashTotal,

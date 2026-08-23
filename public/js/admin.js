@@ -342,13 +342,25 @@ function renderAuditEntries(entries) {
   });
 }
 
-// Apertura / Cierre de Caja (Nivel 2)
+// Apertura / Cierre de Caja por Número de Caja (Nivel 2 o 3)
 function openOpenShiftModal() {
-  if (currentActiveShift) {
-    alert(`⚠️ NO SE PUEDE ABRIR CAJA: Ya existe un turno de caja abierto por "${currentActiveShift.opened_by}". Debe cerrar el turno actual antes de abrir uno nuevo.`);
-    return;
-  }
   document.getElementById('open-shift-form').reset();
+  
+  const selBox = document.getElementById('shift-box-number');
+  if (selBox) {
+    const openBoxNums = activeShiftsList.map(s => s.box_number || 1);
+    for (let opt of selBox.options) {
+      const val = parseInt(opt.value);
+      if (openBoxNums.includes(val)) {
+        opt.disabled = true;
+        opt.text = `Caja N° ${val} (⚠️ Ya abierta)`;
+      } else {
+        opt.disabled = false;
+        opt.text = `Caja N° ${val} ${val === 1 ? '(Estación Principal)' : val === 2 ? '(Estación Secundaria)' : ''}`;
+      }
+    }
+  }
+
   const modal = document.getElementById('open-shift-modal');
   modal.classList.remove('opacity-0', 'pointer-events-none');
 }
@@ -360,6 +372,7 @@ function closeOpenShiftModal() {
 
 async function submitOpenShift(e) {
   e.preventDefault();
+  const box_number = document.getElementById('shift-box-number').value;
   const initial_cash = document.getElementById('shift-initial-cash').value;
   const pin = document.getElementById('shift-open-pin').value.trim();
 
@@ -367,12 +380,12 @@ async function submitOpenShift(e) {
     const res = await fetch('/api/cash/shift/open', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ initial_cash, pin })
+      body: JSON.stringify({ box_number, initial_cash, pin })
     });
     const data = await res.json();
     if (data.success) {
       closeOpenShiftModal();
-      alert(`✅ Turno de Caja Abierto por "${data.user_name}" con cambio inicial de ${formatCurrency(initial_cash)}.`);
+      alert(`✅ Caja N° ${data.box_number} Abierta por "${data.user_name}" con cambio inicial de ${formatCurrency(initial_cash)}.`);
       await loadCashSummary();
     } else {
       alert(`⚠️ ${data.error}`);
@@ -383,11 +396,20 @@ async function submitOpenShift(e) {
 }
 
 function openCloseShiftModal() {
-  if (!currentActiveShift) {
+  if (activeShiftsList.length === 0) {
     alert(`⚠️ NO SE PUEDE CERRAR CAJA: No hay ningún turno de caja abierto en este momento.`);
     return;
   }
+
   document.getElementById('close-shift-form').reset();
+
+  const selCloseBox = document.getElementById('shift-close-box-id');
+  if (selCloseBox) {
+    selCloseBox.innerHTML = activeShiftsList.map(s => 
+      `<option value="${s.id}">Caja N° ${s.box_number || 1} - ${s.opened_by} (${formatCurrency(s.initial_cash || 0)} cambio)</option>`
+    ).join('');
+  }
+
   const modal = document.getElementById('close-shift-modal');
   modal.classList.remove('opacity-0', 'pointer-events-none');
 }
@@ -399,6 +421,7 @@ function closeCloseShiftModal() {
 
 async function submitCloseShift(e) {
   e.preventDefault();
+  const shift_id = document.getElementById('shift-close-box-id').value;
   const final_cash = document.getElementById('shift-final-cash').value;
   const pin = document.getElementById('shift-close-pin').value.trim();
 
@@ -406,12 +429,12 @@ async function submitCloseShift(e) {
     const res = await fetch('/api/cash/shift/close', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ final_cash, pin })
+      body: JSON.stringify({ shift_id, final_cash, pin })
     });
     const data = await res.json();
     if (data.success) {
       closeCloseShiftModal();
-      alert(`🔒 Turno de Caja Cerrado por "${data.user_name}" con saldo final de ${formatCurrency(final_cash)}.`);
+      alert(`🔒 Caja N° ${data.box_number} Cerrada por "${data.user_name}" con saldo final de ${formatCurrency(final_cash)}.`);
       await loadCashSummary();
     } else {
       alert(`⚠️ ${data.error}`);
@@ -823,36 +846,38 @@ async function loadCashSummary() {
     if (data.success) {
       const s = data.summary;
       cashOrders = data.orders;
-      currentActiveShift = data.active_shift || null;
+      activeShiftsList = data.active_shifts || (data.active_shift ? [data.active_shift] : []);
+      currentActiveShift = activeShiftsList.length > 0 ? activeShiftsList[0] : null;
 
       const badge = document.getElementById('shift-status-badge');
       const btnOpen = document.getElementById('btn-open-shift');
       const btnClose = document.getElementById('btn-close-shift');
 
-      if (data.active_shift) {
+      if (activeShiftsList.length > 0) {
+        const boxSummaryStr = activeShiftsList.map(s => `Caja N°${s.box_number || 1}: ${s.opened_by.split(' ')[0]}`).join(' | ');
         if (badge) {
-          badge.textContent = `🟢 Caja Abierta por ${data.active_shift.opened_by} (${formatCurrency(data.active_shift.initial_cash || 0)} cambio)`;
+          badge.textContent = `🟢 ${activeShiftsList.length} Caja(s) Abierta(s) [${boxSummaryStr}]`;
           badge.className = 'bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-bold px-2.5 py-0.5 rounded-full';
         }
         if (btnOpen) {
-          btnOpen.disabled = true;
-          btnOpen.className = 'px-3 py-2 bg-slate-200 text-slate-400 border border-slate-300 rounded-xl text-xs font-bold cursor-not-allowed opacity-50 flex items-center gap-1';
-          btnOpen.title = `Ya existe un turno de caja abierto por "${data.active_shift.opened_by}".`;
+          btnOpen.disabled = false;
+          btnOpen.className = 'px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-extrabold shadow transition flex items-center gap-1 cursor-pointer';
+          btnOpen.title = 'Abrir otra estación de caja (Caja N° 2, 3...)';
         }
         if (btnClose) {
           btnClose.disabled = false;
           btnClose.className = 'px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-extrabold shadow transition flex items-center gap-1 cursor-pointer';
-          btnClose.title = 'Cerrar el turno de caja activo';
+          btnClose.title = 'Cerrar una caja abierta';
         }
       } else {
         if (badge) {
-          badge.textContent = `🔴 Turno de Caja Cerrado`;
+          badge.textContent = `🔴 Sin Turnos de Caja Abiertos`;
           badge.className = 'bg-red-100 text-red-800 border border-red-300 text-xs font-bold px-2.5 py-0.5 rounded-full';
         }
         if (btnOpen) {
           btnOpen.disabled = false;
           btnOpen.className = 'px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-extrabold shadow transition flex items-center gap-1 cursor-pointer';
-          btnOpen.title = 'Abrir nuevo turno de caja';
+          btnOpen.title = 'Abrir turno de caja';
         }
         if (btnClose) {
           btnClose.disabled = true;

@@ -586,20 +586,38 @@ async function openPosModal() {
     if (data.success) {
       posProducts = data.products || [];
       posCategories = data.categories || [];
-      renderPosCategoryPills();
-      renderPosProductsGrid();
-      renderPosCart();
     }
   } catch (err) {
     console.error('Error al cargar catálogo POS:', err);
   }
+
+  // VALIDACIÓN 1: Verificar si el turno actual operó Comida por Kilo
+  const btnWeighed = document.getElementById('pos-sec-weighed');
+  const operatesWeighed = activeShiftsListCaja.some(s => s.shift_type === 'weighed_food');
+
+  if (btnWeighed) {
+    if (operatesWeighed) {
+      btnWeighed.classList.remove('hidden');
+    } else {
+      btnWeighed.classList.add('hidden'); // Ocultar si la caja no operó comida por kilo
+    }
+  }
+
+  // VALIDACIÓN 2: Iniciar en modo escáner limpio (sin productos mostrados abajo)
+  selectedPosSector = 'scanned';
+  renderPosCategoryPills();
+  renderPosProductsGrid();
+  renderPosCart();
 
   const modal = document.getElementById('pos-modal');
   modal.classList.remove('opacity-0', 'pointer-events-none');
 
   setTimeout(() => {
     const input = document.getElementById('pos-barcode-input');
-    if (input) input.focus();
+    if (input) {
+      input.value = '';
+      input.focus();
+    }
   }, 200);
 }
 
@@ -628,7 +646,7 @@ function renderPosCategoryPills() {
   });
 }
 
-let selectedPosSector = 'all'; // 'all' | 'bar' | 'packaged' | 'kitchen' | 'weighed'
+let selectedPosSector = 'scanned'; // 'scanned' | 'all' | 'bar' | 'packaged' | 'kitchen' | 'weighed'
 
 function setPosSector(sec) {
   selectedPosSector = sec;
@@ -667,6 +685,35 @@ function renderPosProductsGrid() {
   if (!grid) return;
 
   grid.innerHTML = '';
+
+  // VALIDACIÓN 2: Si está en modo escáner inicial, mostrar pantalla limpia con instrucciones de tipeo manual
+  if (selectedPosSector === 'scanned') {
+    grid.innerHTML = `
+      <div class="col-span-full p-8 text-center bg-white rounded-2xl border border-dashed border-amber-300 space-y-3 my-auto shadow-sm">
+        <div class="w-14 h-14 bg-amber-100 text-amber-700 font-black text-2xl rounded-2xl flex items-center justify-center mx-auto shadow-inner">
+          📊
+        </div>
+        <div>
+          <h4 class="font-extrabold text-slate-900 text-base">Modo Escáner Activo</h4>
+          <p class="text-xs text-slate-500 max-w-sm mx-auto mt-1 leading-relaxed">
+            Pasa la pistola de código de barras USB sobre la etiqueta del producto o balanza.
+          </p>
+        </div>
+        <div class="p-3.5 bg-amber-50 rounded-2xl border border-amber-200 text-left text-xs font-bold text-amber-900 space-y-1.5 max-w-md mx-auto">
+          <div class="flex items-center gap-1.5 text-amber-950 font-black">
+            <span>💡 ¿Falló el lector o escáner?</span>
+          </div>
+          <div class="text-[11px] font-normal text-amber-800 leading-normal">
+            Escribe los números del código de barras en el buscador superior y presiona <kbd class="px-1.5 py-0.5 bg-white rounded border border-amber-300 font-mono font-bold text-amber-900 shadow-sm">Enter</kbd> o el botón <strong>Buscar / Añadir</strong>.
+          </div>
+        </div>
+        <div class="pt-2 text-[11px] font-bold text-slate-400">
+          O presiona cualquiera de las pestañas superiores (Bar, Envasados, Cocina, Ver Todo) para elegir del menú visual.
+        </div>
+      </div>
+    `;
+    return;
+  }
 
   let filtered = posProducts.filter(p => p.available === 1);
 

@@ -45,7 +45,9 @@
       "description": "2 Hamburguesas dobles con queso cheddar y papas fritas familiares.",
       "price": 9500,
       "image_url": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500",
-      "available": 1
+      "available": 1,
+      "stock_prepared": 12.5,
+      "is_prepared_food": 1
     },
     {
       "id": 2,
@@ -413,6 +415,33 @@
       "status": "closed",
       "opened_by": "Encargado de Turno Mañana (Nivel 2)",
       "closed_by": "Encargado de Turno Mañana (Nivel 2)"
+    }
+  ],
+  "production_entries": [
+    {
+      "id": 1,
+      "date": "2026-08-23T06:09:52.886Z",
+      "product_id": 1,
+      "product_name": "Promo 2x1 Hamburguesas Clásicas",
+      "unit_type": "kg",
+      "quantity": 15,
+      "notes": "",
+      "registered_by": "Gerente General / Dueño (Nivel 3)"
+    }
+  ],
+  "food_waste_logs": [
+    {
+      "id": 1,
+      "date": "2026-08-23T06:09:59.209Z",
+      "box_number": 1,
+      "product_id": 1,
+      "product_name": "Promo 2x1 Hamburguesas Clásicas",
+      "unit_type": "kg",
+      "expected_kg": 15,
+      "measured_kg": 12.5,
+      "waste_kg": 2.5,
+      "notes": "Diferencia / Sobrante tirado al cierre de turno",
+      "registered_by": "Cajero / Operativo 1 (Nivel 1)"
     }
   ]
 }

@@ -587,7 +587,7 @@ app.post('/api/production/add', (req, res) => {
   }
 });
 
-// ARQUEO DE SOBRANTES Y CONCILIACIÓN DE DESPERDICIOS/MERMAS AL CIERRE DE CAJA
+// ARQUEO DE SOBRANTES Y CONCILIACIÓN DE DESPERDICIOS/MERMAS/OFERTAS AL CIERRE DE CAJA
 app.post('/api/cash/shift/reconcile-food', (req, res) => {
   try {
     const { box_number, measured_items, pin } = req.body;
@@ -610,26 +610,126 @@ app.post('/api/cash/shift/reconcile-food', (req, res) => {
           const expectedStock = parseFloat((prod.stock_prepared || 0).toFixed(3));
           const measuredKg = parseFloat(parseFloat(item.measured_remaining || 0).toFixed(3));
           const wasteKg = parseFloat(Math.max(0, expectedStock - measuredKg).toFixed(3));
+          const action = item.action || 'waste';
 
-          prod.stock_prepared = measuredKg; // Actualizar el stock real restante
+          // Resetear el producto fresco original a 0 para el siguiente turno
+          prod.stock_prepared = 0;
 
-          if (wasteKg > 0) {
-            const nextId = store.food_waste_logs.length > 0 ? Math.max(...store.food_waste_logs.map(w => w.id)) + 1 : 1;
-            const wasteRecord = {
-              id: nextId,
-              date: new Date().toISOString(),
-              box_number: numBox,
-              product_id: prod.id,
-              product_name: prod.name,
-              unit_type: prod.unit_type || 'kg',
-              expected_kg: expectedStock,
-              measured_kg: measuredKg,
-              waste_kg: wasteKg,
-              notes: item.notes || 'Diferencia / Sobrante tirado al cierre de turno',
-              registered_by: `${auth.user.name} (Nivel ${auth.user.level})`
-            };
-            store.food_waste_logs.unshift(wasteRecord);
-            wasteResults.push(wasteRecord);
+          if (measuredKg > 0) {
+            if (action === 'offer') {
+              // 1. OFERTA REFRIGERADA CON CÓDIGO DE BARRAS EAN-13 PARA LA BALANZA
+              const discountPercent = parseFloat(item.discount_percent || 30);
+              const hours = parseInt(item.refrigerated_hours || 4);
+              const offerPrice = parseFloat((prod.price * (1 - (discountPercent / 100))).toFixed(2));
+              
+              const offerPlu = `9${String(prod.plu_code || prod.id).padStart(3, '0')}`;
+              const offerName = `❄️ ${prod.name} (Refrigerado ${hours}hs - ${discountPercent}% OFF)`;
+              const scaleEanCode = `20${offerPlu}00000`; // Prefijo Balanza EAN-13
+
+              // Buscar si ya existe la oferta o crear un producto nuevo en oferta
+              let offerProd = store.products.find(p => p.is_refrigerated_offer === 1 && p.original_product_id === prod.id);
+              if (offerProd) {
+                offerProd.name = offerName;
+                offerProd.price = offerPrice;
+                offerProd.original_price = prod.price;
+                offerProd.stock_prepared = parseFloat(((offerProd.stock_prepared || 0) + measuredKg).toFixed(3));
+                offerProd.refrigerated_hours = hours;
+                offerProd.discount_percent = discountPercent;
+                offerProd.available = 1;
+              } else {
+                const nextId = store.products.length > 0 ? Math.max(...store.products.map(p => p.id)) + 1 : 1;
+                offerProd = {
+                  id: nextId,
+                  original_product_id: prod.id,
+                  category_id: prod.category_id,
+                  name: offerName,
+                  description: `Conservación en frío de ${hours} hs. Calidad óptima a precio rebajado (${discountPercent}% OFF).`,
+                  price: offerPrice,
+                  original_price: prod.price,
+                  image_url: prod.image_url,
+                  available: 1,
+                  stock_prepared: measuredKg,
+                  unit_type: 'kg',
+                  is_prepared_food: 1,
+                  is_refrigerated_offer: 1,
+                  discount_percent: discountPercent,
+                  refrigerated_hours: hours,
+                  plu_code: offerPlu,
+                  barcode: scaleEanCode
+                };
+                store.products.push(offerProd);
+              }
+
+              const nextLogId = store.food_waste_logs.length > 0 ? Math.max(...store.food_waste_logs.map(w => w.id)) + 1 : 1;
+              const offerRecord = {
+                id: nextLogId,
+                date: new Date().toISOString(),
+                box_number: numBox,
+                product_id: prod.id,
+                product_name: prod.name,
+                action: 'offer',
+                action_label: `🏷️ Oferta Refrigerada (${discountPercent}% OFF)`,
+                unit_type: 'kg',
+                expected_kg: expectedStock,
+                measured_kg: measuredKg,
+                waste_kg: 0,
+                scale_ean: scaleEanCode,
+                offer_price: offerPrice,
+                notes: `Convertido a Oferta Refrigerada (${hours} hs de conservación, ${discountPercent}% descuento)`,
+                registered_by: `${auth.user.name} (Nivel ${auth.user.level})`
+              };
+              store.food_waste_logs.unshift(offerRecord);
+              wasteResults.push(offerRecord);
+
+            } else if (action === 'reprocess') {
+              // 2. REPROCESADO EN COCINA (DESCUENTO 100% A INSUMO / MATERIA PRIMA)
+              const rawMatId = parseInt(item.target_raw_material_id || 0);
+              const rawMat = (store.raw_materials || []).find(m => m.id === rawMatId);
+
+              if (rawMat) {
+                rawMat.current_stock = parseFloat(((rawMat.current_stock || 0) + measuredKg).toFixed(3));
+              }
+
+              const nextLogId = store.food_waste_logs.length > 0 ? Math.max(...store.food_waste_logs.map(w => w.id)) + 1 : 1;
+              const reprocessRecord = {
+                id: nextLogId,
+                date: new Date().toISOString(),
+                box_number: numBox,
+                product_id: prod.id,
+                product_name: prod.name,
+                action: 'reprocess',
+                action_label: `♻️ Reprocesado en Cocina (Insumo: ${rawMat ? rawMat.name : 'Cocina'})`,
+                unit_type: 'kg',
+                expected_kg: expectedStock,
+                measured_kg: measuredKg,
+                waste_kg: 0,
+                notes: `Reprocesado 100% como ingrediente para ${rawMat ? rawMat.name : 'Cocina'}`,
+                registered_by: `${auth.user.name} (Nivel ${auth.user.level})`
+              };
+              store.food_waste_logs.unshift(reprocessRecord);
+              wasteResults.push(reprocessRecord);
+
+            } else {
+              // 3. DESPERDICIO / TIRADO / INAPTO
+              const nextLogId = store.food_waste_logs.length > 0 ? Math.max(...store.food_waste_logs.map(w => w.id)) + 1 : 1;
+              const wasteRecord = {
+                id: nextLogId,
+                date: new Date().toISOString(),
+                box_number: numBox,
+                product_id: prod.id,
+                product_name: prod.name,
+                action: 'waste',
+                action_label: '🗑️ Desperdicio / Tirado',
+                unit_type: 'kg',
+                expected_kg: expectedStock,
+                measured_kg: 0,
+                waste_kg: measuredKg,
+                notes: item.notes || 'Comida sobrante no apta dada de baja al cierre de turno',
+                registered_by: `${auth.user.name} (Nivel ${auth.user.level})`
+              };
+              store.food_waste_logs.unshift(wasteRecord);
+              wasteResults.push(wasteRecord);
+            }
           }
         }
       });

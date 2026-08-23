@@ -1405,3 +1405,50 @@ async function submitProductionEntry(e) {
     console.error('Error al guardar producción:', err);
   }
 }
+
+async function loadAuditLogs() {
+  try {
+    const res = await fetch('/api/cash/summary');
+    const data = await res.json();
+    if (data.success) {
+      loadFoodWasteAuditLogs(data.waste_logs || []);
+    }
+  } catch (err) {
+    console.error('Error al cargar bitácoras de auditoría:', err);
+  }
+}
+
+function loadFoodWasteAuditLogs(wasteLogs = []) {
+  const tbody = document.getElementById('audit-food-waste-tbody');
+  if (!tbody) return;
+
+  if (!wasteLogs || wasteLogs.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400 font-bold text-xs">No hay conciliaciones de mermas, reprocesados u ofertas registradas.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = wasteLogs.map(w => {
+    const isOffer = w.action === 'offer';
+    const isReprocess = w.action === 'reprocess';
+    const badgeClass = isOffer ? 'bg-purple-100 text-purple-900 border-purple-300' : isReprocess ? 'bg-blue-100 text-blue-900 border-blue-300' : 'bg-red-100 text-red-900 border-red-300';
+    
+    return `
+      <tr class="hover:bg-slate-50 transition">
+        <td class="p-4 text-xs font-mono text-slate-600">${new Date(w.date).toLocaleString()}</td>
+        <td class="p-4 text-xs font-extrabold text-slate-900">Caja N° ${w.box_number || 1}</td>
+        <td class="p-4 font-bold text-slate-900">
+          <div>${w.product_name}</div>
+          ${w.scale_ean ? `<div class="text-[10px] font-mono text-purple-700 font-bold">📊 Barcode Balanza: ${w.scale_ean}</div>` : ''}
+        </td>
+        <td class="p-4 font-mono font-bold text-slate-600">${w.expected_kg} ${w.unit_type || 'kg'}</td>
+        <td class="p-4 font-mono font-bold text-emerald-700">${w.measured_kg} ${w.unit_type || 'kg'}</td>
+        <td class="p-4 text-xs">
+          <span class="px-2.5 py-1 rounded-lg border font-black text-xs ${badgeClass}">
+            ${w.action_label || (w.waste_kg > 0 ? `${w.waste_kg} kg Tirados` : 'Procesado')}
+          </span>
+        </td>
+        <td class="p-4 text-xs font-bold text-slate-700">${w.registered_by}</td>
+      </tr>
+    `;
+  }).join('');
+}

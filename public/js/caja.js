@@ -404,14 +404,38 @@ function openCloseShiftModal() {
       wasteContainer.innerHTML = `<div class="text-[11px] text-amber-700 italic">No hay productos por kilo configurados.</div>`;
     } else {
       wasteContainer.innerHTML = preparedItems.map(p => `
-        <div class="flex justify-between items-center bg-white p-2 rounded-lg border border-amber-200 text-xs">
-          <div class="font-bold text-slate-800">
-            <div>${p.name}</div>
-            <div class="text-[10px] text-slate-400 font-mono font-normal">Esperado teórico: ${(p.stock_prepared || 0).toFixed(3)} kg</div>
+        <div class="bg-white p-2.5 rounded-xl border border-amber-200 text-xs space-y-2">
+          <div class="flex justify-between items-center">
+            <div class="font-extrabold text-slate-900">
+              <div>${p.name}</div>
+              <div class="text-[10px] text-slate-400 font-mono font-normal">Stock teórico actual: ${(p.stock_prepared || 0).toFixed(3)} kg</div>
+            </div>
+            <div class="flex items-center gap-1">
+              <input type="number" step="0.001" data-prod-id="${p.id}" placeholder="${(p.stock_prepared || 0).toFixed(3)}" class="shift-waste-input w-24 px-2 py-1 border border-slate-300 rounded-lg text-xs font-mono font-bold text-right outline-none focus:ring-2 focus:ring-amber-500">
+              <span class="text-[10px] font-bold text-slate-500">kg sobrantes</span>
+            </div>
           </div>
-          <div class="flex items-center gap-1">
-            <input type="number" step="0.001" data-prod-id="${p.id}" placeholder="${(p.stock_prepared || 0).toFixed(3)}" class="shift-waste-input w-24 px-2 py-1 border border-slate-300 rounded text-xs font-mono font-bold text-right outline-none focus:ring-2 focus:ring-amber-500">
-            <span class="text-[10px] font-bold text-slate-500">kg</span>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 border-t border-slate-100">
+            <div>
+              <label class="block text-[10px] font-bold text-slate-600 mb-0.5">Destino del Sobrante</label>
+              <select data-prod-id="${p.id}" onchange="toggleShiftWasteFields(this)" class="shift-waste-action w-full px-2 py-1 border border-slate-300 rounded-lg text-[11px] font-bold outline-none focus:ring-2 focus:ring-amber-500 bg-white">
+                <option value="offer">🏷️ Oferta Refrigerada (% OFF + EAN-13)</option>
+                <option value="reprocess">♻️ Reprocesar en Cocina (Desc. 100%)</option>
+                <option value="waste">🗑️ Dar de Baja por Desperdicio</option>
+              </select>
+            </div>
+
+            <div id="fields-offer-${p.id}" class="grid grid-cols-2 gap-1">
+              <div>
+                <label class="block text-[10px] font-bold text-slate-600 mb-0.5">% Desc.</label>
+                <input type="number" value="30" data-prod-id="${p.id}" class="shift-waste-discount w-full px-1.5 py-1 border border-slate-300 rounded-lg text-xs font-mono font-bold">
+              </div>
+              <div>
+                <label class="block text-[10px] font-bold text-slate-600 mb-0.5">Frío (hs)</label>
+                <input type="number" value="4" data-prod-id="${p.id}" class="shift-waste-hours w-full px-1.5 py-1 border border-slate-300 rounded-lg text-xs font-mono font-bold">
+              </div>
+            </div>
           </div>
         </div>
       `).join('');
@@ -420,6 +444,20 @@ function openCloseShiftModal() {
 
   const modal = document.getElementById('close-shift-modal');
   modal.classList.remove('opacity-0', 'pointer-events-none');
+}
+
+function toggleShiftWasteFields(selectElem) {
+  const prodId = selectElem.getAttribute('data-prod-id');
+  const action = selectElem.value;
+  const offerFields = document.getElementById(`fields-offer-${prodId}`);
+
+  if (offerFields) {
+    if (action === 'offer') {
+      offerFields.classList.remove('hidden');
+    } else {
+      offerFields.classList.add('hidden');
+    }
+  }
 }
 
 function closeCloseShiftModal() {
@@ -433,15 +471,24 @@ async function submitCloseShift(e) {
   const final_cash = document.getElementById('shift-final-cash').value;
   const pin = document.getElementById('shift-close-pin').value.trim();
 
-  // 1. Recolectar arqueo de mermas/desperdicios de comida preparada si se ingresaron
+  // Recolectar datos del triple destino
   const wasteInputs = document.querySelectorAll('.shift-waste-input');
   const measuredItems = [];
+
   wasteInputs.forEach(inp => {
     const val = inp.value.trim();
     if (val !== '') {
+      const prodId = inp.getAttribute('data-prod-id');
+      const actionSelect = document.querySelector(`.shift-waste-action[data-prod-id="${prodId}"]`);
+      const discountInp = document.querySelector(`.shift-waste-discount[data-prod-id="${prodId}"]`);
+      const hoursInp = document.querySelector(`.shift-waste-hours[data-prod-id="${prodId}"]`);
+
       measuredItems.push({
-        product_id: parseInt(inp.getAttribute('data-prod-id')),
-        measured_remaining: parseFloat(val)
+        product_id: parseInt(prodId),
+        measured_remaining: parseFloat(val),
+        action: actionSelect ? actionSelect.value : 'offer',
+        discount_percent: discountInp ? parseFloat(discountInp.value || 30) : 30,
+        refrigerated_hours: hoursInp ? parseInt(hoursInp.value || 4) : 4
       });
     }
   });
@@ -450,12 +497,21 @@ async function submitCloseShift(e) {
     const activeShift = activeShiftsListCaja.find(s => String(s.id) === String(shift_id));
     const boxNum = activeShift ? (activeShift.box_number || 1) : 1;
 
+    let eanLogText = '';
+
     if (measuredItems.length > 0) {
-      await fetch('/api/cash/shift/reconcile-food', {
+      const recRes = await fetch('/api/cash/shift/reconcile-food', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ box_number: boxNum, measured_items: measuredItems, pin })
       });
+      const recData = await recRes.json();
+      if (recData.success && recData.waste_logs) {
+        const offersCreated = recData.waste_logs.filter(w => w.action === 'offer');
+        if (offersCreated.length > 0) {
+          eanLogText = '\n\n🏷️ ETIQUETAS EAN-13 GENERADAS PARA BALANZA:\n' + offersCreated.map(o => `• ${o.product_name}: EAN Barcode -> ${o.scale_ean} ($${o.offer_price}/kg)`).join('\n');
+        }
+      }
     }
 
     const res = await fetch('/api/cash/shift/close', {
@@ -466,7 +522,7 @@ async function submitCloseShift(e) {
     const data = await res.json();
     if (data.success) {
       closeCloseShiftModal();
-      alert(`🔒 Caja N° ${data.box_number} Cerrada por "${data.user_name}" con saldo final de ${formatCurrency(final_cash)}.\n${measuredItems.length > 0 ? '⚖️ Conciliación de mermas de comida sobrante registrada en la bitácora.' : ''}`);
+      alert(`🔒 Caja N° ${data.box_number} Cerrada por "${data.user_name}" con saldo final de ${formatCurrency(final_cash)}.${eanLogText}`);
       await loadCashSummary();
     } else {
       alert(`⚠️ ${data.error}`);

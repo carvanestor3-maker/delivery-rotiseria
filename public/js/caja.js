@@ -391,7 +391,7 @@ function handleCloseShiftBoxChange() {
   }
 }
 
-function openCloseShiftModal() {
+async function openCloseShiftModal() {
   if (activeShiftsListCaja.length === 0) {
     alert(`⚠️ NO SE PUEDE CERRAR CAJA: No hay ningún turno de caja abierto en este momento.`);
     return;

@@ -1053,8 +1053,15 @@ function renderProductsTable() {
       <td class="p-4 font-bold text-slate-900 flex items-center gap-3">
         <img src="${p.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=100'}" class="w-10 h-10 rounded-lg object-cover bg-slate-100 flex-shrink-0">
         <div>
-          <div>${p.name}</div>
+          <div class="flex items-center gap-1.5">
+            <span>${p.name}</span>
+            ${p.unit_type === 'kg' ? `<span class="bg-purple-100 text-purple-800 border border-purple-300 text-[10px] font-black px-1.5 py-0.2 rounded-md">⚖️ Venta x Kg</span>` : ''}
+          </div>
           <div class="text-xs font-normal text-slate-400 line-clamp-1">${p.description || ''}</div>
+          <div class="flex items-center gap-2 mt-0.5 font-mono text-[11px] text-slate-500">
+            ${p.barcode ? `<span class="bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">📊 Barcode: ${p.barcode}</span>` : ''}
+            ${p.plu_code ? `<span class="bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded border border-amber-200 font-bold">🏷️ PLU: ${p.plu_code}</span>` : ''}
+          </div>
         </div>
       </td>
       <td class="p-4 text-xs font-semibold text-slate-600">
@@ -1105,6 +1112,9 @@ function openProductModal(prod = null) {
     document.getElementById('prod-name').value = prod.name;
     document.getElementById('prod-category').value = prod.category_id;
     document.getElementById('prod-price').value = prod.price;
+    document.getElementById('prod-unit-type').value = prod.unit_type || 'unidad';
+    document.getElementById('prod-barcode').value = prod.barcode || '';
+    document.getElementById('prod-plu-code').value = prod.plu_code || '';
     document.getElementById('prod-desc').value = prod.description || '';
     document.getElementById('prod-image').value = prod.image_url || '';
     showImagePreview(prod.image_url || '');
@@ -1112,6 +1122,9 @@ function openProductModal(prod = null) {
   } else {
     title.textContent = 'Nuevo Producto (Exclusivo Nivel 3)';
     document.getElementById('prod-id').value = '';
+    document.getElementById('prod-unit-type').value = 'unidad';
+    document.getElementById('prod-barcode').value = '';
+    document.getElementById('prod-plu-code').value = '';
     document.getElementById('prod-available').checked = true;
   }
 
@@ -1165,6 +1178,9 @@ async function saveProduct(e) {
   const name = document.getElementById('prod-name').value.trim();
   const category_id = document.getElementById('prod-category').value;
   const price = document.getElementById('prod-price').value;
+  const unit_type = document.getElementById('prod-unit-type').value;
+  const barcode = document.getElementById('prod-barcode').value.trim();
+  const plu_code = document.getElementById('prod-plu-code').value.trim();
   const description = document.getElementById('prod-desc').value.trim();
   const image_url = document.getElementById('prod-image').value.trim();
   const available = document.getElementById('prod-available').checked;
@@ -1176,7 +1192,7 @@ async function saveProduct(e) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         id: id ? parseInt(id) : null,
-        name, category_id, price, description, image_url, available, pin
+        name, category_id, price, unit_type, barcode, plu_code, description, image_url, available, pin
       })
     });
     const data = await res.json();

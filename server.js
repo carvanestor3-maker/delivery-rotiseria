@@ -1088,7 +1088,7 @@ app.get('/api/admin/products', (req, res) => {
 
 app.post('/api/admin/products', (req, res) => {
   try {
-    const { id, category_id, name, description, price, image_url, available, pin } = req.body;
+    const { id, category_id, name, description, price, image_url, available, barcode, plu_code, unit_type, is_weighed, pin } = req.body;
 
     const auth = verifyUserPin(pin, 3);
     if (!auth.isValid) {
@@ -1096,6 +1096,16 @@ app.post('/api/admin/products', (req, res) => {
     }
 
     const store = db.getStore();
+    const strBarcode = barcode ? String(barcode).trim() : '';
+    const strPlu = plu_code ? String(plu_code).trim() : '';
+
+    if (strBarcode) {
+      const dup = store.products.find(p => p.barcode === strBarcode && p.id !== parseInt(id || 0));
+      if (dup) {
+        return res.status(400).json({ success: false, error: `El código de barras "${strBarcode}" ya pertenece al producto "${dup.name}".` });
+      }
+    }
+
     if (id) {
       const prod = store.products.find(p => p.id === parseInt(id));
       if (prod) {
@@ -1105,6 +1115,10 @@ app.post('/api/admin/products', (req, res) => {
         prod.price = parseFloat(price);
         prod.image_url = image_url;
         prod.available = available ? 1 : 0;
+        prod.barcode = strBarcode;
+        prod.plu_code = strPlu;
+        prod.unit_type = unit_type || 'unidad';
+        prod.is_weighed = is_weighed ? 1 : 0;
       }
     } else {
       const nextId = store.products.length > 0 ? Math.max(...store.products.map(p => p.id)) + 1 : 1;
@@ -1115,12 +1129,91 @@ app.post('/api/admin/products', (req, res) => {
         description,
         price: parseFloat(price),
         image_url,
-        available: available !== undefined ? (available ? 1 : 0) : 1
+        available: available !== undefined ? (available ? 1 : 0) : 1,
+        barcode: strBarcode,
+        plu_code: strPlu,
+        unit_type: unit_type || 'unidad',
+        is_weighed: is_weighed ? 1 : 0
       });
     }
     db.saveStore();
     res.json({ success: true, user_name: auth.user.name });
   } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// RUTA API POS: VENTA DIRECTA EN MOSTRADOR POR ESCÁNER / BALANZA
+app.post('/api/pos/sale', (req, res) => {
+  try {
+    const { items, payment_method, payment_note, cashier_name, box_number, total } = req.body;
+
+    if (!items || !Array.isArray(items) || items.length === 0 || !total) {
+      return res.status(400).json({ success: false, error: 'El carrito de venta directa no puede estar vacío.' });
+    }
+
+    const store = db.getStore();
+    const numBox = parseInt(box_number || 1);
+
+    const activeShift = (store.cash_shifts || []).find(s => s.status === 'open' && (s.box_number || 1) === numBox);
+    if (!activeShift) {
+      return res.status(400).json({ success: false, error: `⚠️ NO HAY TURNO DE CAJA ABIERTO: Debe abrir la Caja N° ${numBox} antes de realizar cobros directos.` });
+    }
+
+    const totalOrders = store.orders.length;
+    const orderNumber = `#POS-${101 + totalOrders}`;
+
+    const strCashier = cashier_name || activeShift.cashier_name || activeShift.opened_by || 'Cajero';
+
+    const newOrder = {
+      id: store.orders.length > 0 ? Math.max(...store.orders.map(o => o.id)) + 1 : 1,
+      order_number: orderNumber,
+      customer_name: `VENTA DIRECTA MOSTRADOR (${strCashier})`,
+      customer_phone: 'En Local',
+      address: 'Venta Directa en Mostrador',
+      delivery_type: 'retiro',
+      payment_method: payment_method || 'Efectivo',
+      payment_note: payment_note || `Caja N° ${numBox}`,
+      notes: `Venta Directa POS cobrada por ${strCashier} en Caja N° ${numBox}`,
+      items: typeof items === 'string' ? items : JSON.stringify(items),
+      total: parseFloat(total),
+      status: 'entregado',
+      paid: 1,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    // Descontar materias primas / stock si aplica
+    items.forEach(item => {
+      const recipes = (store.product_recipes || []).filter(r => r.product_id === item.id);
+      const qtySold = parseFloat(item.qty || 1);
+      recipes.forEach(r => {
+        const rawMat = (store.raw_materials || []).find(m => m.id === r.raw_material_id);
+        if (rawMat) {
+          const discountQty = (r.qty_per_portion || 0) * qtySold;
+          rawMat.current_stock = Math.max(0, (rawMat.current_stock || 0) - discountQty);
+        }
+      });
+    });
+
+    store.orders.unshift(newOrder);
+    db.saveStore();
+
+    io.emit('new_order', newOrder);
+    io.emit('order_updated', newOrder);
+    io.emit('cash_shift_updated');
+
+    // Auto-imprimir ticket si está configurado
+    const settings = getSettingsMap();
+    if (settings.auto_print_epson === '1' && settings.epson_printer_ip) {
+      printToEpsonNetwork(newOrder, settings.epson_printer_ip, settings.epson_printer_port || 9100)
+        .then(() => console.log(`🖨️ Ticket POS ${orderNumber} impreso en Epson ${settings.epson_printer_ip}`))
+        .catch(err => console.error(`⚠️ Error al imprimir POS en Epson: ${err.message}`));
+    }
+
+    res.json({ success: true, order: newOrder });
+  } catch (err) {
+    console.error('Error al procesar venta directa POS:', err);
     res.status(500).json({ success: false, error: err.message });
   }
 });

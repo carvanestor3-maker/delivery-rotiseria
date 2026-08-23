@@ -29,6 +29,9 @@
     </div>
 
     <div class="flex items-center gap-2">
+      <button onclick="openPosModal()" class="px-3 py-1 bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 font-black rounded-lg text-xs transition flex items-center gap-1.5 shadow-md">
+        🛒 Venta POS (Escáner)
+      </button>
       <span id="shift-status-badge-caja" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">🟢 Caja Abierta</span>
       <button id="btn-open-shift-caja" onclick="openOpenShiftModal()" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition flex items-center gap-1">
         🔓 Abrir
@@ -174,6 +177,122 @@
           <button type="submit" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 font-bold rounded-xl text-xs text-white shadow">Cerrar Turno y Rendir Caja</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- MODAL PRINCIPAL POS: VENTA DIRECTA POR MOSTRADOR / ESCÁNER / BALANZA -->
+  <div id="pos-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-3 opacity-0 pointer-events-none transition-opacity duration-200 text-slate-900">
+    <div class="bg-white rounded-2xl max-w-5xl w-full h-[92vh] flex flex-col shadow-2xl overflow-hidden">
+      <!-- POS Header -->
+      <div class="bg-slate-900 text-white p-4 flex justify-between items-center border-b border-slate-800">
+        <div class="flex items-center gap-3">
+          <div class="p-2 bg-amber-500 text-slate-950 font-black rounded-xl text-lg">🛒</div>
+          <div>
+            <h3 class="font-extrabold text-base leading-tight">Venta Directa POS en Mostrador & Balanza</h3>
+            <p class="text-xs text-slate-400">Escanea códigos de barra EAN-13, etiquetas de balanza o busca productos al instante</p>
+          </div>
+        </div>
+        <button onclick="closePosModal()" class="text-slate-400 hover:text-white p-1 rounded-lg">
+          <i data-lucide="x" class="w-6 h-6"></i>
+        </button>
+      </div>
+
+      <!-- Barra de Lectura e Ingreso Rápido de Código de Barras -->
+      <div class="bg-slate-100 p-3 border-b border-slate-200 flex flex-col sm:flex-row gap-2 items-center">
+        <div class="relative flex-1 w-full">
+          <span class="absolute left-3.5 top-3 text-slate-400 font-bold">📊</span>
+          <input type="text" id="pos-barcode-input" onkeydown="handlePosBarcodeInput(event)" placeholder="Escanea código EAN-13 / Balanza o escribe el nombre..." class="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-amber-500 shadow-inner">
+        </div>
+        <button onclick="processManualBarcodeInput()" class="w-full sm:w-auto px-4 py-2.5 bg-amber-500 hover:bg-amber-600 active:scale-95 text-slate-950 font-extrabold rounded-xl text-xs transition shadow flex items-center justify-center gap-1">
+          🔍 Buscar / Añadir
+        </button>
+      </div>
+
+      <!-- Cuerpo POS 2 Columnas -->
+      <div class="flex-1 flex flex-col md:flex-row overflow-hidden">
+        <!-- Columna Izquierda: Catálogo y Productos -->
+        <div class="md:w-7/12 p-3 overflow-y-auto bg-slate-50 border-r border-slate-200 flex flex-col space-y-3">
+          <div id="pos-category-pills" class="flex gap-1.5 overflow-x-auto pb-1 text-xs">
+            <!-- Categorías dinámicas -->
+          </div>
+
+          <div id="pos-products-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-2 overflow-y-auto flex-1">
+            <!-- Productos dinámicos -->
+          </div>
+        </div>
+
+        <!-- Columna Derecha: Carrito y Cobro Directo -->
+        <div class="md:w-5/12 p-4 bg-white flex flex-col justify-between space-y-3 overflow-y-auto">
+          <div>
+            <div class="flex justify-between items-center border-b pb-2 border-slate-200 mb-2">
+              <h4 class="font-extrabold text-slate-900 text-sm flex items-center gap-1.5">
+                🛍️ Ítems en Carrito (<span id="pos-cart-count">0</span>)
+              </h4>
+              <button onclick="clearPosCart()" class="text-xs text-red-600 hover:underline font-bold">Limpiar</button>
+            </div>
+
+            <!-- Tabla de Ítems Carrito -->
+            <div id="pos-cart-container" class="space-y-2 max-h-[35vh] overflow-y-auto divide-y divide-slate-100">
+              <!-- Ítems agregados -->
+            </div>
+          </div>
+
+          <!-- Pie de Cobro Directo -->
+          <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
+            <div>
+              <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Método de Cobro en Mostrador *</label>
+              <select id="pos-payment-method" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-emerald-500 bg-white font-extrabold text-slate-900">
+                <option value="Efectivo">💵 Efectivo</option>
+                <option value="Tarjeta de Débito/Crédito">💳 Tarjeta de Débito / Crédito</option>
+                <option value="MercadoPago / Transferencia">📱 MercadoPago / Transferencia</option>
+              </select>
+            </div>
+
+            <div class="flex justify-between items-center border-t pt-2 border-slate-200">
+              <span class="text-xs font-black text-slate-500 uppercase">TOTAL A COBRAR</span>
+              <span id="pos-cart-total-val" class="text-3xl font-black text-emerald-600 font-mono">$0</span>
+            </div>
+
+            <button onclick="submitPosSale()" class="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-black rounded-xl text-base shadow-lg transition flex items-center justify-center gap-2">
+              <span>⚡ COBRAR E INGRESAR A CAJA</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL SECUNDARIO: INGRESO DE PESO POR KILO (BALANZA DE MOSTRADOR) -->
+  <div id="pos-weighed-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200 text-slate-900">
+    <div class="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl space-y-4">
+      <div class="flex justify-between items-center border-b pb-2 border-slate-200">
+        <h3 id="weighed-modal-title" class="font-extrabold text-purple-900 text-base">⚖️ Venta por Peso / Kilo</h3>
+        <button onclick="closePosWeighedModal()" class="text-slate-400 hover:text-slate-700">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3">
+        <input type="hidden" id="weighed-prod-id">
+        <div id="weighed-prod-name" class="font-black text-slate-900 text-sm">Producto</div>
+        <div id="weighed-prod-price" class="text-xs text-slate-500 font-bold font-mono">Precio por Kilo: $0/kg</div>
+
+        <div class="bg-purple-50 p-3 rounded-xl border border-purple-200 space-y-2">
+          <div>
+            <label class="block text-xs font-bold text-purple-900 mb-1">Peso Medido en Balanza (en Kilos) *</label>
+            <input type="number" step="0.001" id="weighed-input-kg" oninput="calculateWeighedTotal()" placeholder="Ej: 0.750 para 750 gramos" class="w-full px-3 py-2 border border-purple-300 rounded-xl text-base font-mono font-black outline-none focus:ring-2 focus:ring-purple-500">
+          </div>
+          <div class="flex justify-between items-center border-t pt-2 border-purple-200 text-xs">
+            <span class="font-bold text-purple-800 uppercase">Subtotal Calculado:</span>
+            <span id="weighed-calculated-total" class="font-mono text-base font-black text-purple-900">$0</span>
+          </div>
+        </div>
+
+        <div class="pt-2 flex justify-end gap-2">
+          <button type="button" onclick="closePosWeighedModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 font-bold rounded-xl text-xs text-slate-700">Cancelar</button>
+          <button type="button" onclick="confirmWeighedItemAdd()" class="px-4 py-2 bg-purple-700 hover:bg-purple-800 font-extrabold rounded-xl text-xs text-white shadow">➕ Añadir al Carrito POS</button>
+        </div>
+      </div>
     </div>
   </div>
 

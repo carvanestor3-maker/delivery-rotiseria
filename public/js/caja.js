@@ -422,3 +422,375 @@ async function submitCloseShift(e) {
     console.error('Error al cerrar caja:', err);
   }
 }
+
+// ==========================================
+// MÓDULO POS: VENTA DIRECTA / ESCÁNER / BALANZA
+// ==========================================
+
+let posProducts = [];
+let posCategories = [];
+let posCart = [];
+let selectedPosCategory = 'all';
+
+function playBeepSound() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(1046.5, ctx.currentTime);
+    gain.gain.setValueAtTime(0.1, ctx.currentTime);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.12);
+  } catch (e) {}
+}
+
+async function openPosModal() {
+  try {
+    const res = await fetch('/api/menu');
+    const data = await res.json();
+    if (data.success) {
+      posProducts = data.products || [];
+      posCategories = data.categories || [];
+      renderPosCategoryPills();
+      renderPosProductsGrid();
+      renderPosCart();
+    }
+  } catch (err) {
+    console.error('Error al cargar catálogo POS:', err);
+  }
+
+  const modal = document.getElementById('pos-modal');
+  modal.classList.remove('opacity-0', 'pointer-events-none');
+
+  setTimeout(() => {
+    const input = document.getElementById('pos-barcode-input');
+    if (input) input.focus();
+  }, 200);
+}
+
+function closePosModal() {
+  const modal = document.getElementById('pos-modal');
+  modal.classList.add('opacity-0', 'pointer-events-none');
+}
+
+function renderPosCategoryPills() {
+  const container = document.getElementById('pos-category-pills');
+  if (!container) return;
+
+  container.innerHTML = `
+    <button onclick="setPosCategory('all')" class="px-3 py-1.5 rounded-xl font-extrabold whitespace-nowrap transition ${selectedPosCategory === 'all' ? 'bg-amber-500 text-slate-950 shadow' : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'}">
+      🔥 Todos
+    </button>
+  `;
+
+  posCategories.forEach(c => {
+    const isActive = selectedPosCategory === String(c.id);
+    const btn = document.createElement('button');
+    btn.onclick = () => setPosCategory(String(c.id));
+    btn.className = `px-3 py-1.5 rounded-xl font-extrabold whitespace-nowrap transition ${isActive ? 'bg-amber-500 text-slate-950 shadow' : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'}`;
+    btn.textContent = `${c.icon || '🍽️'} ${c.name}`;
+    container.appendChild(btn);
+  });
+}
+
+function setPosCategory(catId) {
+  selectedPosCategory = catId;
+  renderPosCategoryPills();
+  renderPosProductsGrid();
+}
+
+function renderPosProductsGrid() {
+  const grid = document.getElementById('pos-products-grid');
+  if (!grid) return;
+
+  grid.innerHTML = '';
+
+  let filtered = posProducts.filter(p => p.available === 1);
+  if (selectedPosCategory !== 'all') {
+    filtered = filtered.filter(p => String(p.category_id) === String(selectedPosCategory));
+  }
+
+  if (filtered.length === 0) {
+    grid.innerHTML = `<div class="col-span-full p-6 text-center text-slate-400 font-bold">No hay productos activos en esta categoría.</div>`;
+    return;
+  }
+
+  filtered.forEach(p => {
+    const card = document.createElement('div');
+    card.onclick = () => handlePosProductClick(p.id);
+    card.className = 'bg-white p-3 rounded-2xl border border-slate-200 shadow-sm hover:border-amber-400 hover:shadow-md cursor-pointer transition flex flex-col justify-between space-y-2 group';
+
+    const isKg = p.unit_type === 'kg';
+
+    card.innerHTML = `
+      <div class="space-y-1">
+        <div class="flex justify-between items-start">
+          <div class="font-extrabold text-slate-900 text-xs line-clamp-2 group-hover:text-amber-600 transition">${p.name}</div>
+          ${isKg ? `<span class="bg-purple-100 text-purple-800 font-black text-[9px] px-1.5 py-0.5 rounded">x Kg</span>` : ''}
+        </div>
+        <div class="text-[10px] text-slate-400 font-mono">
+          ${p.barcode ? `📊 ${p.barcode}` : p.plu_code ? `🏷️ PLU: ${p.plu_code}` : ''}
+        </div>
+      </div>
+      <div class="flex justify-between items-center pt-1 border-t border-slate-100">
+        <span class="font-mono font-black text-slate-900 text-sm">${formatCurrency(p.price)}${isKg ? '/kg' : ''}</span>
+        <span class="p-1 bg-amber-100 group-hover:bg-amber-500 group-hover:text-slate-950 text-amber-800 rounded-lg text-xs font-black transition">➕</span>
+      </div>
+    `;
+
+    grid.appendChild(card);
+  });
+}
+
+function handlePosProductClick(prodId) {
+  const prod = posProducts.find(p => p.id === prodId);
+  if (!prod) return;
+
+  if (prod.unit_type === 'kg') {
+    openPosWeighedModal(prod);
+  } else {
+    addToPosCart(prod, 1);
+    playBeepSound();
+  }
+}
+
+function addToPosCart(prod, qty = 1) {
+  const existing = posCart.find(i => i.id === prod.id);
+  if (existing) {
+    existing.qty = parseFloat((existing.qty + qty).toFixed(3));
+    existing.total = parseFloat((existing.qty * existing.price).toFixed(2));
+  } else {
+    posCart.push({
+      id: prod.id,
+      name: prod.name,
+      price: prod.price,
+      qty: parseFloat(qty.toFixed(3)),
+      unit_type: prod.unit_type || 'unidad',
+      total: parseFloat((qty * prod.price).toFixed(2))
+    });
+  }
+
+  renderPosCart();
+}
+
+function renderPosCart() {
+  const container = document.getElementById('pos-cart-container');
+  const countSpan = document.getElementById('pos-cart-count');
+  const totalSpan = document.getElementById('pos-cart-total-val');
+
+  if (!container) return;
+
+  container.innerHTML = '';
+
+  let grandTotal = 0;
+  let totalCount = 0;
+
+  if (posCart.length === 0) {
+    container.innerHTML = `<div class="p-8 text-center text-slate-400 font-bold text-xs">El carrito de venta directa está vacío. Escanea o selecciona un producto.</div>`;
+    if (countSpan) countSpan.textContent = '0';
+    if (totalSpan) totalSpan.textContent = formatCurrency(0);
+    return;
+  }
+
+  posCart.forEach((item, index) => {
+    grandTotal += item.total;
+    totalCount += item.unit_type === 'kg' ? 1 : item.qty;
+
+    const tr = document.createElement('div');
+    tr.className = 'py-2 flex justify-between items-center text-xs gap-2';
+
+    const isKg = item.unit_type === 'kg';
+    const qtyStr = isKg ? `${item.qty} kg` : `${item.qty}x`;
+
+    tr.innerHTML = `
+      <div class="flex-1 min-w-0">
+        <div class="font-extrabold text-slate-900 truncate">${item.name}</div>
+        <div class="text-[11px] font-mono text-slate-400">${formatCurrency(item.price)} x ${qtyStr}</div>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="font-mono font-black text-slate-900 text-sm">${formatCurrency(item.total)}</span>
+        <div class="flex items-center gap-1">
+          <button onclick="updatePosCartQty(${index}, -1)" class="w-5 h-5 bg-slate-200 hover:bg-slate-300 font-black rounded text-slate-700 flex items-center justify-center">-</button>
+          <button onclick="updatePosCartQty(${index}, 1)" class="w-5 h-5 bg-slate-200 hover:bg-slate-300 font-black rounded text-slate-700 flex items-center justify-center">+</button>
+          <button onclick="removePosCartItem(${index})" class="w-5 h-5 bg-red-100 hover:bg-red-200 font-black rounded text-red-600 flex items-center justify-center">×</button>
+        </div>
+      </div>
+    `;
+
+    container.appendChild(tr);
+  });
+
+  if (countSpan) countSpan.textContent = Math.round(totalCount);
+  if (totalSpan) totalSpan.textContent = formatCurrency(grandTotal);
+}
+
+function updatePosCartQty(index, change) {
+  const item = posCart[index];
+  if (!item) return;
+
+  const step = item.unit_type === 'kg' ? 0.1 : 1;
+  item.qty = parseFloat((item.qty + (change * step)).toFixed(3));
+
+  if (item.qty <= 0) {
+    posCart.splice(index, 1);
+  } else {
+    item.total = parseFloat((item.qty * item.price).toFixed(2));
+  }
+
+  renderPosCart();
+}
+
+function removePosCartItem(index) {
+  posCart.splice(index, 1);
+  renderPosCart();
+}
+
+function clearPosCart() {
+  posCart = [];
+  renderPosCart();
+}
+
+// LECTURA DE CÓDIGO DE BARRAS & DECODIFICADOR EAN-13 DE BALANZA
+function handlePosBarcodeInput(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    processManualBarcodeInput();
+  }
+}
+
+function processManualBarcodeInput() {
+  const input = document.getElementById('pos-barcode-input');
+  if (!input) return;
+
+  const rawCode = input.value.trim();
+  if (!rawCode) return;
+
+  input.value = '';
+
+  // 1. Verificar si es Código de Balanza EAN-13 (empieza por 20 o 28 y tiene 12/13 dígitos)
+  if ((rawCode.startsWith('20') || rawCode.startsWith('28')) && rawCode.length >= 12) {
+    const pluCode = rawCode.substring(2, 6);
+    const priceOrWeightDigits = parseInt(rawCode.substring(6, 11));
+
+    const prod = posProducts.find(p => String(p.plu_code).trim() === pluCode || String(p.plu_code).padStart(4, '0') === pluCode);
+
+    if (prod) {
+      const priceTotal = priceOrWeightDigits / 100;
+      const calculatedWeight = parseFloat((priceTotal / (prod.price || 1)).toFixed(3));
+
+      addToPosCart({
+        ...prod,
+        name: `${prod.name} (Balanza ${calculatedWeight}kg)`
+      }, calculatedWeight);
+
+      playBeepSound();
+      return;
+    }
+  }
+
+  // 2. Buscar por Código de Barras Estático
+  const prodByBarcode = posProducts.find(p => String(p.barcode).trim() === rawCode);
+  if (prodByBarcode) {
+    handlePosProductClick(prodByBarcode.id);
+    return;
+  }
+
+  // 3. Buscar por Nombre
+  const prodByName = posProducts.find(p => p.name.toLowerCase().includes(rawCode.toLowerCase()));
+  if (prodByName) {
+    handlePosProductClick(prodByName.id);
+    return;
+  }
+
+  alert(`⚠️ No se encontró ningún producto con el código o nombre "${rawCode}".`);
+}
+
+// VENTA POR PESO MANUAL (BALANZA DE MOSTRADOR)
+function openPosWeighedModal(prod) {
+  document.getElementById('weighed-prod-id').value = prod.id;
+  document.getElementById('weighed-prod-name').textContent = prod.name;
+  document.getElementById('weighed-prod-price').textContent = `Precio por Kilo: ${formatCurrency(prod.price)}/kg`;
+  document.getElementById('weighed-input-kg').value = '';
+  document.getElementById('weighed-calculated-total').textContent = formatCurrency(0);
+
+  const modal = document.getElementById('pos-weighed-modal');
+  modal.classList.remove('opacity-0', 'pointer-events-none');
+
+  setTimeout(() => {
+    document.getElementById('weighed-input-kg').focus();
+  }, 150);
+}
+
+function closePosWeighedModal() {
+  const modal = document.getElementById('pos-weighed-modal');
+  modal.classList.add('opacity-0', 'pointer-events-none');
+}
+
+function calculateWeighedTotal() {
+  const prodId = parseInt(document.getElementById('weighed-prod-id').value);
+  const prod = posProducts.find(p => p.id === prodId);
+  const kg = parseFloat(document.getElementById('weighed-input-kg').value || 0);
+
+  if (prod && kg > 0) {
+    const total = kg * prod.price;
+    document.getElementById('weighed-calculated-total').textContent = formatCurrency(total);
+  } else {
+    document.getElementById('weighed-calculated-total').textContent = formatCurrency(0);
+  }
+}
+
+function confirmWeighedItemAdd() {
+  const prodId = parseInt(document.getElementById('weighed-prod-id').value);
+  const prod = posProducts.find(p => p.id === prodId);
+  const kg = parseFloat(document.getElementById('weighed-input-kg').value || 0);
+
+  if (!prod || kg <= 0) {
+    alert('⚠️ Por favor ingrese un peso en kilos válido mayor a 0.');
+    return;
+  }
+
+  addToPosCart(prod, kg);
+  playBeepSound();
+  closePosWeighedModal();
+}
+
+// ENVIAR VENTA DIRECTA POS AL SERVIDOR
+async function submitPosSale() {
+  if (posCart.length === 0) {
+    alert('⚠️ El carrito de venta directa está vacío.');
+    return;
+  }
+
+  const grandTotal = posCart.reduce((sum, i) => sum + i.total, 0);
+  const payment_method = document.getElementById('pos-payment-method').value;
+
+  try {
+    const res = await fetch('/api/pos/sale', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        items: posCart,
+        payment_method,
+        total: grandTotal
+      })
+    });
+
+    const data = await res.json();
+    if (data.success) {
+      playBeepSound();
+      alert(`⚡ VENTA DIRECTA COBRADA E INGRESADA A CAJA EXITOSAMENTE!\n\nOrden: ${data.order.order_number}\nTotal Cobrado: ${formatCurrency(grandTotal)}\nMétodo de Pago: ${payment_method}`);
+      clearPosCart();
+      closePosModal();
+      await loadCashSummary();
+      await loadOrders();
+    } else {
+      alert(`⚠️ ${data.error}`);
+    }
+  } catch (err) {
+    console.error('Error al cobrar venta directa POS:', err);
+    alert('Error de conexión al procesar la venta.');
+  }
+}

@@ -234,6 +234,15 @@
         </button>
       </div>
 
+      <!-- Barra de Filtros de Sector (Bar vs Envasados vs Cocina vs Balanza) -->
+      <div id="pos-sector-filters" class="bg-amber-50 p-2 border-b border-amber-200 flex gap-1.5 overflow-x-auto text-xs">
+        <button onclick="setPosSector('all')" id="pos-sec-all" class="px-3 py-1 rounded-lg font-black bg-slate-900 text-white shadow">🔥 Ver Todo</button>
+        <button onclick="setPosSector('bar')" id="pos-sec-bar" class="px-3 py-1 rounded-lg font-black bg-white text-slate-700 border border-amber-300 hover:bg-amber-100">☕ Bar & Cafetería (Ticket #BAR)</button>
+        <button onclick="setPosSector('packaged')" id="pos-sec-packaged" class="px-3 py-1 rounded-lg font-black bg-white text-slate-700 border border-amber-300 hover:bg-amber-100">📦 Productos Envasados (Escáner Directo)</button>
+        <button onclick="setPosSector('kitchen')" id="pos-sec-kitchen" class="px-3 py-1 rounded-lg font-black bg-white text-slate-700 border border-amber-300 hover:bg-amber-100">🍕 Cocina (Comandas KDS)</button>
+        <button onclick="setPosSector('weighed')" id="pos-sec-weighed" class="px-3 py-1 rounded-lg font-black bg-white text-slate-700 border border-amber-300 hover:bg-amber-100">⚖️ Comida por Kilo</button>
+      </div>
+
       <!-- Cuerpo POS 2 Columnas -->
       <div class="flex-1 flex flex-col md:flex-row overflow-hidden">
         <!-- Columna Izquierda: Catálogo y Productos -->

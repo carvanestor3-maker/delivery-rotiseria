@@ -628,6 +628,34 @@ function renderPosCategoryPills() {
   });
 }
 
+let selectedPosSector = 'all'; // 'all' | 'bar' | 'packaged' | 'kitchen' | 'weighed'
+
+function setPosSector(sec) {
+  selectedPosSector = sec;
+
+  ['all', 'bar', 'packaged', 'kitchen', 'weighed'].forEach(s => {
+    const btn = document.getElementById(`pos-sec-${s}`);
+    if (btn) {
+      if (s === sec) {
+        btn.className = 'px-3 py-1 rounded-lg font-black bg-slate-900 text-white shadow';
+      } else {
+        btn.className = 'px-3 py-1 rounded-lg font-black bg-white text-slate-700 border border-amber-300 hover:bg-amber-100';
+      }
+    }
+  });
+
+  const ticketChk = document.getElementById('pos-generate-bar-ticket');
+  if (ticketChk) {
+    if (sec === 'bar') {
+      ticketChk.checked = true;
+    } else if (sec === 'packaged' || sec === 'weighed' || sec === 'kitchen') {
+      ticketChk.checked = false;
+    }
+  }
+
+  renderPosProductsGrid();
+}
+
 function setPosCategory(catId) {
   selectedPosCategory = catId;
   renderPosCategoryPills();
@@ -641,6 +669,17 @@ function renderPosProductsGrid() {
   grid.innerHTML = '';
 
   let filtered = posProducts.filter(p => p.available === 1);
+
+  if (selectedPosSector === 'bar') {
+    filtered = filtered.filter(p => p.sector === 'bar' || p.category_id === 7);
+  } else if (selectedPosSector === 'packaged') {
+    filtered = filtered.filter(p => p.sector === 'packaged' || p.category_id === 6 || (p.barcode && p.unit_type !== 'kg'));
+  } else if (selectedPosSector === 'kitchen') {
+    filtered = filtered.filter(p => p.sector === 'kitchen' || [1,2,3,4,5].includes(p.category_id));
+  } else if (selectedPosSector === 'weighed') {
+    filtered = filtered.filter(p => p.unit_type === 'kg' || p.is_prepared_food === 1 || p.sector === 'weighed');
+  }
+
   if (selectedPosCategory !== 'all') {
     filtered = filtered.filter(p => String(p.category_id) === String(selectedPosCategory));
   }

@@ -34,7 +34,22 @@
       "id": 6,
       "name": "Bebidas",
       "icon": "🥤",
-      "sort_order": 5
+      "sort_order": 5,
+      "sector": "packaged"
+    },
+    {
+      "id": 7,
+      "name": "Cafetería y Bar",
+      "icon": "☕",
+      "sort_order": 6,
+      "sector": "bar"
+    },
+    {
+      "id": 8,
+      "name": "Comida por Kilo",
+      "icon": "⚖️",
+      "sort_order": 7,
+      "sector": "weighed"
     }
   ],
   "products": [
@@ -168,6 +183,36 @@
     },
     {
       "id": 15,
+      "category_id": 7,
+      "name": "Café con Leche + 2 Medialunas",
+      "description": "Café expreso cremoso acompañado de 2 medialunas artesanal de manteca.",
+      "price": 2800,
+      "image_url": "https://images.unsplash.com/photo-1517256064527-09c73fc73e38?w=500",
+      "available": 1,
+      "sector": "bar"
+    },
+    {
+      "id": 16,
+      "category_id": 7,
+      "name": "Licuado de Banana o Frutilla (500cc)",
+      "description": "Licuado batido al momento con leche o agua (500cc).",
+      "price": 3200,
+      "image_url": "https://images.unsplash.com/photo-1553530666-ba11a7da3888?w=500",
+      "available": 1,
+      "sector": "bar"
+    },
+    {
+      "id": 17,
+      "category_id": 7,
+      "name": "Tostado Mixto Jamón y Queso en Pan de Miga",
+      "description": "Tostado dorado crocante en pan de miga con jamón y queso dote.",
+      "price": 3500,
+      "image_url": "https://images.unsplash.com/photo-1528735602780-2552fd46c7af?w=500",
+      "available": 1,
+      "sector": "bar"
+    },
+    {
+      "id": 18,
       "original_product_id": 1,
       "category_id": 1,
       "name": "❄️ Promo 2x1 Hamburguesas Clásicas (Refrigerado 4hs - 30% OFF)",
@@ -188,6 +233,40 @@
   ],
   "orders": [
     {
+      "id": 5,
+      "order_number": "#POS-105",
+      "customer_name": "VENTA DIRECTA MOSTRADOR (moices)",
+      "customer_phone": "En Local",
+      "address": "Venta Directa en Mostrador",
+      "delivery_type": "retiro",
+      "payment_method": "Efectivo",
+      "payment_note": "Caja N° 1",
+      "notes": "Venta Directa POS cobrada por moices en Caja N° 1",
+      "items": "[{\"id\":6,\"name\":\"Porción de Papas Fritas Cheddar & Bacon\",\"price\":4500,\"qty\":1,\"unit_type\":\"unidad\",\"total\":4500},{\"id\":4,\"name\":\"Milanesa Napolitana con Papas Fritas\",\"price\":8200,\"qty\":1,\"unit_type\":\"unidad\",\"total\":8200}]",
+      "total": 12700,
+      "status": "entregado",
+      "paid": 1,
+      "created_at": "2026-08-23T07:38:39.789Z",
+      "updated_at": "2026-08-23T07:38:39.789Z"
+    },
+    {
+      "id": 4,
+      "order_number": "#POS-104",
+      "customer_name": "VENTA DIRECTA MOSTRADOR (moices)",
+      "customer_phone": "En Local",
+      "address": "Venta Directa en Mostrador",
+      "delivery_type": "retiro",
+      "payment_method": "Efectivo",
+      "payment_note": "Caja N° 1",
+      "notes": "Venta Directa POS cobrada por moices en Caja N° 1",
+      "items": "[{\"id\":3,\"name\":\"Sándwich de Milanesa Completo\",\"price\":7500,\"qty\":2,\"unit_type\":\"unidad\",\"total\":15000}]",
+      "total": 15000,
+      "status": "entregado",
+      "paid": 0,
+      "created_at": "2026-08-23T07:34:49.422Z",
+      "updated_at": "2026-08-23T07:35:42.900Z"
+    },
+    {
       "id": 3,
       "order_number": "#POS-103",
       "customer_name": "VENTA DIRECTA MOSTRADOR (Encargado de Turno Mañana (Nivel 2))",
@@ -200,9 +279,9 @@
       "items": "[{\"id\":1,\"name\":\"Gaseosa 1.5L\",\"price\":1500,\"qty\":1}]",
       "total": 1500,
       "status": "entregado",
-      "paid": 1,
+      "paid": 0,
       "created_at": "2026-08-23T05:51:55.047Z",
-      "updated_at": "2026-08-23T05:51:55.047Z"
+      "updated_at": "2026-08-23T07:35:50.131Z"
     },
     {
       "id": 2,
@@ -224,9 +303,9 @@
       ],
       "total": 9400,
       "status": "entregado",
-      "paid": 1,
+      "paid": 0,
       "created_at": "2026-08-22T07:43:50.677Z",
-      "updated_at": "2026-08-22T07:44:21.599Z"
+      "updated_at": "2026-08-23T07:35:50.801Z"
     },
     {
       "id": 1,
@@ -254,9 +333,9 @@
       ],
       "total": 23200,
       "status": "entregado",
-      "paid": 1,
+      "paid": 0,
       "created_at": "2026-08-22T07:34:15.069Z",
-      "updated_at": "2026-08-22T07:37:26.374Z"
+      "updated_at": "2026-08-23T07:36:13.601Z"
     }
   ],
   "settings": {
@@ -296,6 +375,13 @@
       "id": 4,
       "name": "Cajero / Operativo 1",
       "pin": "1111",
+      "level": 1,
+      "active": 1
+    },
+    {
+      "id": 5,
+      "name": "moices",
+      "pin": "1000",
       "level": 1,
       "active": 1
     }
@@ -346,28 +432,28 @@
       "id": 1,
       "name": "Carne Vacuna para Milanesas",
       "unit": "kg",
-      "current_stock": 38.7,
+      "current_stock": 37.9,
       "min_stock": 10
     },
     {
       "id": 2,
       "name": "Papas para Fritar",
       "unit": "kg",
-      "current_stock": 74.75,
+      "current_stock": 74.1,
       "min_stock": 15
     },
     {
       "id": 3,
       "name": "Queso Muzzarella",
       "unit": "kg",
-      "current_stock": 26.85,
+      "current_stock": 26.7,
       "min_stock": 5
     },
     {
       "id": 4,
       "name": "Pan de Sándwich",
       "unit": "unidades",
-      "current_stock": 120,
+      "current_stock": 118,
       "min_stock": 20
     }
   ],
@@ -406,6 +492,18 @@
   "stock_entries": [],
   "stock_adjustments": [],
   "cash_shifts": [
+    {
+      "id": 6,
+      "box_number": 1,
+      "cashier_name": "moices",
+      "shift_type": "standard",
+      "opened_at": "2026-08-23T07:33:32.160Z",
+      "closed_at": null,
+      "initial_cash": 10000,
+      "final_cash": null,
+      "status": "open",
+      "opened_by": "Encargado de Turno Mañana (Nivel 2)"
+    },
     {
       "id": 5,
       "box_number": 4,

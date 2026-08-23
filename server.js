@@ -201,8 +201,9 @@ app.delete('/api/admin/users/:id', (req, res) => {
 // APERTURA DE TURNO DE CAJA POR NÚMERO DE CAJA, CAJERO ASIGNADO Y AUTORIZANTE (REQUERIDO NIVEL 2 O 3)
 app.post('/api/cash/shift/open', (req, res) => {
   try {
-    const { box_number, cashier_name, initial_cash, pin } = req.body;
+    const { box_number, cashier_name, initial_cash, shift_type, pin } = req.body;
     const numBox = parseInt(box_number || 1);
+    const strShiftType = shift_type || 'comandas'; // 'comandas' | 'pre_packaged' | 'weighed_food'
 
     const auth = verifyUserPin(pin, 2);
     if (!auth.isValid) {
@@ -227,6 +228,7 @@ app.post('/api/cash/shift/open', (req, res) => {
       id: nextId,
       box_number: numBox,
       cashier_name: strCashierName,
+      shift_type: strShiftType,
       opened_at: new Date().toISOString(),
       closed_at: null,
       initial_cash: parseFloat(initial_cash || 0),

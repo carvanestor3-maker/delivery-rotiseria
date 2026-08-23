@@ -352,6 +352,7 @@ async function submitOpenShift(e) {
   e.preventDefault();
   const box_number = document.getElementById('shift-box-number').value;
   const cashier_name = document.getElementById('shift-cashier-name').value.trim();
+  const shift_type = document.getElementById('shift-type-caja') ? document.getElementById('shift-type-caja').value : 'comandas';
   const initial_cash = document.getElementById('shift-initial-cash').value;
   const pin = document.getElementById('shift-open-pin').value.trim();
 
@@ -359,18 +360,34 @@ async function submitOpenShift(e) {
     const res = await fetch('/api/cash/shift/open', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ box_number, cashier_name, initial_cash, pin })
+      body: JSON.stringify({ box_number, cashier_name, shift_type, initial_cash, pin })
     });
     const data = await res.json();
     if (data.success) {
       closeOpenShiftModal();
-      alert(`✅ Caja N° ${data.box_number} Abierta con éxito:\n\nCajero Asignado: ${data.cashier_name}\nAutorizado por: ${data.user_name}\nCambio Inicial: ${formatCurrency(initial_cash)}`);
+      const typeLabel = data.shift.shift_type === 'weighed_food' ? '⚖️ Mostrador de Comida a la Balanza por Kilo' : data.shift.shift_type === 'pre_packaged' ? '📦 Productos Pre-Etiquetados / Envasados' : '🍕 Pedidos / Bar & Cafetería (Paga primero y retira en barra)';
+      alert(`✅ Caja N° ${data.box_number} Abierta con éxito:\n\nCajero Asignado: ${data.cashier_name}\nOperatoria: ${typeLabel}\nAutorizado por: ${data.user_name}\nCambio Inicial: ${formatCurrency(initial_cash)}`);
       await loadCashSummary();
     } else {
       alert(`⚠️ ${data.error}`);
     }
   } catch (err) {
     console.error('Error al abrir caja:', err);
+  }
+}
+
+function handleCloseShiftBoxChange() {
+  const selCloseBox = document.getElementById('shift-close-box-id');
+  const wasteContainer = document.getElementById('close-shift-waste-container');
+  if (!selCloseBox || !wasteContainer) return;
+
+  const selectedShiftId = selCloseBox.value;
+  const activeShift = activeShiftsListCaja.find(s => String(s.id) === String(selectedShiftId));
+
+  if (activeShift && activeShift.shift_type === 'weighed_food') {
+    wasteContainer.parentElement.classList.remove('hidden');
+  } else {
+    wasteContainer.parentElement.classList.add('hidden');
   }
 }
 
@@ -384,9 +401,12 @@ function openCloseShiftModal() {
 
   const selCloseBox = document.getElementById('shift-close-box-id');
   if (selCloseBox) {
-    selCloseBox.innerHTML = activeShiftsListCaja.map(s => 
-      `<option value="${s.id}">Caja N° ${s.box_number || 1} - Cajero: ${s.cashier_name || 'Sin asignar'} (Autorizó: ${s.opened_by}) - ${formatCurrency(s.initial_cash || 0)} cambio</option>`
-    ).join('');
+    selCloseBox.onchange = handleCloseShiftBoxChange;
+    selCloseBox.innerHTML = activeShiftsListCaja.map(s => {
+      const typeTag = s.shift_type === 'weighed_food' ? '⚖️ Balanza' : s.shift_type === 'pre_packaged' ? '📦 Envasados' : '🍕 Bar/Comandas';
+      return `<option value="${s.id}">Caja N° ${s.box_number || 1} [${typeTag}] - Cajero: ${s.cashier_name || 'Sin asignar'} - ${formatCurrency(s.initial_cash || 0)} cambio</option>`;
+    }).join('');
+    handleCloseShiftBoxChange();
   }
 
   const wasteContainer = document.getElementById('close-shift-waste-container');

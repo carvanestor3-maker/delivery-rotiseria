@@ -46,7 +46,7 @@
       "price": 9500,
       "image_url": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500",
       "available": 1,
-      "stock_prepared": 12.5,
+      "stock_prepared": 0,
       "is_prepared_food": 1
     },
     {
@@ -165,6 +165,25 @@
       "price": 2800,
       "image_url": "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=500",
       "available": 1
+    },
+    {
+      "id": 15,
+      "original_product_id": 1,
+      "category_id": 1,
+      "name": "❄️ Promo 2x1 Hamburguesas Clásicas (Refrigerado 4hs - 30% OFF)",
+      "description": "Conservación en frío de 4 hs. Calidad óptima a precio rebajado (30% OFF).",
+      "price": 6650,
+      "original_price": 9500,
+      "image_url": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500",
+      "available": 1,
+      "stock_prepared": 3.5,
+      "unit_type": "kg",
+      "is_prepared_food": 1,
+      "is_refrigerated_offer": 1,
+      "discount_percent": 30,
+      "refrigerated_hours": 4,
+      "plu_code": "9001",
+      "barcode": "20900100000"
     }
   ],
   "orders": [
@@ -430,6 +449,23 @@
     }
   ],
   "food_waste_logs": [
+    {
+      "id": 2,
+      "date": "2026-08-23T06:37:39.000Z",
+      "box_number": 1,
+      "product_id": 1,
+      "product_name": "Promo 2x1 Hamburguesas Clásicas",
+      "action": "offer",
+      "action_label": "🏷️ Oferta Refrigerada (30% OFF)",
+      "unit_type": "kg",
+      "expected_kg": 12.5,
+      "measured_kg": 3.5,
+      "waste_kg": 0,
+      "scale_ean": "20900100000",
+      "offer_price": 6650,
+      "notes": "Convertido a Oferta Refrigerada (4 hs de conservación, 30% descuento)",
+      "registered_by": "Cajero / Operativo 1 (Nivel 1)"
+    },
     {
       "id": 1,
       "date": "2026-08-23T06:09:59.209Z",

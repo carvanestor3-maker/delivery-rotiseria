@@ -352,7 +352,8 @@ async function submitOpenShift(e) {
   e.preventDefault();
   const box_number = document.getElementById('shift-box-number').value;
   const cashier_name = document.getElementById('shift-cashier-name').value.trim();
-  const shift_type = document.getElementById('shift-type-caja') ? document.getElementById('shift-type-caja').value : 'comandas';
+  const enableWeighed = document.getElementById('shift-enable-weighed') ? document.getElementById('shift-enable-weighed').checked : false;
+  const shift_type = enableWeighed ? 'weighed_food' : 'standard';
   const initial_cash = document.getElementById('shift-initial-cash').value;
   const pin = document.getElementById('shift-open-pin').value.trim();
 
@@ -365,8 +366,10 @@ async function submitOpenShift(e) {
     const data = await res.json();
     if (data.success) {
       closeOpenShiftModal();
-      const typeLabel = data.shift.shift_type === 'weighed_food' ? '⚖️ Mostrador de Comida a la Balanza por Kilo' : data.shift.shift_type === 'pre_packaged' ? '📦 Productos Pre-Etiquetados / Envasados' : data.shift.shift_type === 'bar_ticket' ? '☕ Bar, Cafetería & Licuados (Paga primero y retira en barra con ticket)' : '🍕 Pedidos / Comandas a Elaborar (Cocina, Delivery, Pizzas)';
-      alert(`✅ Caja N° ${data.box_number} Abierta con éxito:\n\nCajero Asignado: ${data.cashier_name}\nOperatoria: ${typeLabel}\nAutorizado por: ${data.user_name}\nCambio Inicial: ${formatCurrency(initial_cash)}`);
+      const typeLabel = data.shift.shift_type === 'weighed_food' 
+        ? '✅ Standard + ⚖️ Mostrador de Comida a la Balanza por Kilo' 
+        : '✅ Standard (🍕 Comandas/Delivery + ☕ Ticket de Bar + 📦 Escáner Envasados)';
+      alert(`✅ Caja N° ${data.box_number} Abierta con éxito:\n\nCajero Asignado: ${data.cashier_name}\nOperatorias Habilitadas: ${typeLabel}\nAutorizado por: ${data.user_name}\nCambio Inicial: ${formatCurrency(initial_cash)}`);
       await loadCashSummary();
     } else {
       alert(`⚠️ ${data.error}`);

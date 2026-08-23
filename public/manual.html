@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>📘 Manual de Misiones, Funciones y Operaciones - Rotisería & Bar</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Plus Jakarta Sans', sans-serif; }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen p-4 sm:p-8">
+  <div class="max-w-4xl mx-auto bg-slate-950 p-6 sm:p-10 rounded-3xl border border-slate-800 shadow-2xl space-y-8">
+    
+    <!-- Header -->
+    <div class="border-b border-slate-800 pb-6 text-center space-y-2">
+      <div class="inline-flex items-center gap-2 px-3 py-1 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-full text-xs font-bold">
+        📘 DOCUMENTO OFICIAL DE NORMAS & PROCEDIMIENTOS
+      </div>
+      <h1 class="text-2xl sm:text-4xl font-extrabold text-white">Manual de Misiones, Funciones y Operaciones</h1>
+      <p class="text-xs sm:text-sm text-slate-400">Sistema Integral de Rotisería, Bar, Cafetería, Comida a la Balanza & Delivery</p>
+    </div>
+
+    <!-- Navegación Rápida -->
+    <div class="bg-slate-900 p-4 rounded-2xl border border-slate-800 space-y-2 text-xs">
+      <div class="font-extrabold text-slate-300 uppercase">📍 Secciones Principales:</div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-amber-400 font-bold">
+        <a href="#sec-1" class="hover:underline">1. Arquitectura del Sistema & URLs</a>
+        <a href="#sec-2" class="hover:underline">2. Misiones por Perfil (Gerente, Encargado, Cajero, Barista)</a>
+        <a href="#sec-3" class="hover:underline">3. Flujos de Información (Las 4 Operatorias)</a>
+        <a href="#sec-4" class="hover:underline">4. Sobrantes (Oferta Refrigerada EAN-13, Reprocesado, Merma)</a>
+        <a href="#sec-5" class="hover:underline">5. Auditoría Financiera y Cuentas Corrientes</a>
+        <a href="#sec-6" class="hover:underline">6. Impresoras, Balanzas & Contingencias</a>
+      </div>
+    </div>
+
+    <!-- Sección 1 -->
+    <section id="sec-1" class="space-y-3 pt-4 border-t border-slate-800">
+      <h2 class="text-xl font-extrabold text-amber-400 flex items-center gap-2">
+        🌐 1. Arquitectura del Sistema y Enlaces Web
+      </h2>
+      <p class="text-xs text-slate-300 leading-relaxed">
+        El sistema funciona de forma sincronizada en tiempo real mediante <strong>WebSockets (Socket.io)</strong> entre el servidor local del negocio y los servidores espejos en la nube.
+      </p>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+        <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 space-y-1">
+          <div class="font-bold text-white uppercase text-[11px]">🖥️ Servidor Local en Red Wi-Fi</div>
+          <div class="font-mono text-emerald-400">caja.html: 192.168.100.145:3000/caja.html</div>
+          <div class="font-mono text-amber-400">admin.html: 192.168.100.145:3000/admin.html</div>
+          <div class="font-mono text-blue-400">cocina.html: 192.168.100.145:3000/cocina.html</div>
+        </div>
+
+        <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 space-y-1">
+          <div class="font-bold text-white uppercase text-[11px]">☁️ Servidores en la Nube</div>
+          <div class="font-mono text-purple-400">Render: delivery-rotiseria.onrender.com</div>
+          <div class="font-mono text-purple-300">Vercel: delivery-rotiseria.vercel.app</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Sección 2 -->
+    <section id="sec-2" class="space-y-4 pt-4 border-t border-slate-800">
+      <h2 class="text-xl font-extrabold text-amber-400 flex items-center gap-2">
+        👥 2. Misiones y Funciones por Perfil de Personal
+      </h2>
+
+      <div class="space-y-3 text-xs">
+        <div class="bg-purple-950/40 p-4 rounded-xl border border-purple-500/30 space-y-1">
+          <div class="font-black text-purple-300 text-sm">👑 GERENTE GENERAL / DUEÑO (Nivel 3 - PIN: 9999)</div>
+          <p class="text-slate-300">
+            <strong>Misión:</strong> Transparencia financiera, rentabilidad y auditoría general.<br>
+            <strong>Funciones:</strong> Alta de usuarios y claves PIN nombradas en <code>admin.html</code>, consulta de reportes financieros por períodos (Diario, Semanal, Quincenal, Mensual), conciliaciones de stock real en depósito y administración de Cuentas Corrientes (fiado).
+          </p>
+        </div>
+
+        <div class="bg-emerald-950/40 p-4 rounded-xl border border-emerald-500/30 space-y-1">
+          <div class="font-black text-emerald-300 text-sm">🔑 ENCARGADO DE TURNO (Nivel 2 - PIN: 2222)</div>
+          <p class="text-slate-300">
+            <strong>Misión:</strong> Supervisión del turno y control de ingreso de mercadería.<br>
+            <strong>Funciones:</strong> Apertura de cajas multi-estación en <code>caja.html</code>, autorización de cierre para aprendices y registro de entregas de proveedores.
+          </p>
+        </div>
+
+        <div class="bg-blue-950/40 p-4 rounded-xl border border-blue-500/30 space-y-1">
+          <div class="font-black text-blue-300 text-sm">💵 CAJERO / OPERATIVO (Nivel 1 - PIN: 1111)</div>
+          <p class="text-slate-300">
+            <strong>Misión:</strong> Venta rápida en mostrador, emisión de tickets y rendición final.<br>
+            <strong>Funciones:</strong> Operación del módulo <code>🛒 Venta POS</code>, escaneo de códigos de barra EAN-13, emisión de Fichas de Retiro en Barra (<code>#BAR-XXX</code>), cobro de balanza y rendición al cierre de turno.
+          </p>
+        </div>
+
+        <div class="bg-amber-950/40 p-4 rounded-xl border border-amber-500/30 space-y-1">
+          <div class="font-black text-amber-300 text-sm">👨‍🍳 COCINA & BARRA DE BAR / CAFETERÍA</div>
+          <p class="text-slate-300">
+            <strong>Misión:</strong> Preparación rápida de comandas y despacho de barra.<br>
+            <strong>Funciones:</strong> Operación de la pantalla KDS (<code>cocina.html</code>), recepción de Fichas <code>#BAR</code> en barra y carga de producción diaria de comida preparada.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Sección 3 -->
+    <section id="sec-3" class="space-y-4 pt-4 border-t border-slate-800">
+      <h2 class="text-xl font-extrabold text-amber-400 flex items-center gap-2">
+        ⚡ 3. Flujos de Información (Las 4 Operatorias)
+      </h2>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+        <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 space-y-1">
+          <div class="font-black text-amber-400">🍕 1. Pedidos / Comandas a Elaborar</div>
+          <p class="text-slate-300">Entran vía web/delivery -> Van a la pantalla KDS de Cocina -> Cierre directo en 2s.</p>
+        </div>
+
+        <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 space-y-1">
+          <div class="font-black text-amber-400">☕ 2. Bar & Cafetería (Paga Primero)</div>
+          <p class="text-slate-300">Paga en caja -> Emite Ficha <code>🎫 #BAR-XXX</code> -> Cliente retira en barra -> NO contamina la cocina.</p>
+        </div>
+
+        <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 space-y-1">
+          <div class="font-black text-amber-400">📦 3. Productos Envasados (Escáner)</div>
+          <p class="text-slate-300">Cobro por pistola USB de código EAN-13 -> Descuenta stock directo SIN ticket de barra.</p>
+        </div>
+
+        <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 space-y-1">
+          <div class="font-black text-amber-400">⚖️ 4. Comida por Kilo (Balanza)</div>
+          <p class="text-slate-300">Lectura EAN-13 o peso manual -> Descuenta stock preparado -> Habilita Arqueo al Cierre.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Sección 4 -->
+    <section id="sec-4" class="space-y-3 pt-4 border-t border-slate-800">
+      <h2 class="text-xl font-extrabold text-amber-400 flex items-center gap-2">
+        ♻️ 4. Triple Destino de Sobrantes de Comida al Cierre
+      </h2>
+      
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+        <div class="bg-purple-950/40 p-3.5 rounded-xl border border-purple-500/30 space-y-1">
+          <div class="font-extrabold text-purple-300">🏷️ Option A: Oferta Refrigerada</div>
+          <p class="text-slate-300">Con % OFF y horas de frío. Genera el sticker EAN-13 (ej: <code>20900100000</code>) para pegar en la heladera.</p>
+        </div>
+
+        <div class="bg-blue-950/40 p-3.5 rounded-xl border border-blue-500/30 space-y-1">
+          <div class="font-extrabold text-blue-300">♻️ Option B: Reprocesado 100%</div>
+          <p class="text-slate-300">Reutiliza el plato sobrante como insumo en cocina (ej: Pollo a empandas) sin perder dinero.</p>
+        </div>
+
+        <div class="bg-red-950/40 p-3.5 rounded-xl border border-red-500/30 space-y-1">
+          <div class="font-extrabold text-red-300">🗑️ Option C: Desperdicio Tirado</div>
+          <p class="text-slate-300">Registra pérdidas inaptas en la bitácora auditada de mermas.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <div class="pt-6 border-t border-slate-800 text-center text-xs text-slate-500 space-y-1">
+      <div>📘 Manual Oficial de Operaciones - Sistema Gastronómico Rotisería & Bar</div>
+      <div>Sincronizado con Render, Vercel y Red Local Wi-Fi</div>
+    </div>
+  </div>
+</body>
+</html>

@@ -389,6 +389,35 @@ function openCloseShiftModal() {
     ).join('');
   }
 
+  const wasteContainer = document.getElementById('close-shift-waste-container');
+  if (wasteContainer) {
+    if (posProducts.length === 0) {
+      try {
+        const res = await fetch('/api/menu');
+        const data = await res.json();
+        if (data.success) posProducts = data.products || [];
+      } catch (err) {}
+    }
+
+    const preparedItems = posProducts.filter(p => p.unit_type === 'kg' || p.is_prepared_food === 1);
+    if (preparedItems.length === 0) {
+      wasteContainer.innerHTML = `<div class="text-[11px] text-amber-700 italic">No hay productos por kilo configurados.</div>`;
+    } else {
+      wasteContainer.innerHTML = preparedItems.map(p => `
+        <div class="flex justify-between items-center bg-white p-2 rounded-lg border border-amber-200 text-xs">
+          <div class="font-bold text-slate-800">
+            <div>${p.name}</div>
+            <div class="text-[10px] text-slate-400 font-mono font-normal">Esperado teórico: ${(p.stock_prepared || 0).toFixed(3)} kg</div>
+          </div>
+          <div class="flex items-center gap-1">
+            <input type="number" step="0.001" data-prod-id="${p.id}" placeholder="${(p.stock_prepared || 0).toFixed(3)}" class="shift-waste-input w-24 px-2 py-1 border border-slate-300 rounded text-xs font-mono font-bold text-right outline-none focus:ring-2 focus:ring-amber-500">
+            <span class="text-[10px] font-bold text-slate-500">kg</span>
+          </div>
+        </div>
+      `).join('');
+    }
+  }
+
   const modal = document.getElementById('close-shift-modal');
   modal.classList.remove('opacity-0', 'pointer-events-none');
 }
@@ -404,7 +433,31 @@ async function submitCloseShift(e) {
   const final_cash = document.getElementById('shift-final-cash').value;
   const pin = document.getElementById('shift-close-pin').value.trim();
 
+  // 1. Recolectar arqueo de mermas/desperdicios de comida preparada si se ingresaron
+  const wasteInputs = document.querySelectorAll('.shift-waste-input');
+  const measuredItems = [];
+  wasteInputs.forEach(inp => {
+    const val = inp.value.trim();
+    if (val !== '') {
+      measuredItems.push({
+        product_id: parseInt(inp.getAttribute('data-prod-id')),
+        measured_remaining: parseFloat(val)
+      });
+    }
+  });
+
   try {
+    const activeShift = activeShiftsListCaja.find(s => String(s.id) === String(shift_id));
+    const boxNum = activeShift ? (activeShift.box_number || 1) : 1;
+
+    if (measuredItems.length > 0) {
+      await fetch('/api/cash/shift/reconcile-food', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ box_number: boxNum, measured_items: measuredItems, pin })
+      });
+    }
+
     const res = await fetch('/api/cash/shift/close', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -413,7 +466,7 @@ async function submitCloseShift(e) {
     const data = await res.json();
     if (data.success) {
       closeCloseShiftModal();
-      alert(`🔒 Caja N° ${data.box_number} Cerrada por "${data.user_name}" con saldo final de ${formatCurrency(final_cash)}.`);
+      alert(`🔒 Caja N° ${data.box_number} Cerrada por "${data.user_name}" con saldo final de ${formatCurrency(final_cash)}.\n${measuredItems.length > 0 ? '⚖️ Conciliación de mermas de comida sobrante registrada en la bitácora.' : ''}`);
       await loadCashSummary();
     } else {
       alert(`⚠️ ${data.error}`);

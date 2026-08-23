@@ -1300,6 +1300,7 @@ function switchTab(tab) {
     kSection.classList.remove('hidden');
     kBtn.className = 'tab-btn pb-3 border-b-2 border-orange-500 text-orange-600 flex items-center gap-2 font-bold';
     loadStockMaterials();
+    loadPreparedStock();
   } else if (tab === 'products') {
     pSection.classList.remove('hidden');
     pBtn.className = 'tab-btn pb-3 border-b-2 border-orange-500 text-orange-600 flex items-center gap-2 font-bold';
@@ -1310,6 +1311,7 @@ function switchTab(tab) {
   } else if (tab === 'audit') {
     uSection.classList.remove('hidden');
     uBtn.className = 'tab-btn pb-3 border-b-2 border-purple-600 text-purple-700 flex items-center gap-2 font-bold';
+    loadAuditLogs();
   } else {
     sSection.classList.remove('hidden');
     sBtn.className = 'tab-btn pb-3 border-b-2 border-orange-500 text-orange-600 flex items-center gap-2 font-bold';
@@ -1318,4 +1320,88 @@ function switchTab(tab) {
 
 function formatCurrency(val) {
   return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(val);
+}
+
+// ==========================================
+// GESTIÓN DE PRODUCCIÓN Y MERMAS DE COMIDA ELABORADA
+// ==========================================
+
+function loadPreparedStock() {
+  const tbody = document.getElementById('prepared-stock-tbody');
+  if (!tbody) return;
+
+  const preparedProds = products.filter(p => p.unit_type === 'kg' || p.is_prepared_food === 1);
+  if (preparedProds.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-slate-400 font-bold text-xs">No hay comidas preparadas configuradas. Asigna "Por Kilo" a un producto en el menú para controlar su producción y mermas.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = preparedProds.map(p => `
+    <tr class="hover:bg-slate-50 transition">
+      <td class="p-4 font-bold text-slate-900 flex items-center gap-2">
+        <span class="text-base">🍳</span>
+        <div>
+          <div>${p.name}</div>
+          <div class="text-[11px] text-slate-400 font-mono">${p.barcode ? `📊 ${p.barcode}` : p.plu_code ? `🏷️ PLU: ${p.plu_code}` : ''}</div>
+        </div>
+      </td>
+      <td class="p-4 text-xs font-bold text-slate-700">
+        <span class="bg-purple-100 text-purple-800 px-2 py-0.5 rounded-md font-mono">${p.unit_type === 'kg' ? '⚖️ Por Kilo' : '📦 Por Unidad'}</span>
+      </td>
+      <td class="p-4 font-mono font-black text-slate-900 text-base">
+        ${(p.stock_prepared || 0).toFixed(3)} ${p.unit_type === 'kg' ? 'kg' : 'unidades'}
+      </td>
+      <td class="p-4 font-mono font-bold text-slate-700">
+        ${formatCurrency(p.price)}${p.unit_type === 'kg' ? '/kg' : ''}
+      </td>
+      <td class="p-4 text-right">
+        <button onclick="openProductionModal(${p.id})" class="px-2.5 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold rounded-lg text-xs transition">
+          ➕ Cargar Producción
+        </button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function openProductionModal(selectedId = null) {
+  const modal = document.getElementById('production-modal');
+  const sel = document.getElementById('prod-entry-product');
+
+  const preparedProds = products.filter(p => p.unit_type === 'kg' || p.is_prepared_food === 1 || p.available === 1);
+  sel.innerHTML = preparedProds.map(p => `<option value="${p.id}" ${selectedId === p.id ? 'selected' : ''}>${p.name} (Stock actual: ${(p.stock_prepared || 0).toFixed(3)} ${p.unit_type || 'kg'})</option>`).join('');
+
+  document.getElementById('production-form').reset();
+  modal.classList.remove('opacity-0', 'pointer-events-none');
+}
+
+function closeProductionModal() {
+  const modal = document.getElementById('production-modal');
+  modal.classList.add('opacity-0', 'pointer-events-none');
+}
+
+async function submitProductionEntry(e) {
+  e.preventDefault();
+  const product_id = document.getElementById('prod-entry-product').value;
+  const quantity = document.getElementById('prod-entry-qty').value;
+  const notes = document.getElementById('prod-entry-notes').value.trim();
+  const pin = document.getElementById('prod-entry-pin').value.trim();
+
+  try {
+    const res = await fetch('/api/production/add', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ product_id, quantity, notes, pin })
+    });
+    const data = await res.json();
+    if (data.success) {
+      closeProductionModal();
+      alert(`🍳 Producción agregada con éxito! "${data.product.name}" ahora tiene ${data.product.stock_prepared} ${data.product.unit_type || 'kg'} disponibles.`);
+      await loadProducts();
+      loadPreparedStock();
+    } else {
+      alert(`⚠️ ${data.error}`);
+    }
+  } catch (err) {
+    console.error('Error al guardar producción:', err);
+  }
 }

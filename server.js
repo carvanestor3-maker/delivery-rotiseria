@@ -539,6 +539,111 @@ app.post('/api/admin/materials', (req, res) => {
   }
 });
 
+// REGISTRO DE PRODUCCIÓN DIARIA DE COMIDA PREPARADA POR LA COCINA (REQUERIDO NIVEL 2 O 3)
+app.post('/api/production/add', (req, res) => {
+  try {
+    const { product_id, quantity, notes, pin } = req.body;
+
+    const auth = verifyUserPin(pin, 2);
+    if (!auth.isValid) {
+      return res.status(401).json({ success: false, error: 'PIN de Encargado (Nivel 2) o Gerente (Nivel 3) requerido' });
+    }
+
+    const store = db.getStore();
+    const prod = store.products.find(p => p.id === parseInt(product_id));
+    if (!prod) {
+      return res.status(404).json({ success: false, error: 'Producto de comida elaborada no encontrado' });
+    }
+
+    const qtyAdd = parseFloat(quantity || 0);
+    if (qtyAdd <= 0) {
+      return res.status(400).json({ success: false, error: 'La cantidad producida debe ser mayor a 0' });
+    }
+
+    prod.stock_prepared = parseFloat(((prod.stock_prepared || 0) + qtyAdd).toFixed(3));
+    prod.is_prepared_food = 1;
+
+    if (!store.production_entries) store.production_entries = [];
+
+    const nextId = store.production_entries.length > 0 ? Math.max(...store.production_entries.map(e => e.id)) + 1 : 1;
+    const newEntry = {
+      id: nextId,
+      date: new Date().toISOString(),
+      product_id: prod.id,
+      product_name: prod.name,
+      unit_type: prod.unit_type || 'kg',
+      quantity: qtyAdd,
+      notes: notes || '',
+      registered_by: `${auth.user.name} (Nivel ${auth.user.level})`
+    };
+
+    store.production_entries.unshift(newEntry);
+    db.saveStore();
+    io.emit('stock_updated');
+
+    res.json({ success: true, product: prod, entry: newEntry, user_name: auth.user.name });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ARQUEO DE SOBRANTES Y CONCILIACIÓN DE DESPERDICIOS/MERMAS AL CIERRE DE CAJA
+app.post('/api/cash/shift/reconcile-food', (req, res) => {
+  try {
+    const { box_number, measured_items, pin } = req.body;
+
+    const auth = verifyUserPin(pin, 1);
+    if (!auth.isValid) {
+      return res.status(401).json({ success: false, error: 'PIN no registrado o inválido.' });
+    }
+
+    const store = db.getStore();
+    if (!store.food_waste_logs) store.food_waste_logs = [];
+
+    const numBox = parseInt(box_number || 1);
+    const wasteResults = [];
+
+    if (Array.isArray(measured_items)) {
+      measured_items.forEach(item => {
+        const prod = store.products.find(p => p.id === parseInt(item.product_id));
+        if (prod) {
+          const expectedStock = parseFloat((prod.stock_prepared || 0).toFixed(3));
+          const measuredKg = parseFloat(parseFloat(item.measured_remaining || 0).toFixed(3));
+          const wasteKg = parseFloat(Math.max(0, expectedStock - measuredKg).toFixed(3));
+
+          prod.stock_prepared = measuredKg; // Actualizar el stock real restante
+
+          if (wasteKg > 0) {
+            const nextId = store.food_waste_logs.length > 0 ? Math.max(...store.food_waste_logs.map(w => w.id)) + 1 : 1;
+            const wasteRecord = {
+              id: nextId,
+              date: new Date().toISOString(),
+              box_number: numBox,
+              product_id: prod.id,
+              product_name: prod.name,
+              unit_type: prod.unit_type || 'kg',
+              expected_kg: expectedStock,
+              measured_kg: measuredKg,
+              waste_kg: wasteKg,
+              notes: item.notes || 'Diferencia / Sobrante tirado al cierre de turno',
+              registered_by: `${auth.user.name} (Nivel ${auth.user.level})`
+            };
+            store.food_waste_logs.unshift(wasteRecord);
+            wasteResults.push(wasteRecord);
+          }
+        }
+      });
+    }
+
+    db.saveStore();
+    io.emit('stock_updated');
+
+    res.json({ success: true, waste_logs: wasteResults, user_name: auth.user.name });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // RUTAS API DE MENÚ Y CLIENTE
 app.get('/api/menu', (req, res) => {
   try {
@@ -1183,15 +1288,20 @@ app.post('/api/pos/sale', (req, res) => {
       updated_at: new Date().toISOString()
     };
 
-    // Descontar materias primas / stock si aplica
+    // Descontar materias primas / stock de comida preparada si aplica
     items.forEach(item => {
-      const recipes = (store.product_recipes || []).filter(r => r.product_id === item.id);
       const qtySold = parseFloat(item.qty || 1);
+      const prod = store.products.find(p => p.id === item.id);
+      if (prod && prod.stock_prepared !== undefined) {
+        prod.stock_prepared = Math.max(0, parseFloat((prod.stock_prepared - qtySold).toFixed(3)));
+      }
+
+      const recipes = (store.product_recipes || []).filter(r => r.product_id === item.id);
       recipes.forEach(r => {
         const rawMat = (store.raw_materials || []).find(m => m.id === r.raw_material_id);
         if (rawMat) {
           const discountQty = (r.qty_per_portion || 0) * qtySold;
-          rawMat.current_stock = Math.max(0, (rawMat.current_stock || 0) - discountQty);
+          rawMat.current_stock = Math.max(0, parseFloat(((rawMat.current_stock || 0) - discountQty).toFixed(3)));
         }
       });
     });

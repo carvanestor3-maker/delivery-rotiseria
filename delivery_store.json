@@ -167,6 +167,23 @@
   ],
   "orders": [
     {
+      "id": 3,
+      "order_number": "#POS-103",
+      "customer_name": "VENTA DIRECTA MOSTRADOR (Encargado de Turno Mañana (Nivel 2))",
+      "customer_phone": "En Local",
+      "address": "Venta Directa en Mostrador",
+      "delivery_type": "retiro",
+      "payment_method": "Efectivo",
+      "payment_note": "Caja N° 1",
+      "notes": "Venta Directa POS cobrada por Encargado de Turno Mañana (Nivel 2) en Caja N° 1",
+      "items": "[{\"id\":1,\"name\":\"Gaseosa 1.5L\",\"price\":1500,\"qty\":1}]",
+      "total": 1500,
+      "status": "entregado",
+      "paid": 1,
+      "created_at": "2026-08-23T05:51:55.047Z",
+      "updated_at": "2026-08-23T05:51:55.047Z"
+    },
+    {
       "id": 2,
       "order_number": "#102",
       "customer_name": "meliza",

@@ -270,6 +270,11 @@
               </select>
             </div>
 
+            <div class="flex items-center gap-2 bg-amber-50 p-2.5 rounded-xl border border-amber-200">
+              <input type="checkbox" id="pos-generate-bar-ticket" checked class="w-4 h-4 text-amber-600 rounded">
+              <label for="pos-generate-bar-ticket" class="text-xs font-bold text-amber-900">🎫 Generar Ficha / Ticket de Retiro en Barra (#BAR)</label>
+            </div>
+
             <div class="flex justify-between items-center border-t pt-2 border-slate-200">
               <span class="text-xs font-black text-slate-500 uppercase">TOTAL A COBRAR</span>
               <span id="pos-cart-total-val" class="text-3xl font-black text-emerald-600 font-mono">$0</span>
@@ -314,6 +319,56 @@
           <button type="button" onclick="closePosWeighedModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 font-bold rounded-xl text-xs text-slate-700">Cancelar</button>
           <button type="button" onclick="confirmWeighedItemAdd()" class="px-4 py-2 bg-purple-700 hover:bg-purple-800 font-extrabold rounded-xl text-xs text-white shadow">➕ Añadir al Carrito POS</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DE VISTA E IMPRESIÓN DE TICKET DE RETIRO EN BARRA (#BAR) -->
+  <div id="pos-receipt-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200 text-slate-900">
+    <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl space-y-4 text-center">
+      <div class="flex justify-between items-center border-b pb-2 border-slate-200">
+        <h3 class="font-extrabold text-amber-900 text-base flex items-center gap-1.5">
+          🎫 Ticket de Retiro en Barra
+        </h3>
+        <button onclick="closePosReceiptModal()" class="text-slate-400 hover:text-slate-700">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Ticket Imprimible / Ficha de Retiro -->
+      <div id="pos-receipt-printable" class="bg-amber-50/50 p-4 rounded-xl border-2 border-dashed border-amber-300 text-left font-mono text-xs space-y-2">
+        <div class="text-center pb-2 border-b border-amber-200">
+          <div class="font-black text-base text-slate-900">LA GRAN ROTISERÍA & BAR</div>
+          <div class="text-[10px] text-slate-500">FICHA DE RETIRO DE BARRA / CAFETERÍA</div>
+          <div id="receipt-order-number" class="text-3xl font-black text-amber-600 my-1">#BAR-101</div>
+          <div id="receipt-date" class="text-[10px] text-slate-400">Fecha: -</div>
+        </div>
+
+        <div class="space-y-1 py-2 border-b border-amber-200" id="receipt-items-list">
+          <!-- Ítems del ticket -->
+        </div>
+
+        <div class="flex justify-between items-center pt-1 font-bold text-slate-800">
+          <span>FORMA DE PAGO:</span>
+          <span id="receipt-payment-method" class="text-emerald-700">EFECTIVO (PAGADO)</span>
+        </div>
+        <div class="flex justify-between items-center font-black text-slate-900 text-sm">
+          <span>TOTAL:</span>
+          <span id="receipt-total-val" class="text-emerald-600">$0</span>
+        </div>
+
+        <div class="text-[10px] text-center text-slate-500 pt-2 border-t border-amber-200 italic">
+          💡 Presenta este ticket en la Barra/Cafetería para retirar tu pedido. ¡Gracias!
+        </div>
+      </div>
+
+      <div class="pt-2 flex flex-col gap-2">
+        <button onclick="printPosBarReceipt()" class="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-xl text-xs transition shadow flex items-center justify-center gap-1.5">
+          🖨️ Imprimir Ticket / Ficha de Retiro
+        </button>
+        <button onclick="closePosReceiptModal()" class="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs">
+          ✅ Siguiente Venta
+        </button>
       </div>
     </div>
   </div>

@@ -887,6 +887,80 @@ function confirmWeighedItemAdd() {
 }
 
 // ENVIAR VENTA DIRECTA POS AL SERVIDOR
+let lastReceiptOrder = null;
+
+function openPosReceiptModal(order) {
+  lastReceiptOrder = order;
+
+  const orderNumElem = document.getElementById('receipt-order-number');
+  if (orderNumElem) orderNumElem.textContent = order.order_number || '#BAR-101';
+  
+  const dateElem = document.getElementById('receipt-date');
+  if (dateElem) dateElem.textContent = `Fecha: ${new Date(order.created_at || Date.now()).toLocaleString('es-AR')}`;
+  
+  const payElem = document.getElementById('receipt-payment-method');
+  if (payElem) payElem.textContent = `${(order.payment_method || 'EFECTIVO').toUpperCase()} (PAGADO EN CAJA)`;
+  
+  const totalElem = document.getElementById('receipt-total-val');
+  if (totalElem) totalElem.textContent = formatCurrency(order.total || 0);
+
+  const itemsContainer = document.getElementById('receipt-items-list');
+  if (itemsContainer) {
+    let parsedItems = [];
+    try {
+      parsedItems = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
+    } catch (e) {
+      parsedItems = [];
+    }
+
+    itemsContainer.innerHTML = parsedItems.map(i => `
+      <div class="flex justify-between items-center py-0.5 font-bold">
+        <span>${i.qty}x ${i.name}</span>
+        <span class="font-mono">${formatCurrency(i.total || (i.price * i.qty))}</span>
+      </div>
+    `).join('');
+  }
+
+  const modal = document.getElementById('pos-receipt-modal');
+  if (modal) modal.classList.remove('opacity-0', 'pointer-events-none');
+}
+
+function closePosReceiptModal() {
+  const modal = document.getElementById('pos-receipt-modal');
+  if (modal) modal.classList.add('opacity-0', 'pointer-events-none');
+}
+
+function printPosBarReceipt() {
+  const content = document.getElementById('pos-receipt-printable');
+  if (!content) return;
+
+  const printWin = window.open('', '_blank', 'width=400,height=600');
+  printWin.document.write(`
+    <html>
+      <head>
+        <title>Ticket de Retiro ${lastReceiptOrder ? lastReceiptOrder.order_number : ''}</title>
+        <style>
+          body { font-family: monospace; font-size: 12px; margin: 10px; padding: 0; text-align: center; }
+          .title { font-size: 16px; font-weight: bold; }
+          .num { font-size: 28px; font-weight: 900; margin: 8px 0; color: #d97706; }
+          .border { border-top: 1px dashed #000; border-bottom: 1px dashed #000; padding: 8px 0; margin: 8px 0; text-align: left; }
+          .item { display: flex; justify-content: space-between; margin: 4px 0; }
+          .total { font-weight: bold; font-size: 14px; display: flex; justify-content: space-between; margin-top: 8px; }
+        </style>
+      </head>
+      <body>
+        ${content.innerHTML}
+      </body>
+    </html>
+  `);
+  printWin.document.close();
+  printWin.focus();
+  setTimeout(() => {
+    printWin.print();
+    printWin.close();
+  }, 250);
+}
+
 async function submitPosSale() {
   if (posCart.length === 0) {
     alert('⚠️ El carrito de venta directa está vacío.');
@@ -895,6 +969,7 @@ async function submitPosSale() {
 
   const grandTotal = posCart.reduce((sum, i) => sum + i.total, 0);
   const payment_method = document.getElementById('pos-payment-method').value;
+  const generateBarTicket = document.getElementById('pos-generate-bar-ticket') ? document.getElementById('pos-generate-bar-ticket').checked : false;
 
   try {
     const res = await fetch('/api/pos/sale', {
@@ -910,11 +985,17 @@ async function submitPosSale() {
     const data = await res.json();
     if (data.success) {
       playBeepSound();
-      alert(`⚡ VENTA DIRECTA COBRADA E INGRESADA A CAJA EXITOSAMENTE!\n\nOrden: ${data.order.order_number}\nTotal Cobrado: ${formatCurrency(grandTotal)}\nMétodo de Pago: ${payment_method}`);
+      const order = data.order;
       clearPosCart();
       closePosModal();
       await loadCashSummary();
       await loadOrders();
+
+      if (generateBarTicket) {
+        openPosReceiptModal(order);
+      } else {
+        alert(`⚡ VENTA DIRECTA COBRADA E INGRESADA A CAJA!\n\nOrden: ${order.order_number}\nTotal Cobrado: ${formatCurrency(grandTotal)}\nMétodo de Pago: ${payment_method}`);
+      }
     } else {
       alert(`⚠️ ${data.error}`);
     }

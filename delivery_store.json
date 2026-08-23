@@ -407,6 +407,19 @@
   "stock_adjustments": [],
   "cash_shifts": [
     {
+      "id": 5,
+      "box_number": 4,
+      "cashier_name": "Barista Juan",
+      "shift_type": "bar_ticket",
+      "opened_at": "2026-08-23T06:55:15.634Z",
+      "closed_at": "2026-08-23T06:55:23.157Z",
+      "initial_cash": 6000,
+      "final_cash": 22000,
+      "status": "closed",
+      "opened_by": "Encargado de Turno Mañana (Nivel 2)",
+      "closed_by": "Cajero / Operativo 1 (Nivel 1)"
+    },
+    {
       "id": 4,
       "box_number": 3,
       "cashier_name": "Barista Sofía",

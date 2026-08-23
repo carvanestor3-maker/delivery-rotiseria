@@ -7,6 +7,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="/css/styles.css">
   <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="/socket.io/socket.io.js"></script>
 </head>
 <body class="bg-slate-100 text-slate-800 min-h-screen">
 
@@ -75,10 +76,10 @@
           <p class="text-xs text-slate-500">Monitorea el efectivo ingresado a caja, cobros por tarjeta y transferencias</p>
         </div>
         <div class="flex items-center gap-2">
-          <button onclick="openOpenShiftModal()" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-extrabold shadow transition flex items-center gap-1">
+          <button id="btn-open-shift" onclick="openOpenShiftModal()" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-extrabold shadow transition flex items-center gap-1">
             🔓 Abrir Caja (Nivel 2)
           </button>
-          <button onclick="openCloseShiftModal()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-extrabold shadow transition flex items-center gap-1">
+          <button id="btn-close-shift" onclick="openCloseShiftModal()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-extrabold shadow transition flex items-center gap-1">
             🔒 Cerrar Caja (Nivel 2)
           </button>
         </div>

@@ -252,9 +252,12 @@ app.post('/api/cash/shift/close', (req, res) => {
     const numBox = box_number ? parseInt(box_number) : null;
     const shiftId = shift_id ? parseInt(shift_id) : null;
 
-    const auth = verifyUserPin(pin, 2);
+    const auth = verifyUserPin(pin, 1);
     if (!auth.isValid) {
-      return res.status(401).json({ success: false, error: 'PIN de Encargado (Nivel 2) o Gerente (Nivel 3) incorrecto' });
+      return res.status(401).json({ 
+        success: false, 
+        error: '⚠️ Acceso Denegado: La clave PIN ingresada no es válida o no está registrada. Si el cajero es un Aprendiz (sin PIN de Nivel 1), el cierre de caja debe ser realizado o autorizado por un Encargado (Nivel 2) o Gerente (Nivel 3).' 
+      });
     }
 
     const store = db.getStore();

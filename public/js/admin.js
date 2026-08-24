@@ -1559,6 +1559,13 @@ async function openRecipeModal(selectedProductId = null) {
   const modal = document.getElementById('recipe-modal');
   const sel = document.getElementById('rec-product-id');
   
+  if (!products || products.length === 0) {
+    await loadProducts();
+  }
+  if (!rawMaterials || rawMaterials.length === 0) {
+    await loadStockMaterials();
+  }
+
   try {
     const res = await fetch('/api/admin/recipes');
     const data = await res.json();

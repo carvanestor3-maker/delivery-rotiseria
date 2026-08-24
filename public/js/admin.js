@@ -823,6 +823,23 @@ async function submitAccountPayment(e) {
   }
 }
 
+function generateProductAutoEan() {
+  const input = document.getElementById('prod-barcode');
+  if (!input) return;
+  
+  const randomSuffix = String(Math.floor(10000000 + Math.random() * 90000000));
+  const code12 = `7790${randomSuffix}`;
+  
+  let sum = 0;
+  for (let i = 0; i < 12; i++) {
+    const num = parseInt(code12[i]);
+    sum += (i % 2 === 0) ? num : num * 3;
+  }
+  const checkDigit = (10 - (sum % 10)) % 10;
+  
+  input.value = `${code12}${checkDigit}`;
+}
+
 // Lector de fotos de la PC / Celular
 function handleImageFileSelect(event) {
   const file = event.target.files[0];

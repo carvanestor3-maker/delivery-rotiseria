@@ -508,7 +508,7 @@ app.post('/api/stock/entry', (req, res) => {
 // Guardar Insumo / Materia Prima (Requiere PIN Nivel 2)
 app.post('/api/admin/materials', (req, res) => {
   try {
-    const { id, name, unit, min_stock, current_stock, pin } = req.body;
+    const { id, code, name, unit, min_stock, current_stock, pin } = req.body;
 
     const auth = verifyUserPin(pin, 2);
     if (!auth.isValid) {
@@ -519,6 +519,7 @@ app.post('/api/admin/materials', (req, res) => {
     if (id) {
       const mat = store.raw_materials.find(m => m.id === parseInt(id));
       if (mat) {
+        mat.code = (code || `INS-${String(mat.id).padStart(3, '0')}`).trim();
         mat.name = name;
         mat.unit = unit || 'kg';
         mat.min_stock = parseFloat(min_stock || 5);
@@ -526,8 +527,10 @@ app.post('/api/admin/materials', (req, res) => {
       }
     } else {
       const nextId = store.raw_materials.length > 0 ? Math.max(...store.raw_materials.map(m => m.id)) + 1 : 1;
+      const strCode = (code || `INS-${String(nextId).padStart(3, '0')}`).trim();
       store.raw_materials.push({
         id: nextId,
+        code: strCode,
         name,
         unit: unit || 'kg',
         current_stock: parseFloat(current_stock || 0),
@@ -536,6 +539,59 @@ app.post('/api/admin/materials', (req, res) => {
     }
     db.saveStore();
     res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Obtener recetas / escandallos
+app.get('/api/admin/recipes', (req, res) => {
+  try {
+    const store = db.getStore();
+    res.json({ success: true, recipes: store.product_recipes || [] });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Guardar receta de un producto generado por producción (Ficha Técnica)
+app.post('/api/admin/recipes/save', (req, res) => {
+  try {
+    const { product_id, ingredients, pin } = req.body;
+
+    const auth = verifyUserPin(pin, 2);
+    if (!auth.isValid) {
+      return res.status(401).json({ success: false, error: 'PIN de Encargado (Nivel 2) o Gerente (Nivel 3) requerido' });
+    }
+
+    const pid = parseInt(product_id);
+    if (!pid) {
+      return res.status(400).json({ success: false, error: 'Debe seleccionar un producto de cocina' });
+    }
+
+    const store = db.getStore();
+    if (!store.product_recipes) store.product_recipes = [];
+
+    store.product_recipes = store.product_recipes.filter(r => r.product_id !== pid);
+
+    if (Array.isArray(ingredients)) {
+      ingredients.forEach(ing => {
+        const rawMatId = parseInt(ing.raw_material_id);
+        const qtyPerPortion = parseFloat(ing.qty_per_portion || 0);
+        if (rawMatId && qtyPerPortion > 0) {
+          store.product_recipes.push({
+            product_id: pid,
+            raw_material_id: rawMatId,
+            qty_per_portion: qtyPerPortion
+          });
+        }
+      });
+    }
+
+    db.saveStore();
+    io.emit('stock_updated');
+
+    res.json({ success: true, product_id: pid });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

@@ -464,6 +464,7 @@
   "raw_materials": [
     {
       "id": 1,
+      "code": "INS-001",
       "name": "Carne Vacuna para Milanesas",
       "unit": "kg",
       "current_stock": 37.9,
@@ -471,6 +472,7 @@
     },
     {
       "id": 2,
+      "code": "INS-002",
       "name": "Papas para Fritar",
       "unit": "kg",
       "current_stock": 74.1,
@@ -478,6 +480,7 @@
     },
     {
       "id": 3,
+      "code": "INS-003",
       "name": "Queso Muzzarella",
       "unit": "kg",
       "current_stock": 26.7,
@@ -485,6 +488,7 @@
     },
     {
       "id": 4,
+      "code": "INS-004",
       "name": "Pan de Sándwich",
       "unit": "unidades",
       "current_stock": 118,

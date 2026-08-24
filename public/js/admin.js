@@ -478,6 +478,11 @@ function renderMaterialsTable() {
     tr.className = 'hover:bg-slate-50 transition';
 
     tr.innerHTML = `
+      <td class="p-4 font-mono font-bold text-slate-700 text-xs">
+        <span class="px-2 py-0.5 bg-slate-100 border border-slate-200 rounded font-black text-slate-800">
+          🏷️ ${m.code || `INS-${String(m.id).padStart(3, '0')}`}
+        </span>
+      </td>
       <td class="p-4 font-extrabold text-slate-900 flex items-center gap-2">
         <span>📦 ${m.name}</span>
         ${isLow ? `<span class="bg-red-100 text-red-700 text-[10px] font-black px-2 py-0.5 rounded-md">⚠️ Stock Bajo</span>` : ''}
@@ -512,7 +517,7 @@ function renderMaterialsTable() {
 function populateAdjustStockSelect() {
   const sel = document.getElementById('adj-material-id');
   if (!sel) return;
-  sel.innerHTML = rawMaterials.map(m => `<option value="${m.id}">${m.name} (Stock Virtual Actual: ${m.current_stock} ${m.unit})</option>`).join('');
+  sel.innerHTML = rawMaterials.map(m => `<option value="${m.id}">[${m.code || `INS-${String(m.id).padStart(3, '0')}`}] ${m.name} (Stock Virtual Actual: ${m.current_stock} ${m.unit})</option>`).join('');
 }
 
 function openAdjustStockModal(matId = null) {
@@ -571,6 +576,7 @@ function openRawMaterialModal(mat = null) {
   if (mat) {
     title.textContent = 'Editar Insumo de Stock';
     document.getElementById('mat-id').value = mat.id;
+    document.getElementById('mat-code').value = mat.code || `INS-${String(mat.id).padStart(3, '0')}`;
     document.getElementById('mat-name').value = mat.name;
     document.getElementById('mat-unit').value = mat.unit || 'kg';
     document.getElementById('mat-min').value = mat.min_stock || 5;
@@ -578,6 +584,8 @@ function openRawMaterialModal(mat = null) {
   } else {
     title.textContent = 'Nuevo Insumo de Stock';
     document.getElementById('mat-id').value = '';
+    const nextCodeNum = rawMaterials.length > 0 ? Math.max(...rawMaterials.map(m => m.id)) + 1 : 1;
+    document.getElementById('mat-code').value = `INS-${String(nextCodeNum).padStart(3, '0')}`;
     document.getElementById('mat-unit').value = 'kg';
     document.getElementById('mat-min').value = 5;
     document.getElementById('mat-current').value = 0;
@@ -599,6 +607,7 @@ function editRawMaterial(id) {
 async function saveRawMaterial(e) {
   e.preventDefault();
   const id = document.getElementById('mat-id').value;
+  const code = document.getElementById('mat-code').value.trim();
   const name = document.getElementById('mat-name').value.trim();
   const unit = document.getElementById('mat-unit').value;
   const min_stock = document.getElementById('mat-min').value;
@@ -609,7 +618,7 @@ async function saveRawMaterial(e) {
     const res = await fetch('/api/admin/materials', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: id ? parseInt(id) : null, name, unit, min_stock, current_stock, pin })
+      body: JSON.stringify({ id: id ? parseInt(id) : null, code, name, unit, min_stock, current_stock, pin })
     });
     const data = await res.json();
     if (data.success) {
@@ -1451,4 +1460,214 @@ function loadFoodWasteAuditLogs(wasteLogs = []) {
       </tr>
     `;
   }).join('');
+}
+
+// ==========================================
+// FORMULARIO DE INGRESO DE MERCADERÍA DE PROVEEDOR CON ESCÁNER SKU
+// ==========================================
+
+function openStockEntryModal() {
+  const modal = document.getElementById('stock-entry-modal');
+  const sel = document.getElementById('entry-raw-material-id');
+  const form = document.getElementById('stock-entry-form');
+  
+  if (form) form.reset();
+
+  if (sel) {
+    sel.innerHTML = rawMaterials.map(m => `
+      <option value="${m.id}" data-sku="${m.code || ''}">
+        [${m.code || `INS-${String(m.id).padStart(3, '0')}`}] ${m.name} (Stock Actual: ${m.current_stock || 0} ${m.unit})
+      </option>
+    `).join('');
+  }
+
+  modal.classList.remove('opacity-0', 'pointer-events-none');
+  setTimeout(() => {
+    const input = document.getElementById('entry-sku-input');
+    if (input) input.focus();
+  }, 200);
+}
+
+function closeStockEntryModal() {
+  const modal = document.getElementById('stock-entry-modal');
+  modal.classList.add('opacity-0', 'pointer-events-none');
+}
+
+function handleEntrySkuKeydown(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    searchRawMaterialBySku();
+  }
+}
+
+function searchRawMaterialBySku() {
+  const input = document.getElementById('entry-sku-input');
+  if (!input) return;
+  
+  const query = input.value.trim().toLowerCase();
+  if (!query) return;
+
+  const mat = rawMaterials.find(m => 
+    (m.code && m.code.toLowerCase() === query) ||
+    String(m.id) === query ||
+    m.name.toLowerCase().includes(query)
+  );
+
+  if (mat) {
+    const sel = document.getElementById('entry-raw-material-id');
+    if (sel) sel.value = mat.id;
+    document.getElementById('entry-qty').focus();
+  } else {
+    alert(`⚠️ No se encontró ningún insumo con el código o nombre "${query}".`);
+  }
+}
+
+async function submitStockEntry(e) {
+  e.preventDefault();
+  const raw_material_id = document.getElementById('entry-raw-material-id').value;
+  const quantity = document.getElementById('entry-qty').value;
+  const unit_cost = document.getElementById('entry-unit-cost').value;
+  const notes = document.getElementById('entry-notes').value.trim();
+  const pin = document.getElementById('entry-pin').value.trim();
+
+  try {
+    const res = await fetch('/api/stock/entry', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ raw_material_id, quantity, unit_cost, notes, pin })
+    });
+    const data = await res.json();
+    if (data.success) {
+      closeStockEntryModal();
+      alert(`🚚 Mercadería ingresada correctamente! Se sumaron ${quantity} ${data.raw_material.unit} a "${data.raw_material.name}".`);
+      await loadStockMaterials();
+    } else {
+      alert(`⚠️ ${data.error}`);
+    }
+  } catch (err) {
+    console.error('Error al ingresar mercadería:', err);
+  }
+}
+
+// ==========================================
+// FICHA TÉCNICA Y RECETAS (ESCANDELLO) PARA ARTÍCULOS GENERADOS
+// ==========================================
+
+let activeRecipes = [];
+
+async function openRecipeModal(selectedProductId = null) {
+  const modal = document.getElementById('recipe-modal');
+  const sel = document.getElementById('rec-product-id');
+  
+  try {
+    const res = await fetch('/api/admin/recipes');
+    const data = await res.json();
+    if (data.success) {
+      activeRecipes = data.recipes || [];
+    }
+  } catch (e) {
+    console.error('Error al cargar recetas:', e);
+  }
+
+  const genProducts = products.filter(p => p.available === 1);
+  if (sel) {
+    sel.innerHTML = genProducts.map(p => `
+      <option value="${p.id}" ${selectedProductId === p.id ? 'selected' : ''}>
+        [${p.barcode ? `BAR: ${p.barcode}` : p.plu_code ? `PLU: ${p.plu_code}` : `PROD-${p.id}`}] ${p.name} (${p.unit_type === 'kg' ? 'x Kg' : 'x Unidad'})
+      </option>
+    `).join('');
+  }
+
+  loadProductRecipeDetails();
+  modal.classList.remove('opacity-0', 'pointer-events-none');
+}
+
+function closeRecipeModal() {
+  const modal = document.getElementById('recipe-modal');
+  modal.classList.add('opacity-0', 'pointer-events-none');
+}
+
+function loadProductRecipeDetails() {
+  const sel = document.getElementById('rec-product-id');
+  const container = document.getElementById('recipe-ingredients-container');
+  if (!sel || !container) return;
+
+  const pid = parseInt(sel.value);
+  const currentProductRecipes = activeRecipes.filter(r => r.product_id === pid);
+
+  container.innerHTML = '';
+
+  if (currentProductRecipes.length === 0) {
+    addRecipeIngredientRow();
+  } else {
+    currentProductRecipes.forEach(r => {
+      addRecipeIngredientRow(r.raw_material_id, r.qty_per_portion);
+    });
+  }
+}
+
+function addRecipeIngredientRow(rawMatId = null, qtyPerPortion = null) {
+  const container = document.getElementById('recipe-ingredients-container');
+  if (!container) return;
+
+  const row = document.createElement('div');
+  row.className = 'recipe-ingredient-row flex gap-2 items-center bg-white p-2 rounded-xl border border-slate-200 shadow-sm';
+
+  const matOptionsHtml = rawMaterials.map(m => `
+    <option value="${m.id}" ${rawMatId === m.id ? 'selected' : ''}>
+      [${m.code || `INS-${String(m.id).padStart(3, '0')}`}] ${m.name} (${m.unit})
+    </option>
+  `).join('');
+
+  row.innerHTML = `
+    <select class="rec-raw-material-id flex-1 px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-bold bg-white text-slate-800">
+      ${matOptionsHtml}
+    </select>
+    <div class="flex items-center gap-1">
+      <input type="number" step="0.001" class="rec-qty-per-portion w-24 px-2 py-1.5 border border-slate-300 rounded-lg text-xs font-mono font-bold text-slate-900" placeholder="Cant (ej 0.25)" value="${qtyPerPortion !== null ? qtyPerPortion : ''}">
+      <span class="text-[10px] text-slate-400 font-bold">por porción/kg</span>
+    </div>
+    <button type="button" onclick="this.parentElement.remove()" class="p-1 text-red-500 hover:bg-red-50 rounded-lg transition" title="Quitar ingrediente">
+      <i data-lucide="trash-2" class="w-4 h-4"></i>
+    </button>
+  `;
+
+  container.appendChild(row);
+  lucide.createIcons();
+}
+
+async function saveRecipe(e) {
+  e.preventDefault();
+  const pid = parseInt(document.getElementById('rec-product-id').value);
+  const pin = document.getElementById('rec-pin').value.trim();
+  const rows = document.querySelectorAll('.recipe-ingredient-row');
+
+  const ingredients = [];
+  rows.forEach(row => {
+    const raw_material_id = row.querySelector('.rec-raw-material-id').value;
+    const qty_per_portion = row.querySelector('.rec-qty-per-portion').value;
+    if (raw_material_id && qty_per_portion) {
+      ingredients.push({
+        raw_material_id: parseInt(raw_material_id),
+        qty_per_portion: parseFloat(qty_per_portion)
+      });
+    }
+  });
+
+  try {
+    const res = await fetch('/api/admin/recipes/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ product_id: pid, ingredients, pin })
+    });
+    const data = await res.json();
+    if (data.success) {
+      closeRecipeModal();
+      alert('👨‍🍳 FICHA TÉCNICA Y RECETA GUARDADAS CORRECTAMENTE!\n\nAl cargar producción o vender este plato, el sistema descontará automáticamente los insumos componentes del stock.');
+    } else {
+      alert(`⚠️ ${data.error}`);
+    }
+  } catch (err) {
+    console.error('Error al guardar receta:', err);
+  }
 }

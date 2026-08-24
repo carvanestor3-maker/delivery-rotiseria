@@ -521,6 +521,16 @@ app.post('/api/admin/materials', (req, res) => {
     }
 
     const store = db.getStore();
+
+    const dupMatCode = store.raw_materials.find(m => m.code && m.code.toUpperCase() === strCode && m.id !== parseInt(id || 0));
+    if (dupMatCode) {
+      return res.status(400).json({ success: false, error: `⚠️ CÓDIGO SKU DUPLICADO: El código "${strCode}" ya está asignado al insumo genérico "${dupMatCode.name}".` });
+    }
+
+    const dupMatName = store.raw_materials.find(m => m.name && m.name.trim().toLowerCase() === name.trim().toLowerCase() && m.id !== parseInt(id || 0));
+    if (dupMatName) {
+      return res.status(400).json({ success: false, error: `⚠️ INSUMO DUPLICADO: Ya existe un insumo genérico registrado con el nombre "${dupMatName.name}".` });
+    }
     if (id) {
       const mat = store.raw_materials.find(m => m.id === parseInt(id));
       if (mat) {
@@ -1369,7 +1379,21 @@ app.post('/api/admin/products', (req, res) => {
     if (strBarcode) {
       const dup = store.products.find(p => p.barcode === strBarcode && p.id !== parseInt(id || 0));
       if (dup) {
-        return res.status(400).json({ success: false, error: `El código de barras "${strBarcode}" ya pertenece al producto "${dup.name}".` });
+        return res.status(400).json({ success: false, error: `⚠️ CÓDIGO DE BARRAS DUPLICADO: El código "${strBarcode}" ya pertenece al plato "${dup.name}".` });
+      }
+    }
+
+    if (strPlu) {
+      const dupPlu = store.products.find(p => p.plu_code === strPlu && p.id !== parseInt(id || 0));
+      if (dupPlu) {
+        return res.status(400).json({ success: false, error: `⚠️ CÓDIGO PLU DUPLICADO: El código PLU "${strPlu}" ya pertenece al plato "${dupPlu.name}".` });
+      }
+    }
+
+    if (name) {
+      const dupName = store.products.find(p => p.name.trim().toLowerCase() === name.trim().toLowerCase() && p.id !== parseInt(id || 0));
+      if (dupName) {
+        return res.status(400).json({ success: false, error: `⚠️ PRODUCTO DUPLICADO: Ya existe un plato o bebida registrado con el nombre "${dupName.name}".` });
       }
     }
 

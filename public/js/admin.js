@@ -1289,6 +1289,27 @@ async function saveProduct(e) {
   const available = document.getElementById('prod-available').checked;
   const pin = document.getElementById('prod-pin').value.trim();
 
+  if (!name) {
+    alert('⚠️ El nombre del plato o producto es obligatorio.');
+    document.getElementById('prod-name').focus();
+    return;
+  }
+  if (!category_id) {
+    alert('⚠️ La categoría del plato o producto es obligatoria.');
+    document.getElementById('prod-category').focus();
+    return;
+  }
+  if (!price || isNaN(parseFloat(price)) || parseFloat(price) <= 0) {
+    alert('⚠️ El precio de venta debe ser mayor a $0.');
+    document.getElementById('prod-price').focus();
+    return;
+  }
+  if (!pin) {
+    alert('⚠️ La clave PIN de Nivel 3 de Gerente/Dueño es obligatoria.');
+    document.getElementById('prod-pin').focus();
+    return;
+  }
+
   try {
     const res = await fetch('/api/admin/products', {
       method: 'POST',

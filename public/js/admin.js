@@ -584,8 +584,7 @@ function openRawMaterialModal(mat = null) {
   } else {
     title.textContent = 'Nuevo Insumo de Stock';
     document.getElementById('mat-id').value = '';
-    const nextCodeNum = rawMaterials.length > 0 ? Math.max(...rawMaterials.map(m => m.id)) + 1 : 1;
-    document.getElementById('mat-code').value = `INS-${String(nextCodeNum).padStart(3, '0')}`;
+    document.getElementById('mat-code').value = '';
     document.getElementById('mat-unit').value = 'kg';
     document.getElementById('mat-min').value = 5;
     document.getElementById('mat-current').value = 0;

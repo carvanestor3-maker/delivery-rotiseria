@@ -515,11 +515,16 @@ app.post('/api/admin/materials', (req, res) => {
       return res.status(401).json({ success: false, error: 'PIN de Encargado (Nivel 2) o Gerente (Nivel 3) requerido' });
     }
 
+    const strCode = (code || '').trim().toUpperCase();
+    if (!strCode) {
+      return res.status(400).json({ success: false, error: '⚠️ El Código / SKU del insumo es obligatorio. Escanea el código de barras de fábrica o presiona el botón ⚡ Auto.' });
+    }
+
     const store = db.getStore();
     if (id) {
       const mat = store.raw_materials.find(m => m.id === parseInt(id));
       if (mat) {
-        mat.code = (code || `INS-${String(mat.id).padStart(3, '0')}`).trim();
+        mat.code = strCode;
         mat.name = name;
         mat.unit = unit || 'kg';
         mat.min_stock = parseFloat(min_stock || 5);
@@ -527,7 +532,6 @@ app.post('/api/admin/materials', (req, res) => {
       }
     } else {
       const nextId = store.raw_materials.length > 0 ? Math.max(...store.raw_materials.map(m => m.id)) + 1 : 1;
-      const strCode = (code || `INS-${String(nextId).padStart(3, '0')}`).trim();
       store.raw_materials.push({
         id: nextId,
         code: strCode,

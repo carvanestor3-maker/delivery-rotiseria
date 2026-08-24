@@ -665,6 +665,12 @@ async function saveRawMaterial(e) {
   const current_stock = document.getElementById('mat-current').value;
   const pin = document.getElementById('mat-pin').value.trim();
 
+  if (!code) {
+    alert('⚠️ EL CÓDIGO / SKU DEL INSUMO ES OBLIGATORIO:\n\nPor favor pasa la pistola escáner de código de barras de fábrica o presiona el botón ⚡ Auto para generarlo.');
+    document.getElementById('mat-code').focus();
+    return;
+  }
+
   try {
     const res = await fetch('/api/admin/materials', {
       method: 'POST',

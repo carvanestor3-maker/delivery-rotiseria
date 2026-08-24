@@ -594,11 +594,56 @@ function openRawMaterialModal(mat = null) {
   modal.classList.remove('opacity-0', 'pointer-events-none');
 }
 
+function generateMnemonicCode(nameText, itemsList) {
+  if (!nameText || nameText.trim().length < 2) return '';
+  
+  const clean = nameText.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9\s]/g, '');
+  const words = clean.split(/\s+/).filter(w => w.length >= 2 && !['PARA', 'CON', 'DEL', 'POR', 'LAS', 'LOS', 'UNA', 'UNO', 'DESDE'].includes(w));
+  
+  let familyPrefix = '';
+  if (words.length >= 2) {
+    familyPrefix = words[0].substring(0, 3) + '-' + words[1].substring(0, 3);
+  } else if (words.length === 1) {
+    familyPrefix = words[0].substring(0, 4);
+  } else {
+    familyPrefix = 'INS';
+  }
+
+  const existingMatches = itemsList.filter(item => {
+    const code = (item.code || item.barcode || '').toUpperCase();
+    return code.startsWith(familyPrefix);
+  });
+
+  const nextSeq = existingMatches.length + 1;
+  return `${familyPrefix}-${String(nextSeq).padStart(3, '0')}`;
+}
+
+function handleMatNameInput() {
+  const matId = document.getElementById('mat-id').value;
+  if (matId) return; // Si editamos uno existente, respetamos su codigo
+
+  const nameVal = document.getElementById('mat-name').value;
+  const codeInput = document.getElementById('mat-code');
+  if (!codeInput) return;
+
+  const smartCode = generateMnemonicCode(nameVal, rawMaterials);
+  if (smartCode) {
+    codeInput.value = smartCode;
+  }
+}
+
 function generateMaterialAutoCode() {
-  const input = document.getElementById('mat-code');
-  if (!input) return;
-  const nextCodeNum = rawMaterials.length > 0 ? Math.max(...rawMaterials.map(m => m.id)) + 1 : 1;
-  input.value = `INS-${String(nextCodeNum).padStart(3, '0')}`;
+  const nameVal = document.getElementById('mat-name').value;
+  const codeInput = document.getElementById('mat-code');
+  if (!codeInput) return;
+
+  const smartCode = generateMnemonicCode(nameVal, rawMaterials);
+  if (smartCode) {
+    codeInput.value = smartCode;
+  } else {
+    const nextCodeNum = rawMaterials.length > 0 ? Math.max(...rawMaterials.map(m => m.id)) + 1 : 1;
+    codeInput.value = `INS-${String(nextCodeNum).padStart(3, '0')}`;
+  }
 }
 
 function closeRawMaterialModal() {

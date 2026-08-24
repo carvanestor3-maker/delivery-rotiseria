@@ -117,13 +117,13 @@ function renderProductCard(prod) {
   const qty = cartItem ? cartItem.qty : 0;
 
   return `
-    <div class="bg-white rounded-2xl p-3.5 shadow-sm border border-slate-200 flex gap-3.5 items-center hover:shadow-md transition">
+    <div class="bg-white rounded-2xl p-3.5 shadow-sm border border-slate-200 flex gap-3.5 items-start hover:shadow-md transition">
       <img src="${prod.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200'}" alt="${prod.name}" class="w-20 h-20 rounded-xl object-cover bg-slate-100 flex-shrink-0">
       
-      <div class="flex-1 min-w-0">
-        <h3 class="font-extrabold text-slate-900 text-sm truncate">${prod.name}</h3>
-        <p class="text-slate-500 text-xs mt-0.5 line-clamp-2 leading-snug">${prod.description || ''}</p>
-        <div class="font-black text-slate-900 text-base font-mono mt-1.5">${formatCurrency(prod.price)}</div>
+      <div class="flex-1 min-w-0 space-y-1">
+        <h3 class="font-extrabold text-slate-900 text-sm leading-snug">${prod.name}</h3>
+        ${prod.description ? `<p class="text-slate-500 text-[11px] leading-relaxed line-clamp-3 font-normal">${prod.description}</p>` : ''}
+        <div class="font-black text-slate-900 text-sm font-mono pt-0.5">${formatCurrency(prod.price)}</div>
       </div>
 
       <div class="flex-shrink-0">

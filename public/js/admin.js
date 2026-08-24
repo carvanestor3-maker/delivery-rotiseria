@@ -670,6 +670,26 @@ async function saveRawMaterial(e) {
     document.getElementById('mat-code').focus();
     return;
   }
+  if (!name) {
+    alert('⚠️ El nombre del insumo genérico es obligatorio.');
+    document.getElementById('mat-name').focus();
+    return;
+  }
+  if (min_stock === '' || isNaN(parseFloat(min_stock))) {
+    alert('⚠️ El stock mínimo de alerta es obligatorio.');
+    document.getElementById('mat-min').focus();
+    return;
+  }
+  if (current_stock === '' || isNaN(parseFloat(current_stock))) {
+    alert('⚠️ El stock inicial actual es obligatorio.');
+    document.getElementById('mat-current').focus();
+    return;
+  }
+  if (!pin) {
+    alert('⚠️ La clave PIN personal autorizante es obligatoria.');
+    document.getElementById('mat-pin').focus();
+    return;
+  }
 
   try {
     const res = await fetch('/api/admin/materials', {

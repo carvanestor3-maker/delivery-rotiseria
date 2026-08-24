@@ -157,6 +157,16 @@
     {
       "id": 12,
       "category_id": 5,
+      "name": "Empanada de Carne Molida",
+      "description": "Jugosa empanada casera de carne molida con cebolla, huevo y especias.",
+      "price": 1100,
+      "image_url": "https://images.unsplash.com/photo-1626777552726-4a6b54c97e46?w=500",
+      "available": 1,
+      "code": "EMP-CAR-002"
+    },
+    {
+      "id": 13,
+      "category_id": 5,
       "name": "Empanada de Jamón y Queso",
       "description": "Queso tirante y jamón cocido seleccionado.",
       "price": 1000,

@@ -594,6 +594,13 @@ function openRawMaterialModal(mat = null) {
   modal.classList.remove('opacity-0', 'pointer-events-none');
 }
 
+function generateMaterialAutoCode() {
+  const input = document.getElementById('mat-code');
+  if (!input) return;
+  const nextCodeNum = rawMaterials.length > 0 ? Math.max(...rawMaterials.map(m => m.id)) + 1 : 1;
+  input.value = `INS-${String(nextCodeNum).padStart(3, '0')}`;
+}
+
 function closeRawMaterialModal() {
   const modal = document.getElementById('material-modal');
   modal.classList.add('opacity-0', 'pointer-events-none');

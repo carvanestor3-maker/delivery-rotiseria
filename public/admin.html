@@ -184,12 +184,18 @@
           </h2>
           <p class="text-xs text-slate-500">Configura insumos recibidos de proveedores (Nivel 2) y concilia las diferencias de mermas (Exclusivo Nivel 3)</p>
         </div>
-        <div class="flex items-center gap-2">
-          <button onclick="openAdjustStockModal()" class="bg-purple-700 hover:bg-purple-600 active:scale-95 text-white font-extrabold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-md transition">
+        <div class="flex items-center gap-2 flex-wrap">
+          <button onclick="openStockEntryModal()" class="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-extrabold px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-md transition">
+            🚚 Ingresar Mercadería
+          </button>
+          <button onclick="openRecipeModal()" class="bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-extrabold px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-md transition">
+            👨‍🍳 Recetas / Ficha Técnica
+          </button>
+          <button onclick="openAdjustStockModal()" class="bg-purple-700 hover:bg-purple-600 active:scale-95 text-white font-extrabold px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-md transition">
             👑 Conciliar Stock Real (Nivel 3)
           </button>
-          <button onclick="openRawMaterialModal()" class="bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-extrabold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-md transition">
-            <i data-lucide="plus" class="w-4 h-4"></i> Nuevo Insumo (Nivel 2)
+          <button onclick="openRawMaterialModal()" class="bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-extrabold px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-md transition">
+            <i data-lucide="plus" class="w-4 h-4"></i> ➕ Nuevo Insumo
           </button>
         </div>
       </div>

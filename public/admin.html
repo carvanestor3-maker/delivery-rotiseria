@@ -210,15 +210,15 @@
             ➕ Cargar Producción Cocina (Nivel 2/3)
           </button>
         </div>
-        <div class="overflow-x-auto">
+        <div class="max-h-64 overflow-y-auto overflow-x-auto shadow-inner">
           <table class="w-full text-left border-collapse text-sm">
-            <thead>
-              <tr class="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase">
-                <th class="p-4">Plato / Preparado</th>
-                <th class="p-4">Tipo de Venta</th>
-                <th class="p-4">Stock Actual Disponible en Mostrador</th>
-                <th class="p-4">Precio ($)</th>
-                <th class="p-4 text-right">Acción</th>
+            <thead class="sticky top-0 bg-slate-100 z-10 shadow-sm">
+              <tr class="border-b border-slate-200 text-xs font-bold text-slate-600 uppercase">
+                <th class="p-3">Plato / Preparado</th>
+                <th class="p-3">Tipo de Venta</th>
+                <th class="p-3">Stock Actual Disponible en Mostrador</th>
+                <th class="p-3">Precio ($)</th>
+                <th class="p-3 text-right">Acción</th>
               </tr>
             </thead>
             <tbody id="prepared-stock-tbody" class="divide-y divide-slate-100">
@@ -1253,7 +1253,7 @@
     </div>
   </div>
 
-  <script src="/js/admin.js?v=6.0.0"></script>
+  <script src="/js/admin.js?v=7.0.0"></script>
   <script>
     lucide.createIcons();
   </script>

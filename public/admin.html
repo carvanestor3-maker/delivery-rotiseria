@@ -66,6 +66,9 @@
       <button onclick="switchTab('audit')" id="tab-btn-audit" class="tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2">
         📜 Bitácora de Auditoría (Nivel 3)
       </button>
+      <button onclick="switchTab('production-analytics')" id="tab-btn-production-analytics" class="tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2">
+        📊 Costos & Rentabilidad de Producción
+      </button>
       <button onclick="switchTab('settings')" id="tab-btn-settings" class="tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2">
         <i data-lucide="sliders" class="w-4 h-4"></i> Ajustes Generales
       </button>
@@ -632,6 +635,78 @@
           </button>
         </div>
       </form>
+    </section>
+
+    <!-- PESTAÑA: ANÁLISIS DE COSTOS Y RENTABILIDAD DE PRODUCCIÓN EN LOTES -->
+    <section id="tab-production-analytics" class="hidden space-y-6">
+      <div class="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-5 rounded-2xl border border-slate-200 shadow-sm gap-3">
+        <div>
+          <h2 class="font-extrabold text-slate-900 text-lg flex items-center gap-2">
+            📊 Análisis Estadístico de Costos de Producción & Rentabilidad
+            <span class="bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-black px-2 py-0.5 rounded-md">🏭 Auditoría de Lotes KDS</span>
+          </h2>
+          <p class="text-xs text-slate-500">Compara el costo real de fabricación (materias primas + mano de obra por tiempo) contra el precio de venta público</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <a href="/produccion.html" target="_blank" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 active:scale-95 text-slate-950 font-extrabold rounded-xl text-xs shadow transition flex items-center gap-1.5">
+            🏭 Abrir Portal KDS de Producción
+          </a>
+        </div>
+      </div>
+
+      <!-- Tarjetas de Indicadores Financieros de Producción -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="bg-white p-5 rounded-2xl border border-amber-200 shadow-sm space-y-1">
+          <span class="text-xs font-bold text-slate-500 uppercase tracking-wider block">🥩 Inversión Insumos</span>
+          <span id="admin-prod-mat-cost" class="text-2xl font-black text-amber-600 font-mono">$0</span>
+          <p class="text-[11px] text-slate-400">Total en materias primas descontadas</p>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-blue-200 shadow-sm space-y-1">
+          <span class="text-xs font-bold text-slate-500 uppercase tracking-wider block">⏱️ Costo Mano de Obra</span>
+          <span id="admin-prod-labor-cost" class="text-2xl font-black text-blue-600 font-mono">$0</span>
+          <p class="text-[11px] text-slate-400">Horas/minutos de operario en puesto</p>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-purple-200 shadow-sm space-y-1">
+          <span class="text-xs font-bold text-slate-500 uppercase tracking-wider block">💰 Costo Prom. Fabricación</span>
+          <span id="admin-prod-avg-unit-cost" class="text-2xl font-black text-purple-600 font-mono">$0 / unid</span>
+          <p class="text-[11px] text-slate-400">Costo promedio por kg / unidad real</p>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-emerald-200 shadow-sm space-y-1">
+          <span class="text-xs font-bold text-slate-500 uppercase tracking-wider block">📈 Margen Bruto Real</span>
+          <span id="admin-prod-avg-margin" class="text-2xl font-black text-emerald-600 font-mono">0.0%</span>
+          <p class="text-[11px] text-slate-400">Promedio de ganancia neta sobre venta</p>
+        </div>
+      </div>
+
+      <!-- Tabla de Auditoría de Lotes de Producción y Rentabilidad -->
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden space-y-3">
+        <div class="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
+          <h3 class="font-extrabold text-slate-800 text-sm">Historial de Auditoría de Lotes y Rentabilidad por Artículo</h3>
+          <span id="admin-prod-batches-count" class="text-xs font-bold bg-amber-100 text-amber-800 px-2.5 py-1 rounded-full border border-amber-300">0 lotes auditados</span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-sm">
+            <thead>
+              <tr class="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase">
+                <th class="p-3">Lote #</th>
+                <th class="p-3">Producto / Elaboración</th>
+                <th class="p-3">Cantidad Producida</th>
+                <th class="p-3">Operario & Tiempo</th>
+                <th class="p-3">Costo Insumos + M.O.</th>
+                <th class="p-3">Costo Unit. Real</th>
+                <th class="p-3">Precio Venta Público</th>
+                <th class="p-3 text-right">Margen Real (%)</th>
+              </tr>
+            </thead>
+            <tbody id="admin-prod-batches-table-body" class="divide-y divide-slate-100 text-xs">
+              <!-- Dinámico -->
+            </tbody>
+          </table>
+        </div>
+      </div>
     </section>
 
   </main>

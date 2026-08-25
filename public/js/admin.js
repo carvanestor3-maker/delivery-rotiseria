@@ -1679,6 +1679,7 @@ function switchTab(tab) {
   const pSection = document.getElementById('tab-products');
   const usrSection = document.getElementById('tab-users');
   const uSection = document.getElementById('tab-audit');
+  const prodAnalyticsSection = document.getElementById('tab-production-analytics');
   const sSection = document.getElementById('tab-settings');
   
   const cBtn = document.getElementById('tab-btn-cash');
@@ -1687,52 +1688,163 @@ function switchTab(tab) {
   const pBtn = document.getElementById('tab-btn-products');
   const usrBtn = document.getElementById('tab-btn-users');
   const uBtn = document.getElementById('tab-btn-audit');
+  const prodAnalyticsBtn = document.getElementById('tab-btn-production-analytics');
   const sBtn = document.getElementById('tab-btn-settings');
 
-  cSection.classList.add('hidden');
-  aSection.classList.add('hidden');
-  kSection.classList.add('hidden');
-  pSection.classList.add('hidden');
-  usrSection.classList.add('hidden');
-  uSection.classList.add('hidden');
-  sSection.classList.add('hidden');
+  if (cSection) cSection.classList.add('hidden');
+  if (aSection) aSection.classList.add('hidden');
+  if (kSection) kSection.classList.add('hidden');
+  if (pSection) pSection.classList.add('hidden');
+  if (usrSection) usrSection.classList.add('hidden');
+  if (uSection) uSection.classList.add('hidden');
+  if (prodAnalyticsSection) prodAnalyticsSection.classList.add('hidden');
+  if (sSection) sSection.classList.add('hidden');
 
-  cBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
-  aBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
-  kBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
-  pBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
-  usrBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
-  uBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
-  sBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
+  if (cBtn) cBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
+  if (aBtn) aBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
+  if (kBtn) kBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
+  if (pBtn) pBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
+  if (usrBtn) usrBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
+  if (uBtn) uBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
+  if (prodAnalyticsBtn) prodAnalyticsBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
+  if (sBtn) sBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
 
   if (tab === 'cash') {
-    cSection.classList.remove('hidden');
-    cBtn.className = 'tab-btn pb-3 border-b-2 border-orange-500 text-orange-600 flex items-center gap-2 font-bold';
+    if (cSection) cSection.classList.remove('hidden');
+    if (cBtn) cBtn.className = 'tab-btn pb-3 border-b-2 border-orange-500 text-orange-600 flex items-center gap-2 font-bold';
     loadCashSummary();
   } else if (tab === 'accounts') {
-    aSection.classList.remove('hidden');
-    aBtn.className = 'tab-btn pb-3 border-b-2 border-orange-500 text-orange-600 flex items-center gap-2 font-bold';
+    if (aSection) aSection.classList.remove('hidden');
+    if (aBtn) aBtn.className = 'tab-btn pb-3 border-b-2 border-orange-500 text-orange-600 flex items-center gap-2 font-bold';
     loadAccounts();
   } else if (tab === 'stock') {
-    kSection.classList.remove('hidden');
-    kBtn.className = 'tab-btn pb-3 border-b-2 border-orange-500 text-orange-600 flex items-center gap-2 font-bold';
+    if (kSection) kSection.classList.remove('hidden');
+    if (kBtn) kBtn.className = 'tab-btn pb-3 border-b-2 border-orange-500 text-orange-600 flex items-center gap-2 font-bold';
     loadStockMaterials();
     loadPreparedStock();
   } else if (tab === 'products') {
-    pSection.classList.remove('hidden');
-    pBtn.className = 'tab-btn pb-3 border-b-2 border-orange-500 text-orange-600 flex items-center gap-2 font-bold';
+    if (pSection) pSection.classList.remove('hidden');
+    if (pBtn) pBtn.className = 'tab-btn pb-3 border-b-2 border-orange-500 text-orange-600 flex items-center gap-2 font-bold';
   } else if (tab === 'users') {
-    usrSection.classList.remove('hidden');
-    usrBtn.className = 'tab-btn pb-3 border-b-2 border-purple-600 text-purple-700 flex items-center gap-2 font-bold';
+    if (usrSection) usrSection.classList.remove('hidden');
+    if (usrBtn) usrBtn.className = 'tab-btn pb-3 border-b-2 border-purple-600 text-purple-700 flex items-center gap-2 font-bold';
     loadUsers();
   } else if (tab === 'audit') {
-    uSection.classList.remove('hidden');
-    uBtn.className = 'tab-btn pb-3 border-b-2 border-purple-600 text-purple-700 flex items-center gap-2 font-bold';
+    if (uSection) uSection.classList.remove('hidden');
+    if (uBtn) uBtn.className = 'tab-btn pb-3 border-b-2 border-purple-600 text-purple-700 flex items-center gap-2 font-bold';
     loadAuditLogs();
+  } else if (tab === 'production-analytics') {
+    if (prodAnalyticsSection) prodAnalyticsSection.classList.remove('hidden');
+    if (prodAnalyticsBtn) prodAnalyticsBtn.className = 'tab-btn pb-3 border-b-2 border-amber-500 text-amber-700 flex items-center gap-2 font-bold';
+    loadProductionAnalyticsAdmin();
   } else {
-    sSection.classList.remove('hidden');
-    sBtn.className = 'tab-btn pb-3 border-b-2 border-orange-500 text-orange-600 flex items-center gap-2 font-bold';
+    if (sSection) sSection.classList.remove('hidden');
+    if (sBtn) sBtn.className = 'tab-btn pb-3 border-b-2 border-orange-500 text-orange-600 flex items-center gap-2 font-bold';
   }
+}
+
+async function loadProductionAnalyticsAdmin() {
+  try {
+    const res = await fetch('/api/production/batches');
+    const data = await res.json();
+    if (data.success) {
+      renderProductionAnalyticsAdmin(data.batches || []);
+    }
+  } catch (err) {
+    console.error('Error al cargar análisis de producción en admin:', err);
+  }
+}
+
+function renderProductionAnalyticsAdmin(batches = []) {
+  const tbody = document.getElementById('admin-prod-batches-table-body');
+  const countBadge = document.getElementById('admin-prod-batches-count');
+  if (!tbody) return;
+
+  const completedBatches = batches.filter(b => b.status === 'completed');
+  if (countBadge) countBadge.textContent = `${completedBatches.length} lotes auditados`;
+
+  let totalMat = 0;
+  let totalLabor = 0;
+  let unitCostSum = 0;
+  let marginSum = 0;
+  let countWithCost = 0;
+
+  completedBatches.forEach(b => {
+    if (b.cost_analysis) {
+      totalMat += (b.cost_analysis.raw_material_cost_total || 0);
+      totalLabor += (b.cost_analysis.labor_cost_total || 0);
+      unitCostSum += (b.cost_analysis.unit_cost_real || 0);
+      marginSum += (b.cost_analysis.profit_margin_percent || 0);
+      countWithCost++;
+    }
+  });
+
+  const elemMat = document.getElementById('admin-prod-mat-cost');
+  const elemLabor = document.getElementById('admin-prod-labor-cost');
+  const elemAvgUnit = document.getElementById('admin-prod-avg-unit-cost');
+  const elemAvgMargin = document.getElementById('admin-prod-avg-margin');
+
+  if (elemMat) elemMat.textContent = formatCurrency(totalMat);
+  if (elemLabor) elemLabor.textContent = formatCurrency(totalLabor);
+  if (elemAvgUnit) elemAvgUnit.textContent = countWithCost > 0 ? `${formatCurrency(unitCostSum / countWithCost)} / unid` : '$0';
+  if (elemAvgMargin) elemAvgMargin.textContent = countWithCost > 0 ? `${(marginSum / countWithCost).toFixed(1)}%` : '0.0%';
+
+  if (completedBatches.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-slate-400 font-bold">No hay lotes de producción concluidos para auditar todavía.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = completedBatches.map(b => {
+    const durationSec = b.duration_seconds || 0;
+    const min = Math.floor(durationSec / 60);
+    const sec = durationSec % 60;
+    const durationText = `${min}m ${sec}s`;
+
+    const c = b.cost_analysis || {};
+    const matCost = c.raw_material_cost_total || 0;
+    const laborCost = c.labor_cost_total || 0;
+    const totalCost = c.total_batch_cost || (matCost + laborCost);
+    const unitCost = c.unit_cost_real || 0;
+    const sellPrice = c.selling_price_unit || 0;
+    const margin = c.profit_margin_percent || 0;
+
+    let marginBadgeClass = 'bg-emerald-100 text-emerald-800 border-emerald-300';
+    if (margin < 30) {
+      marginBadgeClass = 'bg-red-100 text-red-800 border-red-300';
+    } else if (margin < 50) {
+      marginBadgeClass = 'bg-amber-100 text-amber-800 border-amber-300';
+    }
+
+    return `
+      <tr class="hover:bg-slate-50 transition">
+        <td class="p-3 font-mono font-black text-amber-700 text-xs">${b.batch_number}</td>
+        <td class="p-3 font-extrabold text-slate-900">
+          ${b.product_name}
+          <div class="text-[10px] text-slate-400 font-normal">${b.category_sector}</div>
+        </td>
+        <td class="p-3 font-mono font-bold text-emerald-700">${b.quantity} ${b.unit_type || 'kg'}</td>
+        <td class="p-3 text-xs">
+          <div class="font-bold text-slate-800">${b.operator_name}</div>
+          <div class="text-[10px] text-slate-500 font-mono">⏱️ ${durationText}</div>
+        </td>
+        <td class="p-3 font-mono text-xs">
+          <div class="font-bold text-slate-900">${formatCurrency(totalCost)}</div>
+          <div class="text-[10px] text-slate-400">Insumos: ${formatCurrency(matCost)} + MO: ${formatCurrency(laborCost)}</div>
+        </td>
+        <td class="p-3 font-mono font-black text-purple-700 text-sm">
+          ${formatCurrency(unitCost)} <span class="text-[10px] font-normal text-slate-400">/ ${b.unit_type || 'unid'}</span>
+        </td>
+        <td class="p-3 font-mono font-bold text-slate-900">
+          ${formatCurrency(sellPrice)}
+        </td>
+        <td class="p-3 text-right">
+          <span class="px-2.5 py-1 rounded-lg border font-mono font-black text-xs ${marginBadgeClass}">
+            📈 ${margin}%
+          </span>
+        </td>
+      </tr>
+    `;
+  }).join('');
 }
 
 function formatCurrency(val) {

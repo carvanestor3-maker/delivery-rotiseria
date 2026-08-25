@@ -726,6 +726,161 @@ app.post('/api/production/add', (req, res) => {
   }
 });
 
+// ==========================================
+// MÓDULO DE PRODUCCIÓN PREVIA DE LOTES (COCINA, PANADERÍA Y COMIDA POR KILO)
+// ==========================================
+
+// GET /api/production/batches
+app.get('/api/production/batches', (req, res) => {
+  try {
+    const store = db.getStore();
+    if (!store.production_batches) store.production_batches = [];
+    res.json({
+      success: true,
+      batches: store.production_batches,
+      products: store.products || [],
+      raw_materials: store.raw_materials || []
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/production/batches/start (Iniciar Lote de Producción)
+app.post('/api/production/batches/start', (req, res) => {
+  try {
+    const { product_id, quantity, category_sector, operator_name, notes, pin } = req.body;
+
+    const auth = verifyUserPin(pin, 1);
+    if (!auth.isValid) {
+      return res.status(401).json({ success: false, error: 'PIN de operario registrado (Nivel 1, 2 o 3) requerido' });
+    }
+
+    const store = db.getStore();
+    const prod = store.products.find(p => p.id === parseInt(product_id));
+    if (!prod) {
+      return res.status(404).json({ success: false, error: 'Producto de comida elaborada o panificados no encontrado' });
+    }
+
+    const qtyAdd = parseFloat(quantity || 0);
+    if (qtyAdd <= 0) {
+      return res.status(400).json({ success: false, error: 'La cantidad a producir debe ser mayor a 0' });
+    }
+
+    if (!store.production_batches) store.production_batches = [];
+
+    const nextId = store.production_batches.length > 0 ? Math.max(...store.production_batches.map(b => b.id)) + 1 : 1;
+    const batchNumber = `#PROD-${100 + nextId}`;
+
+    const newBatch = {
+      id: nextId,
+      batch_number: batchNumber,
+      product_id: prod.id,
+      product_name: prod.name,
+      category_sector: category_sector || 'Cocina - Elaboración General',
+      quantity: qtyAdd,
+      unit_type: prod.unit_type || 'kg',
+      operator_name: operator_name ? String(operator_name).trim() : auth.user.name,
+      operator_pin: auth.user.pin,
+      started_at: new Date().toISOString(),
+      finished_at: null,
+      duration_seconds: null,
+      status: 'in_progress',
+      notes: notes || '',
+      deducted_materials: []
+    };
+
+    store.production_batches.unshift(newBatch);
+    db.saveStore();
+
+    io.emit('production_updated', newBatch);
+
+    res.json({ success: true, batch: newBatch });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/production/batches/:id/finish (Concluir Lote de Producción)
+app.post('/api/production/batches/:id/finish', (req, res) => {
+  try {
+    const { id } = req.params;
+    const { notes } = req.body;
+
+    const store = db.getStore();
+    if (!store.production_batches) store.production_batches = [];
+    const batch = store.production_batches.find(b => b.id === parseInt(id));
+
+    if (!batch) {
+      return res.status(404).json({ success: false, error: 'Lote de producción no encontrado' });
+    }
+
+    if (batch.status === 'completed') {
+      return res.status(400).json({ success: false, error: 'Este lote de producción ya fue marcado como finalizado' });
+    }
+
+    const now = new Date();
+    const startTime = new Date(batch.started_at);
+    const durationSeconds = Math.max(1, Math.floor((now - startTime) / 1000));
+
+    batch.finished_at = now.toISOString();
+    batch.duration_seconds = durationSeconds;
+    batch.status = 'completed';
+    if (notes) batch.notes = (batch.notes ? `${batch.notes} | ` : '') + notes;
+
+    // Actualizar Stock de Comida Preparada
+    const prod = store.products.find(p => p.id === batch.product_id);
+    const deductedMaterials = [];
+
+    if (prod) {
+      prod.stock_prepared = parseFloat(((prod.stock_prepared || 0) + batch.quantity).toFixed(3));
+      prod.is_prepared_food = 1;
+
+      // Descontar insumos genéricos según Ficha Técnica (Escandallo)
+      const recipes = (store.product_recipes || []).filter(r => r.product_id === prod.id);
+      recipes.forEach(r => {
+        const mat = store.raw_materials.find(m => m.id === r.raw_material_id);
+        if (mat) {
+          const totalDeduct = parseFloat((r.qty_per_portion * batch.quantity).toFixed(4));
+          mat.current_stock = parseFloat(Math.max(0, (mat.current_stock || 0) - totalDeduct).toFixed(4));
+          deductedMaterials.push({
+            material_name: mat.name,
+            code: mat.code,
+            unit: mat.unit,
+            qty_deducted: totalDeduct,
+            remaining_stock: mat.current_stock
+          });
+        }
+      });
+      batch.deducted_materials = deductedMaterials;
+    }
+
+    // Guardar también en el registro histórico de production_entries para auditoría
+    if (!store.production_entries) store.production_entries = [];
+    store.production_entries.unshift({
+      id: store.production_entries.length + 1,
+      date: batch.finished_at,
+      product_id: batch.product_id,
+      product_name: batch.product_name,
+      unit_type: batch.unit_type,
+      quantity: batch.quantity,
+      notes: `Lote ${batch.batch_number} - Duración: ${Math.floor(durationSeconds/60)}m ${durationSeconds%60}s`,
+      operator_name: batch.operator_name,
+      deducted_materials: deductedMaterials,
+      registered_by: `${batch.operator_name} (Lote KDS)`
+    });
+
+    db.saveStore();
+
+    io.emit('production_updated', batch);
+    io.emit('stock_updated');
+
+    res.json({ success: true, batch, product: prod });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // ARQUEO DE SOBRANTES Y CONCILIACIÓN DE DESPERDICIOS/MERMAS/OFERTAS AL CIERRE DE CAJA
 app.post('/api/cash/shift/reconcile-food', (req, res) => {
   try {

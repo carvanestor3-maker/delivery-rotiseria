@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🏭 Portal KDS de Producción - La Gran Rotisería, Bar & Drugstore 24hs</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800;900&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    .font-mono { font-family: 'JetBrains Mono', monospace; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col antialiased selection:bg-amber-500 selection:text-slate-950">
+
+  <!-- HEADER NAVEGACIÓN PRODUCCIÓN -->
+  <header class="bg-slate-900/90 border-b border-slate-800 backdrop-blur-md sticky top-0 z-30 px-4 py-3">
+    <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-3">
+      
+      <div class="flex items-center gap-3 w-full md:w-auto justify-between md:justify-start">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center text-xl font-black shadow-inner">
+            🏭
+          </div>
+          <div>
+            <h1 class="font-extrabold text-base sm:text-lg text-white leading-none flex items-center gap-2">
+              KDS DE PRODUCCIÓN EN LOTES
+              <span id="socket-status" class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                🟢 En vivo
+              </span>
+            </h1>
+            <p class="text-[11px] text-slate-400 font-medium mt-0.5">
+              Cocina, Panadería de Bar y Comida por Kilo 24hs
+            </p>
+          </div>
+        </div>
+
+        <a href="/" class="md:hidden text-slate-400 hover:text-white p-2">
+          <i data-lucide="home" class="w-5 h-5"></i>
+        </a>
+      </div>
+
+      <!-- Métricas Rápidas -->
+      <div class="flex items-center gap-2 sm:gap-4 overflow-x-auto w-full md:w-auto py-1">
+        <div class="bg-slate-800/80 border border-slate-700 px-3 py-1.5 rounded-xl text-center flex-1 sm:flex-none">
+          <div class="text-[10px] text-slate-400 font-bold uppercase">EN PROCESO</div>
+          <div id="metric-in-progress" class="font-mono font-black text-amber-400 text-sm">0</div>
+        </div>
+
+        <div class="bg-slate-800/80 border border-slate-700 px-3 py-1.5 rounded-xl text-center flex-1 sm:flex-none">
+          <div class="text-[10px] text-slate-400 font-bold uppercase">CONCLUIDOS HOY</div>
+          <div id="metric-completed-today" class="font-mono font-black text-emerald-400 text-sm">0</div>
+        </div>
+
+        <div class="bg-slate-800/80 border border-slate-700 px-3 py-1.5 rounded-xl text-center flex-1 sm:flex-none">
+          <div class="text-[10px] text-slate-400 font-bold uppercase">TIEMPO PROMEDIO</div>
+          <div id="metric-avg-duration" class="font-mono font-black text-purple-400 text-sm">0.0 min</div>
+        </div>
+
+        <button onclick="openNewBatchModal()" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 active:scale-95 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center gap-1.5 flex-shrink-0">
+          <span>➕</span> Iniciar Nuevo Lote
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- CONTENIDO PRINCIPAL -->
+  <main class="max-w-7xl mx-auto w-full p-4 space-y-4 flex-1">
+
+    <!-- BARRA DE SECTORES Y PESTAÑAS -->
+    <div class="flex flex-col sm:flex-row justify-between items-center gap-3 bg-slate-900/60 p-2 rounded-2xl border border-slate-800">
+      
+      <!-- Pestañas Principales -->
+      <div class="flex items-center gap-2 w-full sm:w-auto">
+        <button id="tab-btn-active" onclick="switchProductionTab('active')" class="flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-black transition bg-amber-500 text-slate-950 shadow">
+          ⚡ Lotes en Elaboración Activa
+        </button>
+        <button id="tab-btn-history" onclick="switchProductionTab('history')" class="flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-black transition text-slate-400 hover:text-white hover:bg-slate-800">
+          📜 Bitácora de Producción & Tiempos
+        </button>
+      </div>
+
+      <!-- Filtro por Sector -->
+      <div class="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto">
+        <button onclick="setSectorFilter('all')" id="btn-sector-all" class="px-3 py-1.5 rounded-lg text-[11px] font-extrabold transition bg-slate-800 text-white border border-slate-700">
+          🌐 Todos los Sectores
+        </button>
+        <button onclick="setSectorFilter('cocina')" id="btn-sector-cocina" class="px-3 py-1.5 rounded-lg text-[11px] font-bold transition text-slate-400 hover:text-white">
+          👨‍🍳 Cocina Producción
+        </button>
+        <button onclick="setSectorFilter('bar')" id="btn-sector-bar" class="px-3 py-1.5 rounded-lg text-[11px] font-bold transition text-slate-400 hover:text-white">
+          🥐 Bar Panadería
+        </button>
+        <button onclick="setSectorFilter('kilo')" id="btn-sector-kilo" class="px-3 py-1.5 rounded-lg text-[11px] font-bold transition text-slate-400 hover:text-white">
+          🥘 Comida por Kilo
+        </button>
+      </div>
+
+    </div>
+
+    <!-- PESTAÑA 1: LOTES EN ELABORACIÓN EN VIVO -->
+    <div id="view-active-production" class="space-y-4">
+      <div id="production-active-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <!-- Tarjetas de Lotes Dinámicas -->
+      </div>
+    </div>
+
+    <!-- PESTAÑA 2: BITÁCORA E HISTORIAL DE PRODUCCIÓN -->
+    <div id="view-history-production" class="hidden space-y-4">
+      <div class="bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden shadow-xl">
+        <div class="p-4 border-b border-slate-800 flex justify-between items-center">
+          <h3 class="font-extrabold text-sm text-amber-400 flex items-center gap-2">
+            📜 Bitácora de Lotes Concluidos y Cómputo de Tiempos
+          </h3>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="bg-slate-950 text-slate-400 text-[11px] uppercase font-bold tracking-wider border-b border-slate-800">
+                <th class="p-3">LOTE #</th>
+                <th class="p-3">PRODUCTO / COMIDA ELABORADA</th>
+                <th class="p-3">SECTOR</th>
+                <th class="p-3">CANTIDAD PRODUCIDA</th>
+                <th class="p-3">OPERARIO A CARGO</th>
+                <th class="p-3">INICIO / FIN</th>
+                <th class="p-3 text-right">TIEMPO ELABORACIÓN</th>
+              </tr>
+            </thead>
+            <tbody id="production-history-tbody" class="divide-y divide-slate-800 text-xs">
+              <!-- Dinámico -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- MODAL PARA INICIAR NUEVO LOTE DE PRODUCCIÓN -->
+  <div id="new-batch-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200 text-slate-900">
+    <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+      <div class="flex justify-between items-center border-b pb-3 border-slate-200">
+        <div>
+          <h3 class="font-extrabold text-slate-900 text-base flex items-center gap-2">
+            🏭 Abrir Comanda / Lote de Producción Previa
+          </h3>
+          <p class="text-xs text-slate-500">Inicia el reloj de elaboración e indica el producto a preparar</p>
+        </div>
+        <button onclick="closeNewBatchModal()" class="text-slate-400 hover:text-slate-700">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="new-batch-form" onsubmit="submitNewBatch(event)" class="space-y-3">
+        
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Producto / Insumo Elaborado *</label>
+          <select id="batch-product-id" required class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-extrabold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500">
+            <!-- Dinámico -->
+          </select>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Sector de Producción *</label>
+            <select id="batch-sector" required class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500">
+              <option value="👨‍🍳 Cocina - Rellenos & Minutas" selected>👨‍🍳 Cocina - Rellenos & Minutas</option>
+              <option value="🥐 Bar - Panadería & Pastelería">🥐 Bar - Panadería & Pastelería</option>
+              <option value="🥘 Rotisería - Comida por Kilo">🥘 Rotisería - Comida por Kilo</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Cantidad a Producir *</label>
+            <input type="number" step="0.01" id="batch-quantity" required placeholder="Ej: 25.0" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-extrabold font-mono text-slate-900 outline-none focus:ring-2 focus:ring-amber-500">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Nombre del Operario a Cargo del Lote *</label>
+          <input type="text" id="batch-operator-name" required placeholder="Ej: Marcos Pérez" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-extrabold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500">
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">🔑 Tu PIN Personal Registrado *</label>
+          <input type="password" id="batch-operator-pin" required placeholder="Tu PIN (ej: 1111)" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-mono font-bold text-center outline-none focus:ring-2 focus:ring-amber-500 tracking-widest">
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Observaciones / Notas del Lote (Opcional)</label>
+          <input type="text" id="batch-notes" placeholder="Ej: Lote picante especial o receta doble" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500">
+        </div>
+
+        <div class="bg-amber-50 border border-amber-200 p-3 rounded-xl text-[11px] text-amber-900 font-semibold space-y-1">
+          <div>💡 <strong>Carga Automática a Stock al Finalizar:</strong></div>
+          <div>Al concluir el lote, la cantidad producida sumará directamente al stock disponible y descontará las materias primas registradas en la receta.</div>
+        </div>
+
+        <div class="flex gap-2 pt-2">
+          <button type="button" onclick="closeNewBatchModal()" class="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs">Cancelar</button>
+          <button type="submit" class="flex-1 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-xl text-xs shadow flex items-center justify-center gap-1">
+            🚀 Iniciar Comanda de Producción
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="/js/produccion.js?v=1.0.0"></script>
+  <script>
+    lucide.createIcons();
+  </script>
+</body>
+</html>

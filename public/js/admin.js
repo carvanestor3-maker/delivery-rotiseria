@@ -1266,7 +1266,7 @@ async function loadSettings() {
       settings = data.settings;
       document.getElementById('set-restaurant-name').value = settings.restaurant_name || '';
       if (document.getElementById('set-restaurant-address')) {
-        document.getElementById('set-restaurant-address').value = settings.restaurant_address || 'Av. Tambor de Tacuarí 4500 (Esq. Lavalle) - Posadas, Misiones';
+        document.getElementById('set-restaurant-address').value = settings.restaurant_address || 'España 1028 (Casi Yrigoyen)';
       }
       document.getElementById('set-whatsapp-phone').value = settings.whatsapp_phone || '';
       document.getElementById('set-delivery-cost').value = settings.delivery_cost || '1200';

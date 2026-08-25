@@ -84,7 +84,7 @@ async function loadMenuData() {
         document.getElementById('restaurant-title').textContent = state.settings.restaurant_name;
       }
 
-      const addr = state.settings.restaurant_address || 'Av. Tambor de Tacuarí 4500 (Esq. Lavalle) - Posadas, Misiones';
+      const addr = state.settings.restaurant_address || 'España 1028 (Casi Yrigoyen)';
       const addrEl = document.getElementById('restaurant-address-text');
       if (addrEl) addrEl.textContent = addr;
 

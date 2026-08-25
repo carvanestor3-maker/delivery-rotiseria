@@ -560,6 +560,7 @@ async function submitOrderToWhatsApp() {
 // ==========================================
 
 function openPhotoLightboxByProductId(productId) {
+  closeAllPublicModals();
   const prod = state.products.find(p => p.id === productId);
   if (!prod) return;
   const imageUrl = prod.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200';
@@ -574,10 +575,10 @@ function openPhotoLightboxByProductId(productId) {
   if (descElem) descElem.textContent = prod.description || 'Ampliación HD al ancho de pantalla';
 
   if (modal) modal.classList.remove('opacity-0', 'pointer-events-none');
-  pushModalState('lightbox');
 }
 
 function openPhotoLightbox(imageUrl, title, desc) {
+  closeAllPublicModals();
   const modal = document.getElementById('photo-lightbox-modal');
   const img = document.getElementById('lightbox-img');
   const titleElem = document.getElementById('lightbox-title');
@@ -588,7 +589,6 @@ function openPhotoLightbox(imageUrl, title, desc) {
   if (descElem) descElem.textContent = desc || 'Ampliación HD al ancho de pantalla';
 
   if (modal) modal.classList.remove('opacity-0', 'pointer-events-none');
-  pushModalState('lightbox');
 }
 
 function closePhotoLightbox() {
@@ -640,9 +640,9 @@ function getEmbedVideoInfo(videoUrl) {
 }
 
 function openVideoPlayerByProductId(productId) {
+  closeAllPublicModals();
   const prod = state.products.find(p => p.id === productId);
   if (!prod || !prod.video_url) {
-    alert('⚠️ No se encontró la dirección web del video de este producto.');
     return;
   }
 

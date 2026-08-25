@@ -2017,3 +2017,148 @@ async function saveRecipe(e) {
     console.error('Error al guardar receta:', err);
   }
 }
+
+// ==========================================
+// FICHAJE DE ASISTENCIA Y CÓMPUTO DE HORAS TRABAJADAS
+// ==========================================
+
+let attendanceLogsList = [];
+let activeStaffList = [];
+
+async function openAttendanceModal() {
+  const modal = document.getElementById('attendance-modal');
+  const pinInput = document.getElementById('att-pin-input');
+  if (pinInput) pinInput.value = '';
+
+  await loadAttendanceLogs();
+  if (modal) modal.classList.remove('opacity-0', 'pointer-events-none');
+}
+
+function closeAttendanceModal() {
+  const modal = document.getElementById('attendance-modal');
+  if (modal) modal.classList.add('opacity-0', 'pointer-events-none');
+}
+
+async function loadAttendanceLogs() {
+  try {
+    const res = await fetch('/api/attendance/logs');
+    const data = await res.json();
+    if (data.success) {
+      attendanceLogsList = data.logs || [];
+      activeStaffList = data.active_staff || [];
+      renderAttendanceHistory();
+    }
+  } catch (err) {
+    console.error('Error al cargar asistencia:', err);
+  }
+}
+
+function renderAttendanceHistory() {
+  const tbody = document.getElementById('attendance-history-tbody');
+  const countElem = document.getElementById('active-staff-count');
+
+  if (countElem) {
+    const names = activeStaffList.map(s => s.user_name).join(', ');
+    countElem.textContent = activeStaffList.length > 0
+      ? `${activeStaffList.length} (${names})`
+      : '0 operarios (Nadie en turno activo)';
+  }
+
+  if (!tbody) return;
+  tbody.innerHTML = '';
+
+  if (attendanceLogsList.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-slate-400 text-xs">No hay fichajes de asistencia registrados en el sistema.</td></tr>`;
+    return;
+  }
+
+  attendanceLogsList.forEach(l => {
+    const tr = document.createElement('tr');
+    tr.className = 'hover:bg-slate-50 transition';
+
+    const inStr = l.clock_in ? new Date(l.clock_in).toLocaleString('es-AR') : '-';
+    const outStr = l.clock_out ? new Date(l.clock_out).toLocaleString('es-AR') : '-';
+    const isActive = l.status === 'active';
+
+    const hoursText = isActive
+      ? '<span class="text-emerald-600 font-extrabold flex items-center justify-end gap-1"><span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span> En curso</span>'
+      : `<span class="font-mono font-black text-slate-900 text-sm">${l.hours_worked || 0} hs</span>`;
+
+    tr.innerHTML = `
+      <td class="p-3 font-bold text-slate-900">
+        <div>${l.user_name || 'Empleado'}</div>
+        <div class="text-[10px] text-slate-400 font-normal">Nivel ${l.level || 1}</div>
+      </td>
+      <td class="p-3">
+        <span class="px-2 py-0.5 rounded-full text-[10px] font-black ${isActive ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-slate-100 text-slate-700 border border-slate-200'}">
+          ${isActive ? '🟢 En Turno Activo' : '🔴 Salida Completada'}
+        </span>
+      </td>
+      <td class="p-3 font-mono text-slate-600">${inStr}</td>
+      <td class="p-3 font-mono text-slate-600">${outStr}</td>
+      <td class="p-3 text-right font-bold">${hoursText}</td>
+    `;
+
+    tbody.appendChild(tr);
+  });
+}
+
+async function submitClockIn() {
+  const pinInput = document.getElementById('att-pin-input');
+  const pin = pinInput ? pinInput.value.trim() : '';
+
+  if (!pin) {
+    alert('⚠️ Por favor ingresa tu PIN personal para marcar entrada.');
+    if (pinInput) pinInput.focus();
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/attendance/clock-in', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin })
+    });
+    const data = await res.json();
+    if (data.success) {
+      if (pinInput) pinInput.value = '';
+      const inTime = new Date(data.log.clock_in).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+      alert(`🟢 INGRESO DE TURNO REGISTRADO CON ÉXITO!\n\nBienvenido/a: ${data.user_name}\nHora de entrada: ${inTime} hs.\n\nQuedas marcado como activo en turno.`);
+      await loadAttendanceLogs();
+    } else {
+      alert(`⚠️ ${data.error}`);
+    }
+  } catch (err) {
+    console.error('Error al fichar entrada:', err);
+  }
+}
+
+async function submitClockOut() {
+  const pinInput = document.getElementById('att-pin-input');
+  const pin = pinInput ? pinInput.value.trim() : '';
+
+  if (!pin) {
+    alert('⚠️ Por favor ingresa tu PIN personal para marcar salida.');
+    if (pinInput) pinInput.focus();
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/attendance/clock-out', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin })
+    });
+    const data = await res.json();
+    if (data.success) {
+      if (pinInput) pinInput.value = '';
+      const outTime = new Date(data.log.clock_out).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+      alert(`🔴 SALIDA DE TURNO REGISTRADA CON ÉXITO!\n\nHasta luego: ${data.user_name}\nHora de salida: ${outTime} hs.\nHoras totales trabajadas: ${data.hours_worked} hs.`);
+      await loadAttendanceLogs();
+    } else {
+      alert(`⚠️ ${data.error}`);
+    }
+  } catch (err) {
+    console.error('Error al fichar salida:', err);
+  }
+}

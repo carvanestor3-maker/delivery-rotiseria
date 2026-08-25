@@ -23,6 +23,9 @@
       </div>
     </div>
     <div class="flex items-center gap-2">
+      <button onclick="openAttendanceModal()" class="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-xs font-black rounded-lg text-white flex items-center gap-1 shadow transition" title="Fichador de Ingreso/Salida de Personal y Cómputo de Horas">
+        ⏱️ Fichar Asistencia / Horas
+      </button>
       <button onclick="downloadSystemBackup()" class="px-3 py-1.5 bg-purple-700 hover:bg-purple-600 text-xs font-black rounded-lg text-white flex items-center gap-1 shadow transition" title="Descargar Copia ZIP del Código y Base de Datos (Nivel 3)">
         💾 Respaldo ZIP (Nivel 3)
       </button>
@@ -1255,6 +1258,69 @@
           <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 font-extrabold rounded-xl text-xs text-white shadow">Guardar Ficha Técnica</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- MODAL DE FICHAJE DE ASISTENCIA Y CÓMPUTO DE HORAS TRABAJADAS -->
+  <div id="attendance-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200 text-slate-900">
+    <div class="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex justify-between items-center border-b pb-3 border-slate-200">
+        <div>
+          <h3 class="font-extrabold text-amber-950 text-base flex items-center gap-2">
+            ⏱️ Fichador de Asistencia & Cómputo de Horas Trabajadas
+          </h3>
+          <p class="text-xs text-slate-500">Ingreso/Salida por PIN y cálculo automático de horas de personal (Nivel 1, 2 o 3)</p>
+        </div>
+        <button onclick="closeAttendanceModal()" class="text-slate-400 hover:text-slate-700">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Tarjeta de Fichaje Rápido por PIN -->
+      <div class="bg-amber-50 border border-amber-200 p-4 rounded-2xl space-y-3">
+        <label class="block text-xs font-black text-amber-950">🔑 Ingresa tu PIN Personal para Marcar Entrada o Salida *</label>
+        <div class="flex gap-2">
+          <input type="password" id="att-pin-input" placeholder="Tu PIN personal (ej: 1111, 2222)" class="flex-1 px-4 py-2.5 bg-white border border-amber-300 rounded-xl text-base font-mono font-bold text-center outline-none focus:ring-2 focus:ring-amber-500 tracking-widest">
+          <button type="button" onclick="submitClockIn()" class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-extrabold text-xs rounded-xl shadow transition flex items-center gap-1">
+            🟢 Marcar ENTRADA
+          </button>
+          <button type="button" onclick="submitClockOut()" class="px-4 py-2.5 bg-red-600 hover:bg-red-700 active:scale-95 text-white font-extrabold text-xs rounded-xl shadow transition flex items-center gap-1">
+            🔴 Marcar SALIDA
+          </button>
+        </div>
+      </div>
+
+      <!-- Personal en Turno Activo -->
+      <div id="active-staff-banner" class="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 flex justify-between items-center">
+        <span>👥 Personal Activo Trabajando en este Momento: <span id="active-staff-count" class="font-mono text-emerald-600 font-extrabold">0 operarios</span></span>
+      </div>
+
+      <!-- Historial de Fichajes y Horas -->
+      <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div class="p-3 bg-slate-100 border-b border-slate-200 font-extrabold text-xs text-slate-800 uppercase tracking-wider">
+          📋 Historial de Turnos de Asistencia y Cómputo de Horas
+        </div>
+        <div class="max-h-64 overflow-y-auto">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead class="sticky top-0 bg-slate-50 shadow-sm">
+              <tr class="border-b border-slate-200 text-slate-500 font-bold uppercase">
+                <th class="p-3">Empleado / Operario</th>
+                <th class="p-3">Estado</th>
+                <th class="p-3">Hora Entrada</th>
+                <th class="p-3">Hora Salida</th>
+                <th class="p-3 text-right">Horas Trabajadas</th>
+              </tr>
+            </thead>
+            <tbody id="attendance-history-tbody" class="divide-y divide-slate-100">
+              <!-- Dinámico -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="pt-2 flex justify-end">
+        <button type="button" onclick="closeAttendanceModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 font-bold rounded-xl text-xs text-slate-700">Cerrar</button>
+      </div>
     </div>
   </div>
 

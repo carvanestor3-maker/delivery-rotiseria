@@ -1639,6 +1639,94 @@ app.post('/api/pos/sale', (req, res) => {
   }
 });
 
+// ==========================================
+// APIS DE FICHAJE DE ASISTENCIA Y CÓMPUTO DE HORAS TRABAJADAS
+// ==========================================
+
+app.get('/api/attendance/logs', (req, res) => {
+  try {
+    const store = db.getStore();
+    const logs = store.attendance_logs || [];
+    const activeStaff = logs.filter(l => l.status === 'active');
+    res.json({ success: true, logs, active_staff: activeStaff });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/attendance/clock-in', (req, res) => {
+  try {
+    const { pin } = req.body;
+    const auth = verifyUserPin(pin, 1);
+    if (!auth.isValid) {
+      return res.status(401).json({ success: false, error: '⚠️ PIN personal no válido. Ingresa tu clave registrada.' });
+    }
+
+    const store = db.getStore();
+    if (!store.attendance_logs) store.attendance_logs = [];
+
+    const existingActive = store.attendance_logs.find(l => l.user_id === auth.user.id && l.status === 'active');
+    if (existingActive) {
+      const since = new Date(existingActive.clock_in).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+      return res.status(400).json({ success: false, error: `⚠️ "${auth.user.name}" ya tiene un turno abierto desde las ${since} hs. Marca salida antes de ingresar un nuevo turno.` });
+    }
+
+    const nextId = store.attendance_logs.length > 0 ? Math.max(...store.attendance_logs.map(l => l.id)) + 1 : 1;
+    const newLog = {
+      id: nextId,
+      user_id: auth.user.id,
+      user_name: auth.user.name,
+      level: auth.user.level,
+      clock_in: new Date().toISOString(),
+      clock_out: null,
+      hours_worked: 0,
+      status: 'active'
+    };
+
+    store.attendance_logs.unshift(newLog);
+    db.saveStore();
+    io.emit('attendance_updated');
+
+    res.json({ success: true, log: newLog, user_name: auth.user.name });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/attendance/clock-out', (req, res) => {
+  try {
+    const { pin } = req.body;
+    const auth = verifyUserPin(pin, 1);
+    if (!auth.isValid) {
+      return res.status(401).json({ success: false, error: '⚠️ PIN personal no válido. Ingresa tu clave registrada.' });
+    }
+
+    const store = db.getStore();
+    if (!store.attendance_logs) store.attendance_logs = [];
+
+    const activeLog = store.attendance_logs.find(l => l.user_id === auth.user.id && l.status === 'active');
+    if (!activeLog) {
+      return res.status(400).json({ success: false, error: `⚠️ No se encontró ningún turno activo para "${auth.user.name}". Debes marcar ingreso primero.` });
+    }
+
+    const clockOutDate = new Date();
+    const clockInDate = new Date(activeLog.clock_in);
+    const diffMs = clockOutDate - clockInDate;
+    const hours = parseFloat((diffMs / (1000 * 60 * 60)).toFixed(2));
+
+    activeLog.clock_out = clockOutDate.toISOString();
+    activeLog.hours_worked = hours;
+    activeLog.status = 'completed';
+
+    db.saveStore();
+    io.emit('attendance_updated');
+
+    res.json({ success: true, log: activeLog, user_name: auth.user.name, hours_worked: hours });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.get('/api/settings', (req, res) => {
   try {
     res.json({ success: true, settings: getSettingsMap() });

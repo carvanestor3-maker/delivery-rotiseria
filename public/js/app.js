@@ -23,6 +23,8 @@ function triggerPwaInstall() {
       const installBanner = document.getElementById('pwa-install-banner');
       if (installBanner) installBanner.classList.add('hidden');
     });
+  } else {
+    alert('📲 ¡La App "Comidas Portal" ya está instalada o lista en tu celular!\n\nSi ya tenés el acceso directo en la pantalla de inicio, abrilo directamente desde ahí.\n\nSi querés agregarlo de nuevo: tocá los 3 puntos arriba a la derecha en Chrome y elegí "Agregar a la pantalla principal".');
   }
 }
 

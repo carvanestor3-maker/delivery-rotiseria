@@ -622,7 +622,7 @@ app.post('/api/admin/recipes/save', (req, res) => {
 // REGISTRO DE PRODUCCIÓN DIARIA DE COMIDA PREPARADA POR LA COCINA (REQUERIDO NIVEL 2 O 3)
 app.post('/api/production/add', (req, res) => {
   try {
-    const { product_id, quantity, notes, pin } = req.body;
+    const { product_id, quantity, notes, operator_name, pin } = req.body;
 
     const auth = verifyUserPin(pin, 2);
     if (!auth.isValid) {
@@ -673,6 +673,7 @@ app.post('/api/production/add', (req, res) => {
       unit_type: prod.unit_type || 'kg',
       quantity: qtyAdd,
       notes: notes || '',
+      operator_name: operator_name ? String(operator_name).trim() : auth.user.name,
       deducted_materials: deductedMaterials,
       registered_by: `${auth.user.name} (Nivel ${auth.user.level})`
     };

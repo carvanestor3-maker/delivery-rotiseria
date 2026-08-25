@@ -782,7 +782,10 @@ function renderProductionEntriesHistory() {
       <td class="p-3 font-bold text-slate-900 text-xs">${e.product_name || 'Plato'}</td>
       <td class="p-3 font-mono font-black text-emerald-700 text-sm">+${e.quantity} ${e.unit_type === 'kg' ? 'kg' : 'unidades'}</td>
       <td class="p-3 text-xs">${matDeductedHtml}</td>
-      <td class="p-3 text-right text-xs font-bold text-amber-900">👨‍🍳 ${e.registered_by || 'Cocina'}</td>
+      <td class="p-3 text-right text-xs">
+        <div class="font-extrabold text-slate-900">👨‍🍳 ${e.operator_name || 'Cocinero'}</div>
+        <div class="text-[10px] text-amber-800 font-bold">🔑 Autorizó: ${e.registered_by || 'Encargado'}</div>
+      </td>
     `;
 
     tbody.appendChild(tr);
@@ -1694,6 +1697,7 @@ async function submitProductionEntry(e) {
   e.preventDefault();
   const product_id = document.getElementById('prod-entry-product').value;
   const quantity = document.getElementById('prod-entry-qty').value;
+  const operator_name = document.getElementById('prod-entry-operator') ? document.getElementById('prod-entry-operator').value.trim() : '';
   const notes = document.getElementById('prod-entry-notes').value.trim();
   const pin = document.getElementById('prod-entry-pin').value.trim();
 
@@ -1701,7 +1705,7 @@ async function submitProductionEntry(e) {
     const res = await fetch('/api/production/add', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ product_id, quantity, notes, pin })
+      body: JSON.stringify({ product_id, quantity, notes, operator_name, pin })
     });
     const data = await res.json();
     if (data.success) {

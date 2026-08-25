@@ -52,6 +52,9 @@
           const installBanner = document.getElementById('pwa-install-banner');
           if (installBanner) installBanner.classList.add('hidden');
         });
+      } else {
+        const installBanner = document.getElementById('pwa-install-banner');
+        if (installBanner) installBanner.classList.add('hidden');
       }
     }
   </script>
@@ -324,7 +327,7 @@
     </div>
   </div>
 
-  <script src="/js/app.js?v=2.1"></script>
+  <script src="/js/app.js?v=2.2"></script>
   <script>
     lucide.createIcons();
   </script>

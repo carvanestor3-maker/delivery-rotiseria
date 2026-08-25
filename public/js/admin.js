@@ -445,6 +445,8 @@ async function submitCloseShift(e) {
   }
 }
 
+let productionEntriesList = [];
+
 // Cargar Insumos y Stock General
 async function loadStockMaterials() {
   try {
@@ -453,8 +455,10 @@ async function loadStockMaterials() {
     if (data.success) {
       rawMaterials = data.raw_materials || [];
       suppliers = data.suppliers || [];
+      productionEntriesList = data.production_entries || [];
       renderMaterialsTable();
       populateAdjustStockSelect();
+      renderProductionEntriesHistory();
     }
   } catch (err) {
     console.error('Error al cargar materias primas:', err);
@@ -490,10 +494,8 @@ function renderMaterialsTable() {
       <td class="p-4 text-xs font-bold text-slate-600 uppercase">
         ${m.unit}
       </td>
-      <td class="p-4 font-mono">
-        <span class="text-base font-black ${isLow ? 'text-red-600' : 'text-slate-900'}">
-          ${m.current_stock || 0} ${m.unit}
-        </span>
+      <td class="p-4 font-mono font-black text-slate-900 text-base">
+        ${m.current_stock !== undefined ? m.current_stock : 0} ${m.unit}
       </td>
       <td class="p-4 font-mono text-xs text-slate-500 font-bold">
         ${m.min_stock || 0} ${m.unit}
@@ -573,21 +575,21 @@ function openRawMaterialModal(mat = null) {
   const form = document.getElementById('material-form');
 
   form.reset();
+
   if (mat) {
-    title.textContent = 'Editar Insumo de Stock';
+    title.textContent = 'Editar Insumo de Stock (Nivel 2)';
     document.getElementById('mat-id').value = mat.id;
     document.getElementById('mat-code').value = mat.code || `INS-${String(mat.id).padStart(3, '0')}`;
     document.getElementById('mat-name').value = mat.name;
     document.getElementById('mat-unit').value = mat.unit || 'kg';
     document.getElementById('mat-min').value = mat.min_stock || 5;
-    document.getElementById('mat-current').value = mat.current_stock || 0;
+    document.getElementById('mat-current').value = mat.current_stock !== undefined ? mat.current_stock : 0;
   } else {
-    title.textContent = 'Nuevo Insumo de Stock';
+    title.textContent = 'Nuevo Insumo de Stock (Nivel 2)';
     document.getElementById('mat-id').value = '';
     document.getElementById('mat-code').value = '';
-    document.getElementById('mat-unit').value = 'kg';
-    document.getElementById('mat-min').value = 5;
-    document.getElementById('mat-current').value = 0;
+    document.getElementById('mat-min').value = '10';
+    document.getElementById('mat-current').value = '';
   }
 
   modal.classList.remove('opacity-0', 'pointer-events-none');
@@ -618,9 +620,6 @@ function generateMnemonicCode(nameText, itemsList) {
 }
 
 function handleMatNameInput() {
-  const matId = document.getElementById('mat-id').value;
-  if (matId) return; // Si editamos uno existente, respetamos su codigo
-
   const nameVal = document.getElementById('mat-name').value;
   const codeInput = document.getElementById('mat-code');
   if (!codeInput) return;
@@ -713,8 +712,81 @@ async function saveRawMaterial(e) {
       alert(`⚠️ ${data.error}`);
     }
   } catch (err) {
-    console.error('Error al guardar insumo:', err);
+    console.error('Error al guardar materia prima:', err);
   }
+}
+
+// ==========================================
+// GESTIÓN DE PRODUCCIÓN Y MERMAS DE COMIDA ELABORADA
+// ==========================================
+
+function loadPreparedStock() {
+  const tbody = document.getElementById('prepared-stock-tbody');
+  if (!tbody) return;
+
+  const preparedProds = products;
+  if (!preparedProds || preparedProds.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-slate-400 font-bold text-xs">No hay comidas preparadas configuradas.</td></tr>`;
+  } else {
+    tbody.innerHTML = preparedProds.map(p => `
+      <tr class="hover:bg-slate-50 transition">
+        <td class="p-4 font-bold text-slate-900 flex items-center gap-2">
+          <span class="text-base">🍳</span>
+          <div>
+            <div>[${p.code || `PROD-${p.id}`}] ${p.name}</div>
+            <div class="text-[11px] text-slate-400 font-mono">${p.barcode ? `📊 ${p.barcode}` : p.plu_code ? `🏷️ PLU: ${p.plu_code}` : ''}</div>
+          </div>
+        </td>
+        <td class="p-4 text-xs font-bold text-slate-700">
+          <span class="bg-purple-100 text-purple-800 px-2 py-0.5 rounded-md font-mono">${p.unit_type === 'kg' ? '⚖️ Por Kilo' : '📦 Por Unidad'}</span>
+        </td>
+        <td class="p-4 font-mono font-black text-slate-900 text-base">
+          ${(p.stock_prepared || 0).toFixed(2)} ${p.unit_type === 'kg' ? 'kg' : 'unidades'}
+        </td>
+        <td class="p-4 font-mono font-bold text-slate-700">
+          ${formatCurrency(p.price)}${p.unit_type === 'kg' ? '/kg' : ''}
+        </td>
+        <td class="p-4 text-right">
+          <button onclick="openProductionModal(${p.id})" class="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:scale-95 text-white font-extrabold rounded-xl text-xs transition shadow inline-flex items-center gap-1">
+            ➕ Cargar Producción
+          </button>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  renderProductionEntriesHistory();
+}
+
+function renderProductionEntriesHistory() {
+  const tbody = document.getElementById('production-history-tbody');
+  if (!tbody) return;
+
+  tbody.innerHTML = '';
+  if (!productionEntriesList || productionEntriesList.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-slate-400 text-xs">No hay cargas de producción registradas hoy por la cocina.</td></tr>`;
+    return;
+  }
+
+  productionEntriesList.forEach(e => {
+    const tr = document.createElement('tr');
+    tr.className = 'hover:bg-slate-50 transition';
+
+    const dateStr = e.date ? new Date(e.date).toLocaleString('es-AR') : '-';
+    const matDeductedHtml = Array.isArray(e.deducted_materials) && e.deducted_materials.length > 0
+      ? e.deducted_materials.map(m => `<span class="bg-red-50 text-red-700 border border-red-200 px-1.5 py-0.5 rounded text-[11px] font-mono block mb-0.5">-${m.qty_deducted} ${m.unit} (${m.material_name})</span>`).join('')
+      : '<span class="text-slate-400 italic text-xs">Sin receta de insumos vinculada</span>';
+
+    tr.innerHTML = `
+      <td class="p-3 text-xs font-mono text-slate-600">${dateStr}</td>
+      <td class="p-3 font-bold text-slate-900 text-xs">${e.product_name || 'Plato'}</td>
+      <td class="p-3 font-mono font-black text-emerald-700 text-sm">+${e.quantity} ${e.unit_type === 'kg' ? 'kg' : 'unidades'}</td>
+      <td class="p-3 text-xs">${matDeductedHtml}</td>
+      <td class="p-3 text-right text-xs font-bold text-amber-900">👨‍🍳 ${e.registered_by || 'Cocina'}</td>
+    `;
+
+    tbody.appendChild(tr);
+  });
 }
 
 // Cargar Cuentas Corrientes

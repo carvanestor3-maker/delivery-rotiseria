@@ -643,6 +643,25 @@ app.post('/api/production/add', (req, res) => {
     prod.stock_prepared = parseFloat(((prod.stock_prepared || 0) + qtyAdd).toFixed(3));
     prod.is_prepared_food = 1;
 
+    // Descontar insumos genéricos según la Receta / Ficha Técnica (Escandallo)
+    const recipes = (store.product_recipes || []).filter(r => r.product_id === prod.id);
+    const deductedMaterials = [];
+
+    recipes.forEach(r => {
+      const mat = store.raw_materials.find(m => m.id === r.raw_material_id);
+      if (mat) {
+        const totalDeduct = parseFloat((r.qty_per_portion * qtyAdd).toFixed(4));
+        mat.current_stock = parseFloat(Math.max(0, (mat.current_stock || 0) - totalDeduct).toFixed(4));
+        deductedMaterials.push({
+          material_name: mat.name,
+          code: mat.code,
+          unit: mat.unit,
+          qty_deducted: totalDeduct,
+          remaining_stock: mat.current_stock
+        });
+      }
+    });
+
     if (!store.production_entries) store.production_entries = [];
 
     const nextId = store.production_entries.length > 0 ? Math.max(...store.production_entries.map(e => e.id)) + 1 : 1;
@@ -654,6 +673,7 @@ app.post('/api/production/add', (req, res) => {
       unit_type: prod.unit_type || 'kg',
       quantity: qtyAdd,
       notes: notes || '',
+      deducted_materials: deductedMaterials,
       registered_by: `${auth.user.name} (Nivel ${auth.user.level})`
     };
 
@@ -1061,7 +1081,8 @@ app.get('/api/admin/stock', (req, res) => {
       raw_materials: store.raw_materials || [],
       product_recipes: store.product_recipes || [],
       stock_entries: store.stock_entries || [],
-      stock_adjustments: store.stock_adjustments || []
+      stock_adjustments: store.stock_adjustments || [],
+      production_entries: store.production_entries || []
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });

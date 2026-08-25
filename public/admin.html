@@ -226,6 +226,30 @@
             </tbody>
           </table>
         </div>
+      <!-- Historial de Tandas de Producción Registradas por Cocina -->
+      <div class="bg-white rounded-2xl border border-amber-300 shadow-sm overflow-hidden mb-6">
+        <div class="p-4 bg-amber-100/60 border-b border-amber-200 flex justify-between items-center">
+          <div class="font-extrabold text-amber-950 text-sm flex items-center gap-2">
+            📋 Historial de Cargas de Producción de Cocina (Tandas del Día)
+          </div>
+          <span class="text-xs font-bold text-amber-800">Descuenta materias primas automáticamente según la Ficha Técnica</span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-sm">
+            <thead>
+              <tr class="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase">
+                <th class="p-3">Fecha / Hora</th>
+                <th class="p-3">Plato / Elaborado</th>
+                <th class="p-3">Cantidad Producida</th>
+                <th class="p-3">Insumos Descontados de Stock</th>
+                <th class="p-3 text-right">Registrado Por</th>
+              </tr>
+            </thead>
+            <tbody id="production-history-tbody" class="divide-y divide-slate-100">
+              <!-- Dinámico -->
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <!-- Tabla de Insumos de Stock General -->
@@ -1229,7 +1253,7 @@
     </div>
   </div>
 
-  <script src="/js/admin.js?v=3.0.0"></script>
+  <script src="/js/admin.js?v=4.0.0"></script>
   <script>
     lucide.createIcons();
   </script>

@@ -27,6 +27,7 @@ function triggerPwaInstall() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  closeAllPublicModals();
   loadMenuData();
   loadCartFromStorage();
 
@@ -35,6 +36,11 @@ document.addEventListener('DOMContentLoaded', () => {
       shareAppWhatsApp();
     }, 600);
   }
+});
+
+// Asegurar cierre de modales si el usuario minimizo y volvio a abrir la app
+window.addEventListener('pageshow', () => {
+  closeAllPublicModals();
 });
 
 function formatWhatsAppNumber(phone) {

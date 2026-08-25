@@ -313,10 +313,25 @@ app.post('/api/cash/shift/close', (req, res) => {
     activeShift.status = 'closed';
     activeShift.closed_by = `${auth.user.name} (Nivel ${auth.user.level})`;
 
+    // REGLA DE NEGOCIO DEL BAR:
+    // Si se cierra la última caja abierta de la sucursal, el Bar se cierra automáticamente.
+    const remainingOpenCashShifts = store.cash_shifts.filter(s => s.status === 'open');
+    let barAutoClosed = false;
+    if (remainingOpenCashShifts.length === 0 && store.bar_shifts) {
+      const openBarShift = store.bar_shifts.find(b => b.status === 'open');
+      if (openBarShift) {
+        openBarShift.status = 'closed';
+        openBarShift.closed_at = new Date().toISOString();
+        openBarShift.closed_by = `Cierre Automático (Caja N° ${activeShift.box_number || 1} cerrada por ${auth.user.name})`;
+        barAutoClosed = true;
+        io.emit('bar_shift_updated', openBarShift);
+      }
+    }
+
     db.saveStore();
     io.emit('cash_shift_updated');
 
-    res.json({ success: true, shift: activeShift, user_name: auth.user.name, box_number: activeShift.box_number || 1 });
+    res.json({ success: true, shift: activeShift, user_name: auth.user.name, box_number: activeShift.box_number || 1, bar_auto_closed: barAutoClosed });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

@@ -118,8 +118,8 @@
   </main>
 
   <!-- Barra Flotante de Carrito (Bottom Bar) -->
-  <div id="cart-bar" class="fixed bottom-0 left-0 right-0 p-4 bg-transparent z-40 transition-transform duration-300 translate-y-32 opacity-0 pointer-events-none">
-    <div class="max-w-xl mx-auto">
+  <div id="cart-bar" class="fixed bottom-0 left-0 right-0 p-4 bg-transparent z-40 transition-all duration-300 translate-y-32 opacity-0 pointer-events-none">
+    <div class="max-w-xl mx-auto pointer-events-auto">
       <button onclick="openCartModal()" class="w-full bg-slate-900 hover:bg-slate-800 text-white p-4 rounded-2xl shadow-2xl flex justify-between items-center transition active:scale-98 border border-slate-700">
         <div class="flex items-center gap-3">
           <div class="relative">
@@ -140,7 +140,7 @@
 
   <!-- Modal Checkout / Finalizar Pedido -->
   <div id="cart-modal" onclick="if (event.target === this) closeCartModal()" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 opacity-0 pointer-events-none transition-opacity duration-200">
-    <div class="bg-white rounded-t-3xl sm:rounded-2xl max-w-lg w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+    <div class="bg-white rounded-t-3xl sm:rounded-2xl max-w-lg w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden pointer-events-auto">
       
       <!-- Modal Header -->
       <div class="p-4 bg-slate-900 text-white flex justify-between items-center">
@@ -148,8 +148,8 @@
           <span class="text-xl">🛍️</span>
           <h2 class="font-extrabold text-base">Finalizar Pedido</h2>
         </div>
-        <button onclick="closeCartModal()" class="text-slate-400 hover:text-white p-1">
-          <i data-lucide="x" class="w-5 h-5"></i>
+        <button onclick="closeCartModal()" type="button" class="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold flex items-center justify-center transition">
+          ✕
         </button>
       </div>
 
@@ -324,7 +324,7 @@
     </div>
   </div>
 
-  <script src="/js/app.js?v=2.4"></script>
+  <script src="/js/app.js?v=2.5"></script>
   <script>
     lucide.createIcons();
   </script>

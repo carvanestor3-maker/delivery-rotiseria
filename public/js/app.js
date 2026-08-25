@@ -311,11 +311,13 @@ function updateCartUI() {
   const grandTotal = subtotal > 0 ? subtotal + deliveryCost : 0;
 
   const cartBar = document.getElementById('cart-bar');
-  if (totalItems > 0) {
-    cartBar.classList.remove('translate-y-32', 'opacity-0', 'pointer-events-none');
-  } else {
-    cartBar.classList.add('translate-y-32', 'opacity-0', 'pointer-events-none');
-    closeCartModal();
+  if (cartBar) {
+    if (totalItems > 0) {
+      cartBar.classList.remove('translate-y-32', 'opacity-0');
+    } else {
+      cartBar.classList.add('translate-y-32', 'opacity-0');
+      closeCartModal();
+    }
   }
 
   document.getElementById('cart-badge-count').textContent = totalItems;

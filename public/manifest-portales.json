@@ -1,7 +1,7 @@
 {
-  "name": "La Gran Rotisería, Bar & Drugstore 24hs",
-  "short_name": "La Gran Rotisería",
-  "description": "Sistema Gastronómico 24hs - Menú, Pedidos y Portales KDS",
+  "name": "Portal Sistema Gastronómico 24hs",
+  "short_name": "Portales 24hs",
+  "description": "Launcher de Portales Gastronómicos 24hs - Producción, Caja, Cocina, Bar y Admin",
   "start_url": "/portales.html",
   "display": "standalone",
   "orientation": "portrait-primary",

@@ -2132,6 +2132,9 @@ app.get('/cocina.html', (req, res) => res.sendFile(path.join(__dirname, 'public'
 app.get('/bar', (req, res) => res.sendFile(path.join(__dirname, 'public', 'bar.html')));
 app.get('/bar.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'bar.html')));
 
+app.get('/manifest-portales.json', (req, res) => res.sendFile(path.join(__dirname, 'public', 'manifest-portales.json')));
+app.get('/manifest-pedidos.json', (req, res) => res.sendFile(path.join(__dirname, 'public', 'manifest-pedidos.json')));
+
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 app.get('/admin.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 

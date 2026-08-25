@@ -1,8 +1,8 @@
 {
-  "name": "La Gran Rotisería, Bar & Drugstore 24hs",
-  "short_name": "La Gran Rotisería",
-  "description": "Sistema Gastronómico 24hs - Menú, Pedidos y Portales KDS",
-  "start_url": "/portales.html",
+  "name": "La Gran Rotisería - Pedidos Online",
+  "short_name": "Pedidos Rotisería",
+  "description": "Menú Digital de Comidas, Minutas, Comida por Kilo y Bar 24hs",
+  "start_url": "/index.html",
   "display": "standalone",
   "orientation": "portrait-primary",
   "background_color": "#0f172a",

@@ -1310,15 +1310,18 @@ function openProductModal(prod = null) {
   const title = document.getElementById('modal-title');
   const form = document.getElementById('product-form');
 
-  form.reset();
+  if (form) form.reset();
   showImagePreview('');
+  populateCategorySelect();
 
   if (prod) {
-    title.textContent = 'Editar Producto / Plato (Exclusivo Nivel 3)';
+    if (title) title.textContent = 'Editar Producto / Plato (Exclusivo Nivel 3)';
     document.getElementById('prod-id').value = prod.id;
     document.getElementById('prod-code').value = prod.code || prod.barcode || `PROD-${String(prod.id).padStart(3, '0')}`;
     document.getElementById('prod-name').value = prod.name;
-    document.getElementById('prod-category').value = prod.category_id;
+    if (prod.category_id) {
+      document.getElementById('prod-category').value = String(prod.category_id);
+    }
     document.getElementById('prod-price').value = prod.price;
     document.getElementById('prod-unit-type').value = prod.unit_type || 'unidad';
     document.getElementById('prod-desc').value = prod.description || '';
@@ -1326,9 +1329,13 @@ function openProductModal(prod = null) {
     showImagePreview(prod.image_url || '');
     document.getElementById('prod-available').checked = prod.available === 1;
   } else {
-    title.textContent = 'Nuevo Producto / Plato (Exclusivo Nivel 3)';
+    if (title) title.textContent = 'Nuevo Producto / Plato (Exclusivo Nivel 3)';
     document.getElementById('prod-id').value = '';
     document.getElementById('prod-code').value = '';
+    document.getElementById('prod-name').value = '';
+    document.getElementById('prod-price').value = '';
+    document.getElementById('prod-desc').value = '';
+    document.getElementById('prod-image').value = '';
     document.getElementById('prod-unit-type').value = 'unidad';
     document.getElementById('prod-available').checked = true;
   }

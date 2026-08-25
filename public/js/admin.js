@@ -1316,13 +1316,11 @@ function openProductModal(prod = null) {
   if (prod) {
     title.textContent = 'Editar Producto / Plato (Exclusivo Nivel 3)';
     document.getElementById('prod-id').value = prod.id;
-    document.getElementById('prod-code').value = prod.code || `PROD-${String(prod.id).padStart(3, '0')}`;
+    document.getElementById('prod-code').value = prod.code || prod.barcode || `PROD-${String(prod.id).padStart(3, '0')}`;
     document.getElementById('prod-name').value = prod.name;
     document.getElementById('prod-category').value = prod.category_id;
     document.getElementById('prod-price').value = prod.price;
     document.getElementById('prod-unit-type').value = prod.unit_type || 'unidad';
-    document.getElementById('prod-barcode').value = prod.barcode || '';
-    document.getElementById('prod-plu-code').value = prod.plu_code || '';
     document.getElementById('prod-desc').value = prod.description || '';
     document.getElementById('prod-image').value = prod.image_url || '';
     showImagePreview(prod.image_url || '');
@@ -1332,8 +1330,6 @@ function openProductModal(prod = null) {
     document.getElementById('prod-id').value = '';
     document.getElementById('prod-code').value = '';
     document.getElementById('prod-unit-type').value = 'unidad';
-    document.getElementById('prod-barcode').value = '';
-    document.getElementById('prod-plu-code').value = '';
     document.getElementById('prod-available').checked = true;
   }
 
@@ -1389,8 +1385,6 @@ async function saveProduct(e) {
   const category_id = document.getElementById('prod-category').value;
   const price = document.getElementById('prod-price').value;
   const unit_type = document.getElementById('prod-unit-type').value;
-  const barcode = document.getElementById('prod-barcode').value.trim();
-  const plu_code = document.getElementById('prod-plu-code').value.trim();
   const description = document.getElementById('prod-desc').value.trim();
   const image_url = document.getElementById('prod-image').value.trim();
   const available = document.getElementById('prod-available').checked;

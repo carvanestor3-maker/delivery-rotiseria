@@ -1,14 +1,16 @@
 const socket = io();
 let orders = [];
 let audioEnabled = true;
-let activeMobileTab = 'bar_tickets';
+let activeTab = 'pending';
 let attendanceLogsList = [];
 let activeStaffList = [];
+let liveTimerInterval = null;
 
 document.addEventListener('DOMContentLoaded', () => {
   loadOrders();
+  loadAttendanceLogs();
   setupSocket();
-  setInterval(updateTimers, 30000);
+  liveTimerInterval = setInterval(updateLiveTimers, 1000);
 });
 
 function setupSocket() {
@@ -32,7 +34,7 @@ function setupSocket() {
     const exists = orders.some(o => o.id === newOrder.id);
     if (!exists) {
       orders.unshift(newOrder);
-      renderKanban();
+      renderBarView();
       playNotificationSound();
     }
   });
@@ -44,13 +46,11 @@ function setupSocket() {
     } else {
       orders.unshift(updatedOrder);
     }
-    renderKanban();
+    renderBarView();
   });
 
   socket.on('attendance_updated', () => {
-    if (document.getElementById('attendance-modal') && !document.getElementById('attendance-modal').classList.contains('pointer-events-none')) {
-      loadAttendanceLogs();
-    }
+    loadAttendanceLogs();
   });
 }
 
@@ -60,10 +60,10 @@ async function loadOrders() {
     const data = await res.json();
     if (data.success) {
       orders = data.orders || [];
-      renderKanban();
+      renderBarView();
     }
   } catch (err) {
-    console.error('Error al cargar comandas de bar:', err);
+    console.error('Error al cargar pedidos de bar:', err);
   }
 }
 
@@ -86,147 +86,224 @@ function isBarOrder(order) {
   return false;
 }
 
-function renderKanban() {
-  const containerBarTickets = document.getElementById('container-bar_tickets');
-  const containerPrep = document.getElementById('container-prep');
-  const containerReady = document.getElementById('container-ready');
-
-  if (!containerBarTickets || !containerPrep || !containerReady) return;
-
+function renderBarView() {
   const barOrders = orders.filter(isBarOrder);
 
-  const ticketsOrders = barOrders.filter(o => o.status === 'pending' || o.status === 'received' || String(o.order_number || '').startsWith('#BAR'));
-  const prepOrders = barOrders.filter(o => o.status === 'preparing');
-  const readyOrders = barOrders.filter(o => o.status === 'ready' || o.status === 'delivered');
+  const pendingOrders = barOrders.filter(o => o.status !== 'ready' && o.status !== 'delivered');
+  const historyOrders = barOrders.filter(o => o.status === 'ready' || o.status === 'delivered');
 
-  updateBadgeCount('bar_tickets', ticketsOrders.length);
-  updateBadgeCount('prep', prepOrders.length);
-  updateBadgeCount('ready', readyOrders.length);
+  updateMetrics(pendingOrders, historyOrders);
 
-  containerBarTickets.innerHTML = ticketsOrders.length === 0
-    ? `<div class="p-6 text-center text-slate-500 font-bold text-xs italic">No hay tickets de barra pendientes.</div>`
-    : ticketsOrders.map(o => renderBarCard(o, 'bar_tickets')).join('');
-
-  containerPrep.innerHTML = prepOrders.length === 0
-    ? `<div class="p-6 text-center text-slate-500 font-bold text-xs italic">No hay tragos/bebidas en preparación.</div>`
-    : prepOrders.map(o => renderBarCard(o, 'prep')).join('');
-
-  containerReady.innerHTML = readyOrders.length === 0
-    ? `<div class="p-6 text-center text-slate-500 font-bold text-xs italic">No hay despachos recientes.</div>`
-    : readyOrders.slice(0, 15).map(o => renderBarCard(o, 'ready')).join('');
+  if (activeTab === 'pending') {
+    renderPendingBarGrid(pendingOrders);
+  } else {
+    renderBarHistoryTable(historyOrders);
+  }
 
   lucide.createIcons();
 }
 
-function renderBarCard(order, section) {
-  const isTicketBar = String(order.order_number || '').startsWith('#BAR');
-  const elapsedMin = getMinutesAgo(order.created_at);
-  const isUrgent = elapsedMin > 10;
+function updateMetrics(pendingOrders, historyOrders) {
+  const elemPending = document.getElementById('metric-pending-count');
+  const elemDelivered = document.getElementById('metric-delivered-count');
+  const elemAvgTime = document.getElementById('metric-avg-time');
+  const elemBarista = document.getElementById('metric-active-barista');
 
-  const itemsHtml = Array.isArray(order.items) ? order.items.map(item => `
-    <div class="flex justify-between items-center py-1 border-b border-slate-700/50 text-xs">
-      <span class="font-extrabold text-white flex items-center gap-1.5">
-        <span class="bg-purple-500/30 text-purple-300 px-1.5 py-0.5 rounded font-mono font-black text-xs">${item.quantity || item.qty}x</span>
-        ${item.name}
-      </span>
-      <span class="font-mono text-slate-400 text-[11px]">${formatCurrency((item.price || 0) * (item.quantity || item.qty))}</span>
-    </div>
-  `).join('') : '<div class="text-xs text-slate-400 italic">Sin detalle de ítems</div>';
+  if (elemPending) elemPending.textContent = pendingOrders.length;
+  if (elemDelivered) elemDelivered.textContent = historyOrders.length;
 
-  let actionButtonsHtml = '';
-  if (section === 'bar_tickets') {
-    actionButtonsHtml = `
-      <button onclick="updateOrderStatus(${order.id}, 'preparing')" class="w-full py-2 bg-amber-600 hover:bg-amber-500 active:scale-95 text-white font-extrabold rounded-xl text-xs shadow transition flex items-center justify-center gap-1">
-        🍹 Iniciar Preparación Bar
-      </button>
-      <button onclick="updateOrderStatus(${order.id}, 'ready')" class="w-full py-2 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-extrabold rounded-xl text-xs shadow transition flex items-center justify-center gap-1 mt-1.5">
-        ✅ Despachar Directo en Barra
-      </button>
-    `;
-  } else if (section === 'prep') {
-    actionButtonsHtml = `
-      <button onclick="updateOrderStatus(${order.id}, 'ready')" class="w-full py-2 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-extrabold rounded-xl text-xs shadow transition flex items-center justify-center gap-1">
-        ✅ Listo para Entregar en Barra
-      </button>
-    `;
-  } else {
-    actionButtonsHtml = `
-      <div class="text-center text-[11px] font-extrabold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 py-1.5 rounded-xl">
-        ✓ Entregado en Barra
-      </div>
-    `;
+  if (elemAvgTime) {
+    if (historyOrders.length === 0) {
+      elemAvgTime.textContent = '0.0 min';
+    } else {
+      let totalSecs = 0;
+      let countSecs = 0;
+      historyOrders.forEach(o => {
+        const start = new Date(o.created_at);
+        const end = o.delivered_at ? new Date(o.delivered_at) : new Date(o.updated_at || o.created_at);
+        const diffSec = Math.max(0, Math.floor((end - start) / 1000));
+        totalSecs += diffSec;
+        countSecs++;
+      });
+      const avgMin = countSecs > 0 ? (totalSecs / countSecs / 60).toFixed(1) : '0.0';
+      elemAvgTime.textContent = `${avgMin} min`;
+    }
   }
 
-  return `
-    <div class="bg-slate-800 rounded-2xl border ${isTicketBar ? 'border-purple-500/50 shadow-purple-900/20' : isUrgent ? 'border-red-500/70 shadow-red-900/20' : 'border-slate-700'} p-4 shadow-lg space-y-3">
-      <div class="flex justify-between items-start border-b border-slate-700 pb-2">
-        <div>
-          <div class="flex items-center gap-2">
-            <span class="text-base font-black font-mono ${isTicketBar ? 'text-purple-400' : 'text-amber-400'}">${order.order_number}</span>
-            ${isTicketBar ? '<span class="bg-purple-500/30 text-purple-300 border border-purple-500/50 text-[10px] font-black px-2 py-0.5 rounded-full">🎫 Ficha #BAR</span>' : ''}
-          </div>
-          <div class="text-xs font-bold text-slate-300 mt-0.5">👤 ${order.customer_name || 'Cliente Barra'}</div>
-        </div>
-        <div class="text-right">
-          <span class="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full ${isUrgent ? 'bg-red-500/20 text-red-400 border border-red-500/40 animate-pulse' : 'bg-slate-700 text-slate-300'}">
-            ⏱️ ${elapsedMin} min
-          </span>
-        </div>
-      </div>
-
-      <div class="space-y-1">
-        ${itemsHtml}
-      </div>
-
-      ${order.notes ? `<div class="bg-slate-900/60 p-2 rounded-lg text-[11px] text-amber-300 font-semibold border border-amber-500/20">📝 ${order.notes}</div>` : ''}
-
-      <div class="pt-1">
-        ${actionButtonsHtml}
-      </div>
-    </div>
-  `;
+  if (elemBarista) {
+    const barStaff = activeStaffList.filter(s => (s.sector || '').toLowerCase().includes('bar') || (s.sector || '').toLowerCase().includes('cafet'));
+    if (barStaff.length > 0) {
+      elemBarista.textContent = barStaff.map(s => s.user_name).join(', ');
+    } else if (activeStaffList.length > 0) {
+      elemBarista.textContent = activeStaffList[0].user_name;
+    } else {
+      elemBarista.textContent = 'Sin fichar';
+    }
+  }
 }
 
-async function updateOrderStatus(orderId, newStatus) {
+function renderPendingBarGrid(pendingOrders) {
+  const container = document.getElementById('bar-pending-grid');
+  if (!container) return;
+
+  if (pendingOrders.length === 0) {
+    container.innerHTML = `<div class="col-span-full p-12 text-center text-slate-500 font-bold text-sm bg-slate-800/40 rounded-2xl border border-slate-700">☕ No hay tickets de bar pendientes de despacho en este momento.</div>`;
+    return;
+  }
+
+  container.innerHTML = pendingOrders.map(o => {
+    const isTicketBar = String(o.order_number || '').startsWith('#BAR');
+    const inTime = o.created_at ? new Date(o.created_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '-';
+    
+    const itemsHtml = Array.isArray(o.items) ? o.items.map(i => `
+      <div class="flex justify-between items-center py-1 border-b border-slate-700/50 text-xs">
+        <span class="font-black text-white flex items-center gap-1.5">
+          <span class="bg-purple-500/30 text-purple-300 px-1.5 py-0.5 rounded font-mono font-black text-xs">${i.quantity || i.qty}x</span>
+          ${i.name}
+        </span>
+        <span class="font-mono text-slate-400 text-[11px]">${formatCurrency((i.price || 0) * (i.quantity || i.qty))}</span>
+      </div>
+    `).join('') : '<div class="text-xs text-slate-400 italic">Sin detalle</div>';
+
+    return `
+      <div class="bg-slate-800 rounded-2xl border ${isTicketBar ? 'border-purple-500/50 shadow-purple-900/20' : 'border-slate-700'} p-4 shadow-xl space-y-3">
+        <div class="flex justify-between items-start border-b border-slate-700 pb-2">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="text-lg font-black font-mono ${isTicketBar ? 'text-purple-400' : 'text-amber-400'}">${o.order_number}</span>
+              ${isTicketBar ? '<span class="bg-purple-500/30 text-purple-300 border border-purple-500/50 text-[10px] font-black px-2 py-0.5 rounded-full">🎫 Ficha Barra</span>' : ''}
+            </div>
+            <div class="text-xs font-bold text-slate-300 mt-0.5">👤 ${o.customer_name || 'Cliente Barra'}</div>
+          </div>
+          <div class="text-right">
+            <div class="text-[10px] text-slate-400 font-bold">HORA INGRESO</div>
+            <div class="text-xs font-mono font-black text-slate-200">${inTime} hs</div>
+          </div>
+        </div>
+
+        <div class="space-y-1">
+          ${itemsHtml}
+        </div>
+
+        <!-- RELOJ TRANSCRURRIDO EN VIVO -->
+        <div class="bg-slate-900/80 p-2.5 rounded-xl border border-slate-700 flex justify-between items-center">
+          <span class="text-[11px] font-extrabold text-slate-400">⏱️ Tiempo Transcurrido:</span>
+          <span class="live-elapsed-timer font-mono font-black text-sm text-amber-400" data-start="${o.created_at}">Calculando...</span>
+        </div>
+
+        ${o.notes ? `<div class="bg-slate-900/60 p-2 rounded-lg text-[11px] text-amber-300 font-semibold border border-amber-500/20">📝 ${o.notes}</div>` : ''}
+
+        <button onclick="deliverBarOrder(${o.id})" class="w-full py-3 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-extrabold rounded-xl text-xs shadow-lg transition flex items-center justify-center gap-1.5 cursor-pointer">
+          ☕ MARCAR ENTREGADO EN BARRA
+        </button>
+      </div>
+    `;
+  }).join('');
+
+  updateLiveTimers();
+}
+
+function renderBarHistoryTable(historyOrders) {
+  const tbody = document.getElementById('bar-history-tbody');
+  if (!tbody) return;
+
+  if (historyOrders.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-500 font-bold text-xs">No hay entregas registradas en la bitácora hoy.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = historyOrders.map(o => {
+    const isTicketBar = String(o.order_number || '').startsWith('#BAR');
+    const inTime = o.created_at ? new Date(o.created_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '-';
+    const outTime = o.delivered_at ? new Date(o.delivered_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : o.updated_at ? new Date(o.updated_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '-';
+
+    const start = new Date(o.created_at);
+    const end = o.delivered_at ? new Date(o.delivered_at) : new Date(o.updated_at || o.created_at);
+    const diffSec = Math.max(0, Math.floor((end - start) / 1000));
+    
+    const minutes = Math.floor(diffSec / 60);
+    const seconds = diffSec % 60;
+    const durationText = `${minutes} min ${seconds} seg`;
+
+    let timeBadgeClass = 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40';
+    if (minutes >= 10) {
+      timeBadgeClass = 'bg-red-500/20 text-red-400 border-red-500/40';
+    } else if (minutes >= 5) {
+      timeBadgeClass = 'bg-amber-500/20 text-amber-300 border-amber-500/40';
+    }
+
+    const itemsSummary = Array.isArray(o.items) ? o.items.map(i => `${i.quantity || i.qty}x ${i.name}`).join(', ') : 'Detalle no disponible';
+
+    return `
+      <tr class="hover:bg-slate-800/60 transition">
+        <td class="p-3 font-mono font-black ${isTicketBar ? 'text-purple-400' : 'text-amber-400'} text-xs">
+          ${o.order_number} ${isTicketBar ? '<span class="bg-purple-500/20 text-purple-300 text-[10px] px-1.5 py-0.2 rounded font-mono">Ficha</span>' : ''}
+        </td>
+        <td class="p-3 text-xs">
+          <div class="font-extrabold text-slate-100">${o.customer_name || 'Cliente Barra'}</div>
+          <div class="text-[11px] text-slate-400 line-clamp-1">${itemsSummary}</div>
+        </td>
+        <td class="p-3 font-mono text-xs font-bold text-slate-300">${inTime} hs</td>
+        <td class="p-3 font-mono text-xs font-bold text-emerald-400">${outTime} hs</td>
+        <td class="p-3 text-right">
+          <span class="px-2.5 py-1 rounded-lg border font-mono font-black text-xs ${timeBadgeClass}">
+            ⏱️ ${durationText}
+          </span>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+async function deliverBarOrder(orderId) {
   try {
     const res = await fetch(`/api/orders/${orderId}/status`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: newStatus })
+      body: JSON.stringify({ status: 'ready', delivered_at: new Date().toISOString() })
     });
     const data = await res.json();
     if (data.success) {
       await loadOrders();
     }
   } catch (err) {
-    console.error('Error al actualizar estado en Bar:', err);
+    console.error('Error al entregar pedido en Bar:', err);
   }
 }
 
-function updateBadgeCount(colId, count) {
-  const elem = document.getElementById(`count-${colId}`);
-  const melem = document.getElementById(`mcount-${colId}`);
-  if (elem) elem.textContent = count;
-  if (melem) melem.textContent = count;
+function updateLiveTimers() {
+  const elements = document.querySelectorAll('.live-elapsed-timer');
+  elements.forEach(elem => {
+    const startStr = elem.getAttribute('data-start');
+    if (startStr) {
+      const diffSec = Math.max(0, Math.floor((new Date() - new Date(startStr)) / 1000));
+      const min = Math.floor(diffSec / 60);
+      const sec = diffSec % 60;
+      elem.textContent = `${min} min ${sec < 10 ? '0' : ''}${sec} seg`;
+    }
+  });
 }
 
-function setMobileTab(tab) {
-  activeMobileTab = tab;
-  const colBar = document.getElementById('col-bar_tickets');
-  const colPrep = document.getElementById('col-prep');
-  const colReady = document.getElementById('col-ready');
+function switchBarTab(tab) {
+  activeTab = tab;
+  const viewPending = document.getElementById('view-pending');
+  const viewHistory = document.getElementById('view-history');
+  const btnPending = document.getElementById('tab-btn-pending');
+  const btnHistory = document.getElementById('tab-btn-history');
 
-  const mbtnBar = document.getElementById('mtab-bar_tickets');
-  const mbtnPrep = document.getElementById('mtab-prep');
-  const mbtnReady = document.getElementById('mtab-ready');
+  if (tab === 'pending') {
+    viewPending.classList.remove('hidden');
+    viewHistory.classList.add('hidden');
+    btnPending.className = 'pb-2.5 border-b-2 border-purple-500 text-purple-400 font-extrabold text-xs flex items-center gap-1.5';
+    btnHistory.className = 'pb-2.5 border-b-2 border-transparent text-slate-400 hover:text-slate-200 font-bold text-xs flex items-center gap-1.5';
+  } else {
+    viewPending.classList.add('hidden');
+    viewHistory.classList.remove('hidden');
+    btnPending.className = 'pb-2.5 border-b-2 border-transparent text-slate-400 hover:text-slate-200 font-bold text-xs flex items-center gap-1.5';
+    btnHistory.className = 'pb-2.5 border-b-2 border-purple-500 text-purple-400 font-extrabold text-xs flex items-center gap-1.5';
+  }
 
-  if (colBar) colBar.className = tab === 'bar_tickets' ? 'flex flex-col bg-slate-800/50 rounded-2xl border border-purple-500/30 overflow-hidden shadow-inner' : 'hidden sm:flex flex-col bg-slate-800/50 rounded-2xl border border-purple-500/30 overflow-hidden shadow-inner';
-  if (colPrep) colPrep.className = tab === 'prep' ? 'flex flex-col bg-slate-800/50 rounded-2xl border border-amber-500/30 overflow-hidden shadow-inner' : 'hidden sm:flex flex-col bg-slate-800/50 rounded-2xl border border-amber-500/30 overflow-hidden shadow-inner';
-  if (colReady) colReady.className = tab === 'ready' ? 'flex flex-col bg-slate-800/50 rounded-2xl border border-emerald-500/30 overflow-hidden shadow-inner' : 'hidden sm:flex flex-col bg-slate-800/50 rounded-2xl border border-emerald-500/30 overflow-hidden shadow-inner';
-
-  if (mbtnBar) mbtnBar.className = tab === 'bar_tickets' ? 'flex-1 py-1.5 px-2 rounded-lg text-xs font-black bg-purple-600 text-white transition text-center shadow' : 'flex-1 py-1.5 px-2 rounded-lg text-xs font-black bg-slate-700 text-slate-300 transition text-center';
-  if (mbtnPrep) mbtnPrep.className = tab === 'prep' ? 'flex-1 py-1.5 px-2 rounded-lg text-xs font-black bg-purple-600 text-white transition text-center shadow' : 'flex-1 py-1.5 px-2 rounded-lg text-xs font-black bg-slate-700 text-slate-300 transition text-center';
-  if (mbtnReady) mbtnReady.className = tab === 'ready' ? 'flex-1 py-1.5 px-2 rounded-lg text-xs font-black bg-purple-600 text-white transition text-center shadow' : 'flex-1 py-1.5 px-2 rounded-lg text-xs font-black bg-slate-700 text-slate-300 transition text-center';
+  renderBarView();
 }
 
 function playNotificationSound() {
@@ -254,16 +331,6 @@ function toggleAudio() {
       : `<i data-lucide="volume-x" class="w-4 h-4 text-red-400"></i><span class="hidden sm:inline">Silenciado</span>`;
     lucide.createIcons();
   }
-}
-
-function getMinutesAgo(dateStr) {
-  if (!dateStr) return 0;
-  const diffMs = new Date() - new Date(dateStr);
-  return Math.floor(diffMs / 60000);
-}
-
-function updateTimers() {
-  renderKanban();
 }
 
 function formatCurrency(val) {

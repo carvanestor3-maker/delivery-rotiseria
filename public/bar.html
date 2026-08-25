@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Bar & Cafetería (Celular 3) - Despacho & Comandas de Barra</title>
+  <title>Bar & Cafetería (Celular 3) - Tiempo de Elaboración & Despacho</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="/css/styles.css">
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -19,12 +19,12 @@
       </div>
       <div>
         <h1 class="text-sm sm:text-base font-black tracking-wide flex items-center gap-1.5 leading-tight text-white">
-          BAR & CAFETERÍA (KDS BAR)
+          BAR & CAFETERÍA (CELULAR 3)
           <span id="socket-status" class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
             🟢 En vivo
           </span>
         </h1>
-        <p class="text-[10px] text-slate-400 leading-none">Celular 3 - Tickets #BAR, Licuados, Bebidas & Cafetería</p>
+        <p class="text-[10px] text-slate-400 leading-none">Despacho de Barra, Hora de Ingreso, Hora de Entrega & Cómputo de Tiempos</p>
       </div>
     </div>
 
@@ -47,60 +47,96 @@
     </div>
   </header>
 
-  <!-- Filtro Móvil por Estados -->
-  <div class="bg-slate-800/80 border-b border-slate-700/80 p-2 flex justify-around gap-1 sm:hidden">
-    <button onclick="setMobileTab('bar_tickets')" id="mtab-bar_tickets" class="flex-1 py-1.5 px-2 rounded-lg text-xs font-black bg-purple-600 text-white transition text-center shadow">
-      🎫 Tickets #BAR (<span id="mcount-bar_tickets">0</span>)
+  <!-- BARRAS DE MÉTRICAS RÁPIDAS DE BAR -->
+  <div class="bg-slate-800/80 border-b border-slate-700 px-4 py-3 grid grid-cols-2 md:grid-cols-4 gap-3">
+    <div class="bg-slate-900/60 border border-slate-700 p-2.5 rounded-xl flex items-center justify-between">
+      <div>
+        <div class="text-[10px] font-bold text-slate-400 uppercase">Tickets Pendientes</div>
+        <div id="metric-pending-count" class="text-lg font-black font-mono text-purple-400">0</div>
+      </div>
+      <div class="text-xl">☕</div>
+    </div>
+
+    <div class="bg-slate-900/60 border border-slate-700 p-2.5 rounded-xl flex items-center justify-between">
+      <div>
+        <div class="text-[10px] font-bold text-slate-400 uppercase">Despachados Hoy</div>
+        <div id="metric-delivered-count" class="text-lg font-black font-mono text-emerald-400">0</div>
+      </div>
+      <div class="text-xl">✅</div>
+    </div>
+
+    <div class="bg-slate-900/60 border border-slate-700 p-2.5 rounded-xl flex items-center justify-between">
+      <div>
+        <div class="text-[10px] font-bold text-slate-400 uppercase">Tiempo Prom. Preparación</div>
+        <div id="metric-avg-time" class="text-lg font-black font-mono text-amber-300">0.0 min</div>
+      </div>
+      <div class="text-xl">⚡</div>
+    </div>
+
+    <div class="bg-slate-900/60 border border-slate-700 p-2.5 rounded-xl flex items-center justify-between">
+      <div>
+        <div class="text-[10px] font-bold text-slate-400 uppercase">Barista en Turno</div>
+        <div id="metric-active-barista" class="text-xs font-bold text-slate-200 truncate">Sin fichar</div>
+      </div>
+      <div class="text-xl">👤</div>
+    </div>
+  </div>
+
+  <!-- NAVEGACIÓN ENTRE VISTAS -->
+  <div class="bg-slate-800 border-b border-slate-700 px-4 pt-2 flex gap-4">
+    <button onclick="switchBarTab('pending')" id="tab-btn-pending" class="pb-2.5 border-b-2 border-purple-500 text-purple-400 font-extrabold text-xs flex items-center gap-1.5">
+      ☕ Tickets Pendientes en Barra
     </button>
-    <button onclick="setMobileTab('prep')" id="mtab-prep" class="flex-1 py-1.5 px-2 rounded-lg text-xs font-black bg-slate-700 text-slate-300 transition text-center">
-      ⏳ Preparación (<span id="mcount-prep">0</span>)
-    </button>
-    <button onclick="setMobileTab('ready')" id="mtab-ready" class="flex-1 py-1.5 px-2 rounded-lg text-xs font-black bg-slate-700 text-slate-300 transition text-center">
-      ✅ Despachados (<span id="mcount-ready">0</span>)
+    <button onclick="switchBarTab('history')" id="tab-btn-history" class="pb-2.5 border-b-2 border-transparent text-slate-400 hover:text-slate-200 font-bold text-xs flex items-center gap-1.5">
+      📋 Bitácora & Tiempos de Elaboración
     </button>
   </div>
 
-  <!-- TABLERO KANBAN DE BAR & CAFETERÍA -->
-  <main class="flex-1 p-3 sm:p-5 grid grid-cols-1 md:grid-cols-3 gap-4 overflow-hidden">
+  <!-- CONTENIDO PRINCIPAL -->
+  <main class="flex-1 p-4 overflow-y-auto">
 
-    <!-- COLUMNA 1: TICKETS DE RETIRO EN BARRA (#BAR-XXX) -->
-    <div id="col-bar_tickets" class="flex flex-col bg-slate-800/50 rounded-2xl border border-purple-500/30 overflow-hidden shadow-inner">
-      <div class="bg-purple-900/60 border-b border-purple-500/40 p-3 flex justify-between items-center">
-        <h2 class="font-black text-xs uppercase tracking-wider text-purple-300 flex items-center gap-1.5">
-          🎫 Tickets de Retiro en Barra (#BAR)
+    <!-- SECCIÓN 1: TICKETS PENDIENTES DE ENTRADA Y ENTREGA -->
+    <section id="view-pending" class="space-y-4">
+      <div class="flex justify-between items-center">
+        <h2 class="text-sm font-black uppercase text-purple-300 tracking-wider flex items-center gap-2">
+          🎫 Tickets en Espera de Entrega en Barra
+          <span class="text-[10px] font-normal text-slate-400 lowercase">(ordena por hora de ingreso)</span>
         </h2>
-        <span id="count-bar_tickets" class="bg-purple-500/20 text-purple-300 border border-purple-500/40 font-mono font-black text-xs px-2 py-0.5 rounded-full">0</span>
       </div>
-      <div id="container-bar_tickets" class="flex-1 p-3 space-y-3 overflow-y-auto max-h-[calc(100vh-140px)]">
-        <!-- Tarjetas dinámicas de tickets #BAR -->
-      </div>
-    </div>
 
-    <!-- COLUMNA 2: DRINKS / COMANDAS EN PREPARACIÓN -->
-    <div id="col-prep" class="hidden sm:flex flex-col bg-slate-800/50 rounded-2xl border border-amber-500/30 overflow-hidden shadow-inner">
-      <div class="bg-amber-900/60 border-b border-amber-500/40 p-3 flex justify-between items-center">
-        <h2 class="font-black text-xs uppercase tracking-wider text-amber-300 flex items-center gap-1.5">
-          ⏳ Cafetería & Bebidas en Preparación
-        </h2>
-        <span id="count-prep" class="bg-amber-500/20 text-amber-300 border border-amber-500/40 font-mono font-black text-xs px-2 py-0.5 rounded-full">0</span>
+      <div id="bar-pending-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <!-- Tarjetas dinámicas de tickets -->
       </div>
-      <div id="container-prep" class="flex-1 p-3 space-y-3 overflow-y-auto max-h-[calc(100vh-140px)]">
-        <!-- Tarjetas en preparación -->
-      </div>
-    </div>
+    </section>
 
-    <!-- COLUMNA 3: DESPACHADOS / ENTREGADOS EN BARRA -->
-    <div id="col-ready" class="hidden sm:flex flex-col bg-slate-800/50 rounded-2xl border border-emerald-500/30 overflow-hidden shadow-inner">
-      <div class="bg-emerald-900/60 border-b border-emerald-500/40 p-3 flex justify-between items-center">
-        <h2 class="font-black text-xs uppercase tracking-wider text-emerald-300 flex items-center gap-1.5">
-          ✅ Entregados / Despachados
-        </h2>
-        <span id="count-ready" class="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-mono font-black text-xs px-2 py-0.5 rounded-full">0</span>
+    <!-- SECCIÓN 2: BITÁCORA Y CÓMPUTO DE TIEMPOS DE ELABORACIÓN -->
+    <section id="view-history" class="hidden space-y-4">
+      <div class="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden shadow-xl">
+        <div class="p-4 bg-slate-800/90 border-b border-slate-700 flex justify-between items-center">
+          <h2 class="font-extrabold text-sm text-slate-100 flex items-center gap-2">
+            📋 Registro Detallado de Tiempos de Elaboración de Bar
+          </h2>
+          <span class="text-xs text-slate-400">Hora de Ingreso vs. Hora de Entrega</span>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr class="bg-slate-900 border-b border-slate-700 text-slate-400 font-bold uppercase">
+                <th class="p-3">Ticket / N° Ficha</th>
+                <th class="p-3">Cliente / Detalle del Pedido</th>
+                <th class="p-3">Hora de Ingreso (Entrada)</th>
+                <th class="p-3">Hora de Entrega (Despacho)</th>
+                <th class="p-3 text-right">⏱️ Tiempo Real de Elaboración</th>
+              </tr>
+            </thead>
+            <tbody id="bar-history-tbody" class="divide-y divide-slate-700/50">
+              <!-- Filas dinámicas -->
+            </tbody>
+          </table>
+        </div>
       </div>
-      <div id="container-ready" class="flex-1 p-3 space-y-3 overflow-y-auto max-h-[calc(100vh-140px)]">
-        <!-- Tarjetas entregadas -->
-      </div>
-    </div>
+    </section>
 
   </main>
 
@@ -180,7 +216,7 @@
     </div>
   </div>
 
-  <script src="/js/bar.js?v=1.0.0"></script>
+  <script src="/js/bar.js?v=2.0.0"></script>
   <script>
     lucide.createIcons();
   </script>

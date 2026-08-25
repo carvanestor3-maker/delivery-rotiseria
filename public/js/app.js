@@ -26,6 +26,36 @@ function triggerPwaInstall() {
   }
 }
 
+async function forceReinstallApp() {
+  const confirmAction = confirm('📱 ¿Deseas limpiar la memoria y reinstalar por completo el acceso directo de "Comidas Portal" en tu celular?');
+  if (!confirmAction) return;
+
+  try {
+    localStorage.clear();
+    sessionStorage.clear();
+
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k => caches.delete(k)));
+    }
+
+    if ('serviceWorker' in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      for (let registration of registrations) {
+        await registration.unregister();
+      }
+    }
+
+    if (window.deferredInstallPrompt) {
+      window.deferredInstallPrompt.prompt();
+    }
+
+    window.location.href = '/index.html?v=' + Date.now();
+  } catch (err) {
+    window.location.reload(true);
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   closeAllPublicModals();
   loadMenuData();

@@ -67,7 +67,7 @@ async function renderUsersLiveMonitor() {
             const inTime = new Date(s.clock_in).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
             return `
               <div class="flex justify-between items-center bg-white p-2 rounded-xl border border-amber-200 shadow-sm">
-                <span class="font-extrabold text-amber-950 flex items-center gap-1.5">🟢 ${s.user_name} <span class="text-[10px] font-normal text-slate-500">(Nivel ${s.level})</span></span>
+                <span class="font-extrabold text-amber-950 flex items-center gap-1.5">🟢 ${s.user_name} <span class="bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded text-[10px] font-extrabold">${s.sector || 'General'}</span> <span class="text-[10px] font-normal text-slate-500">(Nivel ${s.level})</span></span>
                 <span class="font-mono text-slate-600 font-bold">Ingreso: ${inTime} hs</span>
               </div>
             `;
@@ -2137,7 +2137,7 @@ function renderAttendanceHistory() {
 
     tr.innerHTML = `
       <td class="p-3 font-bold text-slate-900">
-        <div>${l.user_name || 'Empleado'}</div>
+        <div class="flex items-center gap-1.5">${l.user_name || 'Empleado'} <span class="bg-amber-100 text-amber-900 px-2 py-0.5 rounded text-[10px] font-black">${l.sector || 'General'}</span></div>
         <div class="text-[10px] text-slate-400 font-normal">Nivel ${l.level || 1}</div>
       </td>
       <td class="p-3">
@@ -2161,7 +2161,9 @@ function goToUserRegistration() {
 
 async function submitClockIn() {
   const pinInput = document.getElementById('att-pin-input');
+  const sectorInput = document.getElementById('att-sector-input');
   const pin = pinInput ? pinInput.value.trim() : '';
+  const sector = sectorInput ? sectorInput.value : '👑 Administración';
 
   if (!pin) {
     alert('⚠️ Por favor ingresa tu PIN personal para marcar entrada.');
@@ -2173,13 +2175,13 @@ async function submitClockIn() {
     const res = await fetch('/api/attendance/clock-in', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pin })
+      body: JSON.stringify({ pin, sector })
     });
     const data = await res.json();
     if (data.success) {
       if (pinInput) pinInput.value = '';
       const inTime = new Date(data.log.clock_in).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
-      alert(`🟢 INGRESO DE TURNO REGISTRADO CON ÉXITO!\n\nBienvenido/a: ${data.user_name}\nHora de entrada: ${inTime} hs.\n\nQuedas marcado como activo en turno.`);
+      alert(`🟢 INGRESO REGISTRADO CON ÉXITO!\n\nBienvenido/a: ${data.user_name}\nSector / Área: ${sector}\nHora de entrada: ${inTime} hs.`);
       await loadAttendanceLogs();
     } else {
       if (data.error && data.error.includes('PIN personal no válido')) {

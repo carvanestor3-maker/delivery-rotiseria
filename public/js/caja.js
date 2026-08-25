@@ -1162,7 +1162,7 @@ function renderAttendanceHistory() {
 
     tr.innerHTML = `
       <td class="p-3 font-bold text-slate-900">
-        <div>${l.user_name || 'Empleado'}</div>
+        <div class="flex items-center gap-1.5">${l.user_name || 'Empleado'} <span class="bg-amber-100 text-amber-900 px-2 py-0.5 rounded text-[10px] font-black">${l.sector || 'General'}</span></div>
         <div class="text-[10px] text-slate-400 font-normal">Nivel ${l.level || 1}</div>
       </td>
       <td class="p-3">
@@ -1181,7 +1181,9 @@ function renderAttendanceHistory() {
 
 async function submitClockIn() {
   const pinInput = document.getElementById('att-pin-input');
+  const sectorInput = document.getElementById('att-sector-input');
   const pin = pinInput ? pinInput.value.trim() : '';
+  const sector = sectorInput ? sectorInput.value : '💰 Caja & Mostrador';
 
   if (!pin) {
     alert('⚠️ Por favor ingresa tu PIN personal para marcar entrada.');
@@ -1193,13 +1195,13 @@ async function submitClockIn() {
     const res = await fetch('/api/attendance/clock-in', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pin })
+      body: JSON.stringify({ pin, sector })
     });
     const data = await res.json();
     if (data.success) {
       if (pinInput) pinInput.value = '';
       const inTime = new Date(data.log.clock_in).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
-      alert(`🟢 INGRESO DE TURNO REGISTRADO CON ÉXITO!\n\nBienvenido/a: ${data.user_name}\nHora de entrada: ${inTime} hs.\n\nQuedas marcado como activo en turno.`);
+      alert(`🟢 INGRESO REGISTRADO CON ÉXITO!\n\nBienvenido/a: ${data.user_name}\nSector / Área: ${sector}\nHora de entrada: ${inTime} hs.`);
       await loadAttendanceLogs();
     } else {
       alert(`⚠️ ${data.error}`);

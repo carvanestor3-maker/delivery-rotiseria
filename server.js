@@ -1678,7 +1678,7 @@ app.get('/api/attendance/logs', (req, res) => {
 
 app.post('/api/attendance/clock-in', (req, res) => {
   try {
-    const { pin } = req.body;
+    const { pin, sector } = req.body;
     const auth = verifyUserPin(pin, 1);
     if (!auth.isValid) {
       return res.status(401).json({ success: false, error: '⚠️ PIN personal no válido. Ingresa tu clave registrada.' });
@@ -1699,6 +1699,7 @@ app.post('/api/attendance/clock-in', (req, res) => {
       user_id: auth.user.id,
       user_name: auth.user.name,
       level: auth.user.level,
+      sector: sector || (auth.user.level === 3 ? 'Administración' : auth.user.level === 2 ? 'Encargado' : 'General'),
       clock_in: new Date().toISOString(),
       clock_out: null,
       hours_worked: 0,

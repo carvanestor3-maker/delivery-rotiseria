@@ -253,14 +253,28 @@
         </button>
       </div>
 
+      <!-- Tarjeta de Fichaje Rápido por PIN -->
       <div class="bg-amber-50 border border-amber-200 p-4 rounded-2xl space-y-3">
-        <label class="block text-xs font-black text-amber-950">🔑 Ingresa tu PIN Personal para Marcar Entrada o Salida *</label>
-        <div class="flex gap-2">
-          <input type="password" id="att-pin-input" placeholder="Tu PIN personal (ej: 1111, 2222)" class="flex-1 px-4 py-2.5 bg-white border border-amber-300 rounded-xl text-base font-mono font-bold text-center outline-none focus:ring-2 focus:ring-amber-500 tracking-widest">
-          <button type="button" onclick="submitClockIn()" class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-extrabold text-xs rounded-xl shadow transition flex items-center gap-1">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div>
+            <label class="block text-xs font-black text-amber-950 mb-1">📍 Sector / Área de Trabajo *</label>
+            <select id="att-sector-input" class="w-full px-3 py-2 bg-white border border-amber-300 rounded-xl text-xs font-bold text-amber-950 outline-none focus:ring-2 focus:ring-amber-500">
+              <option value="🍳 Cocina" selected>🍳 Cocina</option>
+              <option value="💰 Caja & Mostrador">💰 Caja & Mostrador</option>
+              <option value="☕ Bar & Cafetería">☕ Bar & Cafetería</option>
+              <option value="👑 Administración">👑 Administración</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-black text-amber-950 mb-1">🔑 Tu PIN Personal Registrado *</label>
+            <input type="password" id="att-pin-input" placeholder="Tu PIN personal (ej: 1111)" class="w-full px-3 py-2 bg-white border border-amber-300 rounded-xl text-sm font-mono font-bold text-center outline-none focus:ring-2 focus:ring-amber-500 tracking-widest">
+          </div>
+        </div>
+        <div class="flex gap-2 pt-1">
+          <button type="button" onclick="submitClockIn()" class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-extrabold text-xs rounded-xl shadow transition flex items-center justify-center gap-1">
             🟢 Marcar ENTRADA
           </button>
-          <button type="button" onclick="submitClockOut()" class="px-4 py-2.5 bg-red-600 hover:bg-red-700 active:scale-95 text-white font-extrabold text-xs rounded-xl shadow transition flex items-center gap-1">
+          <button type="button" onclick="submitClockOut()" class="flex-1 py-2.5 bg-red-600 hover:bg-red-700 active:scale-95 text-white font-extrabold text-xs rounded-xl shadow transition flex items-center justify-center gap-1">
             🔴 Marcar SALIDA
           </button>
         </div>

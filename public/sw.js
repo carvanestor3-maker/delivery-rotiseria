@@ -1,4 +1,4 @@
-const CACHE_NAME = 'la-gran-rotiseria-v5.0';
+const CACHE_NAME = 'la-gran-rotiseria-v6.0';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -19,7 +19,6 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // No interceptar peticiones externas (como imagenes de Unsplash o CDNs) para que carguen 100% directo y sin bloqueos de red movil
   if (event.request.url.startsWith('http') && !event.request.url.includes(self.location.hostname)) {
     return;
   }

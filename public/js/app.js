@@ -209,7 +209,7 @@ function renderProductCard(prod) {
   const cartItem = state.cart.find(item => item.id === prod.id);
   const qty = cartItem ? cartItem.qty : 0;
   const rawImage = prod.image_url ? prod.image_url.trim() : '';
-  const fallbackUrl = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200';
+  const fallbackUrl = '/logo_preview.jpg';
   const imageUrl = rawImage.length > 0 ? rawImage : fallbackUrl;
   const hasVideo = prod.video_url && prod.video_url.trim().length > 0;
 
@@ -218,7 +218,7 @@ function renderProductCard(prod) {
       <div>
         <!-- Foto HD y Video Badge -->
         <div class="relative w-full aspect-4/3 rounded-xl overflow-hidden bg-slate-100 cursor-pointer group flex-shrink-0 border border-slate-200/60 shadow-xs mb-2" onclick="openPhotoLightboxByProductId(${prod.id})" title="Toca para ampliar foto en pantalla completa HD">
-          <img src="${imageUrl}" alt="${prod.name}" onerror="this.onerror=null; this.src='${fallbackUrl}';" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+          <img src="${imageUrl}" alt="${prod.name}" onerror="this.onerror=null; this.src='/logo_preview.jpg';" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
           
           <span class="absolute top-1.5 left-1.5 bg-slate-900/80 text-white px-1.5 py-0.5 rounded-md text-[9px] font-black backdrop-blur-xs flex items-center gap-0.5 shadow">
             🔍 HD

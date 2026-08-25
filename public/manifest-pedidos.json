@@ -1,6 +1,6 @@
 {
-  "name": "La Gran Rotisería - Pedidos Online",
-  "short_name": "Pedidos Rotisería",
+  "name": "Comidas Portal - La Gran Rotisería",
+  "short_name": "Comidas Portal",
   "description": "Menú Digital de Comidas, Minutas, Comida por Kilo y Bar 24hs",
   "start_url": "/index.html",
   "display": "standalone",

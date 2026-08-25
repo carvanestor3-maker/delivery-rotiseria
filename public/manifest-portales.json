@@ -1,6 +1,6 @@
 {
-  "name": "Portal Sistema Gastronómico 24hs",
-  "short_name": "Portales 24hs",
+  "name": "Sistema Gastronómico 24hs",
+  "short_name": "Sistema Gastronómico",
   "description": "Launcher de Portales Gastronómicos 24hs - Producción, Caja, Cocina, Bar y Admin",
   "start_url": "/portales.html",
   "display": "standalone",

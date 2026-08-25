@@ -1429,7 +1429,7 @@ async function saveProduct(e) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         id: id ? parseInt(id) : null,
-        code, name, category_id, price, unit_type, barcode, plu_code, description, image_url, available, pin
+        code, name, category_id, price, unit_type, description, image_url, available, pin
       })
     });
     const data = await res.json();
@@ -1442,6 +1442,7 @@ async function saveProduct(e) {
     }
   } catch (err) {
     console.error('Error al guardar producto:', err);
+    alert(`⚠️ Error al guardar producto: ${err.message}`);
   }
 }
 

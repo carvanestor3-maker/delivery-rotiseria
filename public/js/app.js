@@ -411,6 +411,7 @@ function closeAllPublicModals() {
   closePhotoLightbox();
   closeVideoPlayer();
   closeCartModal();
+  closeAiHelpModal();
   const successModal = document.getElementById('order-success-modal');
   if (successModal && !successModal.classList.contains('opacity-0')) {
     closeOrderSuccessModal();
@@ -722,4 +723,126 @@ function closeVideoPlayer() {
   const contentElem = document.getElementById('video-player-content');
   if (contentElem) contentElem.innerHTML = '';
   if (modal) modal.classList.add('opacity-0', 'pointer-events-none');
+}
+
+// ==========================================
+// ASISTENTE VIRTUAL DE AYUDA Y SOPORTE IA 24HS
+// ==========================================
+
+function openAiHelpModal() {
+  closeAllPublicModals();
+  const modal = document.getElementById('ai-help-modal');
+  if (modal) modal.classList.remove('opacity-0', 'pointer-events-none');
+}
+
+function closeAiHelpModal() {
+  const modal = document.getElementById('ai-help-modal');
+  if (modal) modal.classList.add('opacity-0', 'pointer-events-none');
+}
+
+function sendQuickAiQuery(text) {
+  const input = document.getElementById('ai-chat-input');
+  if (input) {
+    input.value = text;
+    processAiMessage(text);
+  }
+}
+
+function handleAiChatSubmit(e) {
+  e.preventDefault();
+  const input = document.getElementById('ai-chat-input');
+  if (!input) return;
+  const msg = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+  processAiMessage(msg);
+}
+
+function processAiMessage(userText) {
+  const chatBody = document.getElementById('ai-chat-body');
+  if (!chatBody) return;
+
+  const userMsgDiv = document.createElement('div');
+  userMsgDiv.className = 'flex justify-end';
+  userMsgDiv.innerHTML = `
+    <div class="bg-orange-500 text-slate-950 font-bold p-3 rounded-2xl rounded-tr-none text-xs max-w-[85%] shadow-xs">
+      ${userText}
+    </div>
+  `;
+  chatBody.appendChild(userMsgDiv);
+
+  const botReply = generateAiResponse(userText);
+
+  setTimeout(() => {
+    const botMsgDiv = document.createElement('div');
+    botMsgDiv.className = 'flex items-start gap-2';
+    botMsgDiv.innerHTML = `
+      <div class="w-7 h-7 rounded-lg bg-amber-500 text-slate-950 font-black flex items-center justify-center text-xs flex-shrink-0">🤖</div>
+      <div class="bg-slate-800 p-3 rounded-2xl rounded-tl-none border border-slate-700 text-slate-200 space-y-1.5 max-w-[90%] shadow-xs">
+        ${botReply}
+      </div>
+    `;
+    chatBody.appendChild(botMsgDiv);
+    chatBody.scrollTop = chatBody.scrollHeight;
+  }, 250);
+}
+
+function generateAiResponse(text) {
+  const q = text.toLowerCase();
+  const addr = (state.settings && state.settings.restaurant_address) ? state.settings.restaurant_address : 'España 1028 (Casi Yrigoyen)';
+
+  if (q.includes('instal') || q.includes('icono') || q.includes('pantalla') || q.includes('permiso') || q.includes('no crea') || q.includes('no puedo')) {
+    return `
+      <p class="font-bold text-amber-400">📱 Guía de Instalación y Permisos de Celular:</p>
+      <ol class="list-decimal list-inside space-y-1 text-slate-300">
+        <li><strong>En Android (Chrome):</strong> Tocá los 3 puntos arriba a la derecha ➔ <em>"Agregar a la pantalla principal"</em>.</li>
+        <li><strong>En iPhone (Safari):</strong> Tocá el botón Compartir ➔ <em>"Agregar a inicio"</em>.</li>
+      </ol>
+      <p class="text-[11px] text-amber-300/90 pt-1">💡 <strong>Permisos de Android:</strong> Ajustes ➔ Aplicaciones ➔ Chrome ➔ Permisos ➔ Marca <strong>"Accesos directos en pantalla: Permitir/Siempre"</strong> y <strong>"Mostrar en pantalla de bloqueo: Siempre"</strong>.</p>
+    `;
+  }
+
+  if (q.includes('donde') || q.includes('direcc') || q.includes('ubicac') || q.includes('local') || q.includes('retir') || q.includes('llegar')) {
+    return `
+      <p class="font-bold text-amber-400">📍 Dirección para Retiro por Mostrador:</p>
+      <p class="text-white font-extrabold text-xs">👉 ${addr}</p>
+      <p class="text-slate-300 text-[11px]">⏱️ Tiempo de preparación estimado: <strong>20 minutos</strong>.</p>
+      <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr)}" target="_blank" class="inline-block mt-1 text-amber-400 font-extrabold underline text-xs">
+        📍 Ver ubicación en Google Maps
+      </a>
+    `;
+  }
+
+  if (q.includes('pago') || q.includes('efectivo') || q.includes('tarjeta') || q.includes('cuenta corriente') || q.includes('fiado') || q.includes('alias')) {
+    return `
+      <p class="font-bold text-amber-400">💳 Formas de Pago Aceptadas:</p>
+      <ul class="list-disc list-inside space-y-1 text-slate-300">
+        <li>💵 <strong>Efectivo</strong> (al recibir o retirar tu pedido).</li>
+        <li>💳 <strong>MercadoPago / Transferencia / Posnet</strong>.</li>
+        <li>📋 <strong>Cuenta Corriente Autorizada</strong> (con DNI o CUIT registrado).</li>
+      </ul>
+    `;
+  }
+
+  if (q.includes('delivery') || q.includes('envio') || q.includes('envío') || q.includes('domicilio') || q.includes('costo')) {
+    const cost = formatCurrency(parseFloat((state.settings && state.settings.delivery_cost) || 1200));
+    return `
+      <p class="font-bold text-amber-400">🛵 Servicio de Delivery a Domicilio:</p>
+      <p class="text-slate-300">Enviamos tu pedido recién preparado a tu domicilio.</p>
+      <p class="text-white font-extrabold">Costo de envío estimado: <span class="text-amber-400">${cost}</span></p>
+    `;
+  }
+
+  if (q.includes('hola') || q.includes('buenas') || q.includes('que tal')) {
+    return `
+      <p class="font-bold text-amber-400">¡Hola! 😊 ¿Cómo estás?</p>
+      <p>Estoy listo para ayudarte con la instalación de la app, dirección del local, delivery o formas de pago.</p>
+    `;
+  }
+
+  return `
+    <p class="font-bold text-amber-400">🍳 La Gran Rotisería 24hs</p>
+    <p class="text-slate-300">📍 Dirección del local: <strong>${addr}</strong></p>
+    <p class="text-amber-300 font-semibold pt-1">¿Querés consultar sobre <em>instalación de la app</em>, <em>dirección del local</em>, <em>delivery</em> o <em>formas de pago</em>?</p>
+  `;
 }

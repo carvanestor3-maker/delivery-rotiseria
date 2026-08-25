@@ -94,11 +94,77 @@
           <p class="text-xs text-amber-400 font-medium">Gastronomía Premium & Comidas Saludables</p>
         </div>
       </div>
-      <button onclick="shareAppWhatsApp()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-extrabold rounded-xl text-xs flex items-center gap-1.5 shadow transition" title="Enviar Menú por WhatsApp a cualquier contacto">
-        <span>📲</span> Compartir App
-      </button>
+      <div class="flex items-center gap-2">
+        <button onclick="openAiHelpModal()" class="px-3 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 active:scale-95 text-slate-950 font-black rounded-xl text-xs flex items-center gap-1 shadow transition">
+          <span>🤖</span> Ayuda IA
+        </button>
+        <button onclick="shareAppWhatsApp()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-extrabold rounded-xl text-xs flex items-center gap-1.5 shadow transition" title="Enviar Menú por WhatsApp a cualquier contacto">
+          <span>📲</span> Compartir
+        </button>
+      </div>
     </div>
   </header>
+
+  <!-- MODAL ASISTENTE DE AYUDA IA 24HS PARA EL CLIENTE -->
+  <div id="ai-help-modal" onclick="if (event.target === this) closeAiHelpModal()" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 opacity-0 pointer-events-none transition-opacity duration-200">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden text-white pointer-events-auto">
+      
+      <!-- Modal Header -->
+      <div class="p-4 bg-slate-950 border-b border-slate-800 flex justify-between items-center">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 to-orange-500 flex items-center justify-center text-slate-950 font-black text-lg shadow">
+            🤖
+          </div>
+          <div>
+            <h3 class="font-extrabold text-sm text-white">Asistente Virtual IA 24hs</h3>
+            <p class="text-[11px] text-amber-400 font-medium">Soporte técnico, instalación y consultas de menú</p>
+          </div>
+        </div>
+        <button onclick="closeAiHelpModal()" class="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold flex items-center justify-center transition">
+          ✕
+        </button>
+      </div>
+
+      <!-- Chat History Body -->
+      <div id="ai-chat-body" class="p-4 overflow-y-auto space-y-3 flex-1 text-xs leading-relaxed">
+        
+        <!-- Mensaje de Bienvenida del Bot -->
+        <div class="flex items-start gap-2">
+          <div class="w-7 h-7 rounded-lg bg-amber-500 text-slate-950 font-black flex items-center justify-center text-xs flex-shrink-0">🤖</div>
+          <div class="bg-slate-800 p-3 rounded-2xl rounded-tl-none border border-slate-700 text-slate-200 space-y-1 max-w-[90%] shadow-xs">
+            <p class="font-bold text-amber-400">¡Hola! 👋 Soy tu Asistente Virtual 24hs.</p>
+            <p>¿En qué te puedo ayudar hoy? Podés tocar una sugerencia abajo o escribirme tu duda:</p>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Sugerencias Rápidas (Chips) -->
+      <div class="px-3 py-2 bg-slate-950/60 border-t border-slate-800 flex gap-1.5 overflow-x-auto no-scrollbar">
+        <button onclick="sendQuickAiQuery('¿Cómo instalar la App en mi celular?')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 font-extrabold text-[10px] rounded-xl whitespace-nowrap border border-slate-700 transition">
+          📱 ¿Cómo instalar la App?
+        </button>
+        <button onclick="sendQuickAiQuery('No se crea el icono en mi celular')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 font-extrabold text-[10px] rounded-xl whitespace-nowrap border border-slate-700 transition">
+          🛠️ Permisos de celular
+        </button>
+        <button onclick="sendQuickAiQuery('¿Dónde queda el local para retirar?')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 font-extrabold text-[10px] rounded-xl whitespace-nowrap border border-slate-700 transition">
+          📍 Dirección del local
+        </button>
+        <button onclick="sendQuickAiQuery('¿Cuáles son las formas de pago?')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 font-extrabold text-[10px] rounded-xl whitespace-nowrap border border-slate-700 transition">
+          💳 Formas de pago
+        </button>
+      </div>
+
+      <!-- Input de Mensaje -->
+      <form onsubmit="handleAiChatSubmit(event)" class="p-3 bg-slate-950 border-t border-slate-800 flex gap-2">
+        <input type="text" id="ai-chat-input" placeholder="Escribí tu consulta aquí (ej: 'horarios', 'delivery')..." class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 font-medium">
+        <button type="submit" class="px-4 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 font-black rounded-xl text-xs shadow transition active:scale-95 flex items-center gap-1">
+          <span>Enviar</span>
+        </button>
+      </form>
+
+    </div>
+  </div>
 
   <!-- Banner Informativo & Dirección de Retiro por Local -->
   <div class="bg-amber-500/10 border-b border-amber-500/30 py-2.5 px-4 text-xs font-bold text-amber-950">

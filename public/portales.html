@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Portal de Accesos Directos - Sistema Gastronómico 24hs</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/css/styles.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-slate-950 text-white min-h-screen flex flex-col justify-between p-4 sm:p-6 font-sans">
+
+  <!-- Header del Launcher -->
+  <header class="text-center space-y-2 py-4">
+    <div class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-tr from-amber-600 to-orange-500 rounded-3xl shadow-xl shadow-orange-500/20 text-3xl mb-1">
+      🍳
+    </div>
+    <h1 class="text-2xl sm:text-3xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-amber-400 via-orange-400 to-amber-200">
+      SISTEMA GASTRONÓMICO 24HS
+    </h1>
+    <p class="text-xs text-slate-400 max-w-md mx-auto">
+      Portal de Accesos Rápidos para Celulares, Tablets y Estaciones de Trabajo
+    </p>
+    <div class="inline-flex items-center gap-2 bg-slate-900 border border-slate-800 px-3 py-1 rounded-full text-xs text-emerald-400 font-bold mt-2">
+      <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+      Sistema Activo 24/7 | spressgastro-ar.com
+    </div>
+  </header>
+
+  <!-- Grilla de Botones Grandes de Portales (Estilo App Nativa) -->
+  <main class="max-w-4xl mx-auto w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 my-auto py-4">
+
+    <!-- BOTÓN 1: MENÚ PÚBLICO -->
+    <a href="/" target="_blank" class="group relative bg-slate-900/90 hover:bg-slate-850 border border-slate-800 hover:border-amber-500/50 p-6 rounded-3xl transition-all duration-300 shadow-xl hover:shadow-2xl hover:shadow-amber-500/10 flex flex-col justify-between overflow-hidden active:scale-98">
+      <div class="flex justify-between items-start">
+        <div class="w-14 h-14 bg-gradient-to-br from-amber-500 to-orange-600 text-slate-950 rounded-2xl flex items-center justify-center text-2xl font-black shadow-lg group-hover:scale-110 transition-transform">
+          🍽️
+        </div>
+        <span class="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-black px-2.5 py-1 rounded-full uppercase">Público</span>
+      </div>
+      <div class="mt-6 space-y-1">
+        <h2 class="text-lg font-black text-white group-hover:text-amber-400 transition-colors flex items-center justify-between">
+          <span>Menú Digital Público</span>
+          <i data-lucide="chevron-right" class="w-5 h-5 text-slate-500 group-hover:translate-x-1 transition-transform"></i>
+        </h2>
+        <p class="text-xs text-slate-400">Ver Carta, fotos, videos y pedidos online de clientes</p>
+      </div>
+    </a>
+
+    <!-- BOTÓN 2: KDS PRODUCCIÓN -->
+    <a href="/produccion.html" target="_blank" class="group relative bg-slate-900/90 hover:bg-slate-850 border border-slate-800 hover:border-amber-500/50 p-6 rounded-3xl transition-all duration-300 shadow-xl hover:shadow-2xl hover:shadow-amber-500/10 flex flex-col justify-between overflow-hidden active:scale-98">
+      <div class="flex justify-between items-start">
+        <div class="w-14 h-14 bg-gradient-to-br from-amber-500 to-amber-600 text-slate-950 rounded-2xl flex items-center justify-center text-2xl font-black shadow-lg group-hover:scale-110 transition-transform">
+          🏭
+        </div>
+        <span class="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-black px-2.5 py-1 rounded-full uppercase">KDS Puesto</span>
+      </div>
+      <div class="mt-6 space-y-1">
+        <h2 class="text-lg font-black text-white group-hover:text-amber-400 transition-colors flex items-center justify-between">
+          <span>Producción KDS</span>
+          <i data-lucide="chevron-right" class="w-5 h-5 text-slate-500 group-hover:translate-x-1 transition-transform"></i>
+        </h2>
+        <p class="text-xs text-slate-400">Lotes de pre-elaboración, cronómetros y superación de tiempos</p>
+      </div>
+    </a>
+
+    <!-- BOTÓN 3: CAJA Y MOSTRADOR -->
+    <a href="/caja.html" target="_blank" class="group relative bg-slate-900/90 hover:bg-slate-850 border border-slate-800 hover:border-emerald-500/50 p-6 rounded-3xl transition-all duration-300 shadow-xl hover:shadow-2xl hover:shadow-emerald-500/10 flex flex-col justify-between overflow-hidden active:scale-98">
+      <div class="flex justify-between items-start">
+        <div class="w-14 h-14 bg-gradient-to-br from-emerald-500 to-teal-600 text-slate-950 rounded-2xl flex items-center justify-center text-2xl font-black shadow-lg group-hover:scale-110 transition-transform">
+          💰
+        </div>
+        <span class="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-black px-2.5 py-1 rounded-full uppercase">Cobros</span>
+      </div>
+      <div class="mt-6 space-y-1">
+        <h2 class="text-lg font-black text-white group-hover:text-emerald-400 transition-colors flex items-center justify-between">
+          <span>Caja & Cobros (Celular 2)</span>
+          <i data-lucide="chevron-right" class="w-5 h-5 text-slate-500 group-hover:translate-x-1 transition-transform"></i>
+        </h2>
+        <p class="text-xs text-slate-400">Cobros por efectivo/MP/tarjeta, tickets y comisiones de mozo</p>
+      </div>
+    </a>
+
+    <!-- BOTÓN 4: COCINA Y MINUTAS -->
+    <a href="/cocina.html" target="_blank" class="group relative bg-slate-900/90 hover:bg-slate-850 border border-slate-800 hover:border-orange-500/50 p-6 rounded-3xl transition-all duration-300 shadow-xl hover:shadow-2xl hover:shadow-orange-500/10 flex flex-col justify-between overflow-hidden active:scale-98">
+      <div class="flex justify-between items-start">
+        <div class="w-14 h-14 bg-gradient-to-br from-orange-500 to-red-600 text-white rounded-2xl flex items-center justify-center text-2xl font-black shadow-lg group-hover:scale-110 transition-transform">
+          🍳
+        </div>
+        <span class="bg-orange-500/20 text-orange-300 border border-orange-500/30 text-[10px] font-black px-2.5 py-1 rounded-full uppercase">Cocina</span>
+      </div>
+      <div class="mt-6 space-y-1">
+        <h2 class="text-lg font-black text-white group-hover:text-orange-400 transition-colors flex items-center justify-between">
+          <span>Cocina KDS (Celular 1)</span>
+          <i data-lucide="chevron-right" class="w-5 h-5 text-slate-500 group-hover:translate-x-1 transition-transform"></i>
+        </h2>
+        <p class="text-xs text-slate-400">Comandera de despacho de platos calientes y rotisería</p>
+      </div>
+    </a>
+
+    <!-- BOTÓN 5: BAR Y CAFETERÍA -->
+    <a href="/bar.html" target="_blank" class="group relative bg-slate-900/90 hover:bg-slate-850 border border-slate-800 hover:border-purple-500/50 p-6 rounded-3xl transition-all duration-300 shadow-xl hover:shadow-2xl hover:shadow-purple-500/10 flex flex-col justify-between overflow-hidden active:scale-98">
+      <div class="flex justify-between items-start">
+        <div class="w-14 h-14 bg-gradient-to-br from-purple-500 to-indigo-600 text-white rounded-2xl flex items-center justify-center text-2xl font-black shadow-lg group-hover:scale-110 transition-transform">
+          ☕
+        </div>
+        <span class="bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[10px] font-black px-2.5 py-1 rounded-full uppercase">Bar</span>
+      </div>
+      <div class="mt-6 space-y-1">
+        <h2 class="text-lg font-black text-white group-hover:text-purple-400 transition-colors flex items-center justify-between">
+          <span>Bar KDS (Celular 3)</span>
+          <i data-lucide="chevron-right" class="w-5 h-5 text-slate-500 group-hover:translate-x-1 transition-transform"></i>
+        </h2>
+        <p class="text-xs text-slate-400">Comandera de despacho ágil de café, infusiones y medialunas</p>
+      </div>
+    </a>
+
+    <!-- BOTÓN 6: ADMINISTRACIÓN & AUDITORÍA -->
+    <a href="/admin.html" target="_blank" class="group relative bg-slate-900/90 hover:bg-slate-850 border border-slate-800 hover:border-blue-500/50 p-6 rounded-3xl transition-all duration-300 shadow-xl hover:shadow-2xl hover:shadow-blue-500/10 flex flex-col justify-between overflow-hidden active:scale-98">
+      <div class="flex justify-between items-start">
+        <div class="w-14 h-14 bg-gradient-to-br from-blue-500 to-cyan-600 text-white rounded-2xl flex items-center justify-center text-2xl font-black shadow-lg group-hover:scale-110 transition-transform">
+          👑
+        </div>
+        <span class="bg-blue-500/20 text-blue-300 border border-blue-500/30 text-[10px] font-black px-2.5 py-1 rounded-full uppercase">Gerencia</span>
+      </div>
+      <div class="mt-6 space-y-1">
+        <h2 class="text-lg font-black text-white group-hover:text-blue-400 transition-colors flex items-center justify-between">
+          <span>Administración & Costos</span>
+          <i data-lucide="chevron-right" class="w-5 h-5 text-slate-500 group-hover:translate-x-1 transition-transform"></i>
+        </h2>
+        <p class="text-xs text-slate-400">Auditoría de costos, márgenes, stock, personal y precios</p>
+      </div>
+    </a>
+
+  </main>
+
+  <!-- Footer con opción de agregar a pantalla de inicio del celular -->
+  <footer class="text-center py-4 space-y-2 max-w-md mx-auto">
+    <div class="bg-slate-900 border border-slate-800 p-3 rounded-2xl text-xs text-slate-400 font-semibold space-y-1">
+      <div class="text-amber-400 font-extrabold flex items-center justify-center gap-1">
+        📱 Tip para Celulares y Tablets:
+      </div>
+      <div>
+        Tocá los tres puntos del navegador (o el botón compartir) y elegí <strong>"Agregar a la Pantalla Principal"</strong> para tener el ícono directo en tu teléfono como una App.
+      </div>
+    </div>
+    <div class="text-[11px] text-slate-600 font-mono">
+      URL Directa: https://spressgastro-ar.com/portales.html
+    </div>
+  </footer>
+
+  <script>
+    lucide.createIcons();
+  </script>
+</body>
+</html>

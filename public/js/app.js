@@ -55,7 +55,7 @@ function formatWhatsAppNumber(phone) {
 
 function shareAppWhatsApp() {
   const restName = (state.settings && state.settings.restaurant_name) ? state.settings.restaurant_name : 'La Gran Rotisería, Bar & Drugstore 24hs';
-  const shareText = `¡Hola! 👋 Te comparto el Menú Digital de ${restName} 🍳 Mirá los platos, fotos y videos de preparación para pedir acá:\n\nhttps://spressgastro-ar.com`;
+  const shareText = `https://spressgastro-ar.com\n\n🍳 *${restName}*\n¡Hola! 👋 Te comparto nuestro Menú Digital 24hs. Mirá los platos, fotos y videos de preparación para pedir online desde tu celular.`;
   
   if (navigator.share) {
     navigator.share({

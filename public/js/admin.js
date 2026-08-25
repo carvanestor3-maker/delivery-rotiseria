@@ -632,7 +632,15 @@ function handleMatNameInput() {
 }
 
 function generateMaterialAutoCode() {
-  const nameVal = document.getElementById('mat-name').value;
+  const nameElem = document.getElementById('mat-name');
+  const nameVal = nameElem ? nameElem.value.trim() : '';
+
+  if (!nameVal) {
+    alert('⚠️ POR FAVOR INGRESA PRIMERO EL NOMBRE DEL INSUMO:\n\nDebes escribir el nombre a la izquierda (ej: "Carne Vacuna para Milanesas") para poder presionar ⚡ Auto y generar la familia de códigos SKU.');
+    if (nameElem) nameElem.focus();
+    return;
+  }
+
   const codeInput = document.getElementById('mat-code');
   if (!codeInput) return;
 
@@ -1274,15 +1282,26 @@ async function saveCategory(e) {
 }
 
 function generateProductAutoCode() {
-  const name = document.getElementById('prod-name').value.trim();
+  const nameElem = document.getElementById('prod-name');
+  const name = nameElem ? nameElem.value.trim() : '';
+
+  if (!name) {
+    alert('⚠️ POR FAVOR INGRESA PRIMERO EL NOMBRE DEL PLATO O BEBIDA:\n\nDebes escribir el nombre a la izquierda (ej: "Empanada de Carne Molida") para poder presionar ⚡ Auto y generar la familia de códigos SKU.');
+    if (nameElem) nameElem.focus();
+    return;
+  }
+
   const code = generateMnemonicCode(name, products);
-  document.getElementById('prod-code').value = code;
+  const codeElem = document.getElementById('prod-code');
+  if (codeElem) codeElem.value = code;
 }
 
 function handleProductNameInput() {
+  const name = document.getElementById('prod-name').value.trim();
   const codeElem = document.getElementById('prod-code');
-  if (codeElem && !codeElem.value) {
-    generateProductAutoCode();
+  if (name && codeElem && !codeElem.value) {
+    const code = generateMnemonicCode(name, products);
+    if (code) codeElem.value = code;
   }
 }
 

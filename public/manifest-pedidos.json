@@ -25,5 +25,31 @@
       "sizes": "180x180",
       "type": "image/png"
     }
+  ],
+  "shortcuts": [
+    {
+      "name": "📲 Compartir App por WhatsApp",
+      "short_name": "Compartir",
+      "description": "Enviar Menú Digital a un contacto de WhatsApp",
+      "url": "/index.html?action=share",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "🍽️ Abrir Menú de Comidas",
+      "short_name": "Ver Menú",
+      "description": "Abrir Menú Digital de Comidas",
+      "url": "/index.html",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
   ]
 }

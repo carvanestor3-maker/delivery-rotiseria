@@ -25,5 +25,31 @@
       "sizes": "180x180",
       "type": "image/png"
     }
+  ],
+  "shortcuts": [
+    {
+      "name": "📲 Compartir App por WhatsApp",
+      "short_name": "Compartir",
+      "description": "Enviar Menú Digital por WhatsApp",
+      "url": "/index.html?action=share",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "🏭 Producción KDS",
+      "short_name": "Producción",
+      "description": "Abrir KDS de Producción",
+      "url": "/produccion.html",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
   ]
 }

@@ -32,6 +32,12 @@ function triggerPwaInstall() {
 document.addEventListener('DOMContentLoaded', () => {
   loadMenuData();
   loadCartFromStorage();
+
+  if (window.location.search.includes('action=share')) {
+    setTimeout(() => {
+      shareAppWhatsApp();
+    }, 600);
+  }
 });
 
 function formatWhatsAppNumber(phone) {

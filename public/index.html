@@ -252,10 +252,20 @@
 
       </div>
 
-      <!-- Modal Footer - Botón WhatsApp -->
-      <div class="p-4 bg-white border-t border-slate-200">
+        <!-- Contenedor de Error Inline -->
+        <div id="checkout-form-error" class="hidden bg-red-500/10 border border-red-500/30 text-red-600 font-extrabold text-xs p-3 rounded-xl text-center space-y-1">
+          <span id="checkout-form-error-text">⚠️ Por favor completa los datos obligatorios.</span>
+        </div>
+
+      </div>
+
+      <!-- Modal Footer - Botones WhatsApp y Vaciar Carrito -->
+      <div class="p-4 bg-white border-t border-slate-200 space-y-2">
         <button type="button" onclick="submitOrderToWhatsApp()" class="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-extrabold py-3.5 px-4 rounded-xl shadow-lg flex items-center justify-center gap-2 transition text-base">
           <span class="text-xl">💬</span> Confirmar y Enviar Pedido por WhatsApp
+        </button>
+        <button type="button" onclick="clearCart()" class="w-full py-2 bg-slate-100 hover:bg-red-50 text-slate-500 hover:text-red-600 font-extrabold text-xs rounded-xl transition flex items-center justify-center gap-1.5">
+          <span>🗑️</span> Vaciar y Limpiar Carrito
         </button>
       </div>
 

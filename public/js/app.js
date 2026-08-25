@@ -420,14 +420,39 @@ function loadCartFromStorage() {
   }
 }
 
+function clearCart() {
+  state.cart = [];
+  saveCartToStorage();
+  updateCartUI();
+  closeCartModal();
+  const errorBox = document.getElementById('checkout-form-error');
+  if (errorBox) errorBox.classList.add('hidden');
+}
+
+function showCheckoutError(msg, elementIdToFocus) {
+  const errorBox = document.getElementById('checkout-form-error');
+  const errorText = document.getElementById('checkout-form-error-text');
+  if (errorBox && errorText) {
+    errorText.textContent = '⚠️ ' + msg;
+    errorBox.classList.remove('hidden');
+  }
+  if (elementIdToFocus) {
+    const el = document.getElementById(elementIdToFocus);
+    if (el) el.focus();
+  }
+}
+
 function formatCurrency(val) {
   return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(val);
 }
 
 // ENVIAR PEDIDO A LA BASE DE DATOS Y WHATSAPP
 async function submitOrderToWhatsApp() {
+  const errorBox = document.getElementById('checkout-form-error');
+  if (errorBox) errorBox.classList.add('hidden');
+
   if (state.cart.length === 0) {
-    alert('Tu carrito está vacío. Agrega comidas antes de continuar.');
+    showCheckoutError('Tu carrito está vacío. Agregá comidas antes de continuar.');
     return;
   }
 
@@ -439,26 +464,22 @@ async function submitOrderToWhatsApp() {
   const notes = document.getElementById('cust-notes').value.trim();
 
   if (!name) {
-    alert('Por favor ingresa tu Nombre Completo.');
-    document.getElementById('cust-name').focus();
+    showCheckoutError('Por favor ingresá tu Nombre Completo.', 'cust-name');
     return;
   }
 
   if (!rawPhone) {
-    alert('Por favor ingresa tu número de celular / WhatsApp.');
-    document.getElementById('cust-phone').focus();
+    showCheckoutError('Por favor ingresá tu Celular / WhatsApp.', 'cust-phone');
     return;
   }
 
   if (state.deliveryType === 'delivery' && !address) {
-    alert('Por favor ingresa la Dirección de Entrega para el Delivery.');
-    document.getElementById('cust-address').focus();
+    showCheckoutError('Por favor ingresá la Dirección de Envío para el Delivery.', 'cust-address');
     return;
   }
 
   if (paymentMethod.includes('Cuenta Corriente') && !paymentNote) {
-    alert('Por favor ingresa tu DNI / CUIT de la Cuenta Corriente Autorizada.');
-    document.getElementById('cust-payment-note').focus();
+    showCheckoutError('Por favor ingresá tu DNI / CUIT para la Cuenta Corriente.', 'cust-payment-note');
     return;
   }
 

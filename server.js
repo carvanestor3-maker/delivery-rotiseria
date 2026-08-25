@@ -213,9 +213,9 @@ app.post('/api/cash/shift/open', (req, res) => {
     const numBox = parseInt(box_number || 1);
     const strShiftType = shift_type || 'comandas'; // 'comandas' | 'pre_packaged' | 'weighed_food'
 
-    const auth = verifyUserPin(pin, 2);
+    const auth = verifyUserPin(pin, 1);
     if (!auth.isValid) {
-      return res.status(401).json({ success: false, error: auth.levelTooLow ? `El usuario ${auth.user.name} no posee Nivel 2 o superior.` : 'PIN de Encargado (Nivel 2) o Gerente (Nivel 3) incorrecto' });
+      return res.status(401).json({ success: false, error: 'PIN personal no válido o no registrado.' });
     }
 
     const strCashierName = (cashier_name || auth.user.name).trim();
@@ -223,6 +223,27 @@ app.post('/api/cash/shift/open', (req, res) => {
     const store = db.getStore();
     if (!store.cash_shifts) store.cash_shifts = [];
 
+    // 1. Regla Nivel 1: Un operario Nivel 1 no puede tener 2 cajas abiertas simultáneamente con su clave
+    if (auth.user.level === 1) {
+      const activeShiftByUser = store.cash_shifts.find(s => s.status === 'open' && s.user_id === auth.user.id);
+      if (activeShiftByUser) {
+        return res.status(400).json({ 
+          success: false, 
+          error: `⚠️ EL OPERARIO "${auth.user.name}" (Nivel 1) YA TIENE LA CAJA N° ${activeShiftByUser.box_number} ABIERTA. Un operario de Nivel 1 no puede abrir dos cajas simultáneamente.` 
+        });
+      }
+    }
+
+    // 2. Regla General (Nivel 1, 2 o 3): El nombre del cajero asignado NO se puede repetir en 2 cajas abiertas simultáneamente
+    const activeShiftWithSameCashier = store.cash_shifts.find(s => s.status === 'open' && (s.cashier_name || '').toLowerCase() === strCashierName.toLowerCase());
+    if (activeShiftWithSameCashier) {
+      return res.status(400).json({ 
+        success: false, 
+        error: `⚠️ EL CAJERO/A "${strCashierName}" YA ESTÁ ASIGNADO/A A LA CAJA N° ${activeShiftWithSameCashier.box_number} ACTUALMENTE ABIERTA. No se puede repetir el nombre del cajero en dos cajas abiertas.` 
+      });
+    }
+
+    // 3. Regla Número de Caja: La caja N° numBox no puede ser reabierta sin cerrar la previa
     const activeShiftOnBox = store.cash_shifts.find(s => s.status === 'open' && (s.box_number || 1) === numBox);
     if (activeShiftOnBox) {
       return res.status(400).json({ 
@@ -235,6 +256,7 @@ app.post('/api/cash/shift/open', (req, res) => {
     const newShift = {
       id: nextId,
       box_number: numBox,
+      user_id: auth.user.id,
       cashier_name: strCashierName,
       shift_type: strShiftType,
       opened_at: new Date().toISOString(),

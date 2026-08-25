@@ -185,7 +185,7 @@ function renderMenuSections() {
   }
 
   filteredCategories.forEach(cat => {
-    const catProducts = state.products.filter(p => String(p.category_id) === String(cat.id) && p.available === 1);
+    const catProducts = state.products.filter(p => String(p.category_id) === String(cat.id) && (String(p.available) === '1' || p.available === 1 || p.available === true || p.available === undefined));
     if (catProducts.length === 0) return;
 
     const section = document.createElement('div');

@@ -1265,6 +1265,9 @@ async function loadSettings() {
     if (data.success) {
       settings = data.settings;
       document.getElementById('set-restaurant-name').value = settings.restaurant_name || '';
+      if (document.getElementById('set-restaurant-address')) {
+        document.getElementById('set-restaurant-address').value = settings.restaurant_address || 'Av. Tambor de Tacuarí 4500 (Esq. Lavalle) - Posadas, Misiones';
+      }
       document.getElementById('set-whatsapp-phone').value = settings.whatsapp_phone || '';
       document.getElementById('set-delivery-cost').value = settings.delivery_cost || '1200';
       document.getElementById('set-epson-ip').value = settings.epson_printer_ip || '';
@@ -1652,6 +1655,7 @@ async function deleteProduct(id) {
 async function saveSettings(e) {
   e.preventDefault();
   const restaurant_name = document.getElementById('set-restaurant-name').value.trim();
+  const restaurant_address = document.getElementById('set-restaurant-address') ? document.getElementById('set-restaurant-address').value.trim() : '';
   const whatsapp_phone = document.getElementById('set-whatsapp-phone').value.trim();
   const delivery_cost = document.getElementById('set-delivery-cost').value.trim();
   const epson_printer_ip = document.getElementById('set-epson-ip').value.trim();
@@ -1661,7 +1665,7 @@ async function saveSettings(e) {
     const res = await fetch('/api/settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ restaurant_name, whatsapp_phone, delivery_cost, epson_printer_ip, auto_print_epson })
+      body: JSON.stringify({ restaurant_name, restaurant_address, whatsapp_phone, delivery_cost, epson_printer_ip, auto_print_epson })
     });
     const data = await res.json();
     if (data.success) {

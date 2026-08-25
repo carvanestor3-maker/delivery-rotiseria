@@ -84,6 +84,19 @@ async function loadMenuData() {
         document.getElementById('restaurant-title').textContent = state.settings.restaurant_name;
       }
 
+      const addr = state.settings.restaurant_address || 'Av. Tambor de Tacuarí 4500 (Esq. Lavalle) - Posadas, Misiones';
+      const addrEl = document.getElementById('restaurant-address-text');
+      if (addrEl) addrEl.textContent = addr;
+
+      const checkoutAddrEl = document.getElementById('checkout-pickup-address-text');
+      if (checkoutAddrEl) checkoutAddrEl.textContent = `📍 ${addr}`;
+
+      const mapLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr)}`;
+      const mapEl1 = document.getElementById('restaurant-address-map-link');
+      if (mapEl1) mapEl1.href = mapLink;
+      const mapEl2 = document.getElementById('checkout-pickup-map-link');
+      if (mapEl2) mapEl2.href = mapLink;
+
       renderCategoryTabs();
       renderMenuSections();
       updateCartUI();
@@ -244,15 +257,18 @@ function setDeliveryType(type) {
   const btnDel = document.getElementById('btn-type-delivery');
   const btnRet = document.getElementById('btn-type-takeaway');
   const addrContainer = document.getElementById('address-field-container');
+  const pickupInfoContainer = document.getElementById('pickup-info-container');
 
   if (type === 'delivery') {
     btnDel.className = 'py-2.5 rounded-lg transition bg-orange-500 text-white shadow';
     btnRet.className = 'py-2.5 rounded-lg transition text-slate-600 hover:text-slate-900';
     if (addrContainer) addrContainer.style.display = 'block';
+    if (pickupInfoContainer) pickupInfoContainer.classList.add('hidden');
   } else {
     btnRet.className = 'py-2.5 rounded-lg transition bg-orange-500 text-white shadow';
     btnDel.className = 'py-2.5 rounded-lg transition text-slate-600 hover:text-slate-900';
     if (addrContainer) addrContainer.style.display = 'none';
+    if (pickupInfoContainer) pickupInfoContainer.classList.remove('hidden');
   }
 
   updateCartUI();

@@ -2103,6 +2103,11 @@ function renderAttendanceHistory() {
   });
 }
 
+function goToUserRegistration() {
+  closeAttendanceModal();
+  switchTab('users');
+}
+
 async function submitClockIn() {
   const pinInput = document.getElementById('att-pin-input');
   const pin = pinInput ? pinInput.value.trim() : '';
@@ -2126,7 +2131,14 @@ async function submitClockIn() {
       alert(`🟢 INGRESO DE TURNO REGISTRADO CON ÉXITO!\n\nBienvenido/a: ${data.user_name}\nHora de entrada: ${inTime} hs.\n\nQuedas marcado como activo en turno.`);
       await loadAttendanceLogs();
     } else {
-      alert(`⚠️ ${data.error}`);
+      if (data.error && data.error.includes('PIN personal no válido')) {
+        const confirmGo = confirm('⚠️ TU PIN NO ESTÁ REGISTRADO AÚN EN EL SISTEMA.\n\nPara poder fichar entrada/salida y calcular tus horas trabajadas, primero debes solicitar que te asignen tu clave registrada en la sección de Personal.\n\n¿Deseas ir ahora a la pestaña "👤 Personal, Usuarios & PINs" para registrar la clave?');
+        if (confirmGo) {
+          goToUserRegistration();
+        }
+      } else {
+        alert(`⚠️ ${data.error}`);
+      }
     }
   } catch (err) {
     console.error('Error al fichar entrada:', err);
@@ -2156,7 +2168,14 @@ async function submitClockOut() {
       alert(`🔴 SALIDA DE TURNO REGISTRADA CON ÉXITO!\n\nHasta luego: ${data.user_name}\nHora de salida: ${outTime} hs.\nHoras totales trabajadas: ${data.hours_worked} hs.`);
       await loadAttendanceLogs();
     } else {
-      alert(`⚠️ ${data.error}`);
+      if (data.error && data.error.includes('PIN personal no válido')) {
+        const confirmGo = confirm('⚠️ TU PIN NO ESTÁ REGISTRADO AÚN EN EL SISTEMA.\n\n¿Deseas ir ahora a la pestaña "👤 Personal, Usuarios & PINs" para registrar tu clave?');
+        if (confirmGo) {
+          goToUserRegistration();
+        }
+      } else {
+        alert(`⚠️ ${data.error}`);
+      }
     }
   } catch (err) {
     console.error('Error al fichar salida:', err);

@@ -33,7 +33,9 @@
   <script src="https://unpkg.com/lucide@latest"></script>
   <script>
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(err => console.log('SW error:', err));
+      navigator.serviceWorker.register('/sw.js?v=3.0').then(reg => {
+        reg.update();
+      }).catch(err => console.log('SW error:', err));
     }
 
     var deferredInstallPrompt = null;

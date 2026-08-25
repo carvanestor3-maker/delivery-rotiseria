@@ -1478,8 +1478,32 @@ function handleVideoFileSelect(event) {
   const file = event.target.files[0];
   if (!file) return;
 
-  if (file.size > 60 * 1024 * 1024) {
-    alert('⚠️ EL ARCHIVO DE VIDEO EXCEDE LOS 60MB:\n\nPara mejor velocidad, selecciona un video comprimido en .MP4 o ingresa el enlace web.');
+  const fileName = file.name.toLowerCase();
+
+  // Si el usuario seleccionó un archivo HTML guardado (ej: página web o iframe guardado)
+  if (fileName.endsWith('.html') || fileName.endsWith('.htm') || file.type === 'text/html') {
+    const textReader = new FileReader();
+    textReader.onload = function(e) {
+      const htmlContent = e.target.result;
+      const match = htmlContent.match(/(https?:\/\/(www\.)?(youtube\.com|youtu\.be|vimeo\.com)[^\s"'<>]+)/i) ||
+                    htmlContent.match(/src=["'](https?:\/\/[^"']+\.(mp4|webm|ogg|mov)[^"']*)["']/i) ||
+                    htmlContent.match(/src=["'](https?:\/\/[^"']+)["']/i);
+      if (match && match[1]) {
+        const extractedUrl = match[1];
+        const urlInput = document.getElementById('prod-video-url');
+        if (urlInput) urlInput.value = extractedUrl;
+        showVideoPreview(extractedUrl);
+        alert(`✅ ENLACE EXTRAÍDO DEL ARCHIVO HTML:\n\nSe detectó el video: ${extractedUrl}`);
+      } else {
+        alert('⚠️ No se encontró un enlace de video válido dentro de este archivo HTML. Por favor pega directamente la dirección web o selecciona un video .MP4.');
+      }
+    };
+    textReader.readAsText(file);
+    return;
+  }
+
+  if (file.size > 80 * 1024 * 1024) {
+    alert('⚠️ EL ARCHIVO DE VIDEO EXCEDE LOS 80MB:\n\nPara mejor velocidad, selecciona un video comprimido en .MP4 o ingresa el enlace web.');
     return;
   }
 

@@ -115,16 +115,18 @@ function renderMenuSections() {
 function renderProductCard(prod) {
   const cartItem = state.cart.find(item => item.id === prod.id);
   const qty = cartItem ? cartItem.qty : 0;
-  const imageUrl = prod.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200';
+  const rawImage = prod.image_url ? prod.image_url.trim() : '';
+  const fallbackUrl = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200';
+  const imageUrl = rawImage.length > 0 ? rawImage : fallbackUrl;
   const hasVideo = prod.video_url && prod.video_url.trim().length > 0;
 
   return `
     <div class="bg-white rounded-2xl p-3.5 shadow-sm border border-slate-200 flex gap-3.5 items-start hover:shadow-md transition">
       <!-- Columna Foto + Botón Video abajo -->
       <div class="flex flex-col items-center gap-1.5 flex-shrink-0">
-        <div class="relative cursor-pointer group" onclick="openPhotoLightboxByProductId(${prod.id})" title="Toca para ampliar foto en pantalla completa HD">
-          <img src="${imageUrl}" alt="${prod.name}" class="w-20 h-20 rounded-xl object-cover bg-slate-100 group-hover:opacity-90 transition shadow-xs border border-slate-100">
-          <span class="absolute bottom-1 right-1 bg-slate-900/80 text-white p-1 rounded-md text-[9px] font-black backdrop-blur-xs flex items-center gap-0.5">
+        <div class="relative w-20 h-20 rounded-xl overflow-hidden bg-slate-100 cursor-pointer group flex-shrink-0 border border-slate-200 shadow-xs" onclick="openPhotoLightboxByProductId(${prod.id})" title="Toca para ampliar foto en pantalla completa HD">
+          <img src="${imageUrl}" alt="${prod.name}" onerror="this.onerror=null; this.src='${fallbackUrl}';" class="w-full h-full object-cover group-hover:opacity-90 transition">
+          <span class="absolute bottom-1 right-1 bg-slate-900/80 text-white px-1 py-0.5 rounded-md text-[8px] font-black backdrop-blur-xs flex items-center gap-0.5">
             🔍 HD
           </span>
         </div>

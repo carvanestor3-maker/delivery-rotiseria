@@ -34,6 +34,11 @@
         ⏱️ <span class="hidden sm:inline">Fichar Horas</span>
       </button>
 
+      <!-- Botón Apertura/Cierre Turno de Bar -->
+      <button id="btn-bar-shift" onclick="openBarShiftModal()" class="px-2.5 py-1.5 bg-purple-700 hover:bg-purple-600 rounded-xl text-xs font-black flex items-center gap-1 text-white shadow transition" title="Apertura o Cierre de Turno de Barista">
+        ☕ <span id="bar-shift-btn-text">Turno de Bar</span>
+      </button>
+
       <!-- Botón Sonido Alerta -->
       <button id="sound-btn" onclick="toggleAudio()" class="px-2.5 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-xl text-xs font-bold flex items-center gap-1 transition text-slate-200 border border-slate-600">
         <i data-lucide="volume-2" class="w-4 h-4 text-emerald-400"></i>
@@ -213,6 +218,49 @@
       <div class="pt-2 flex justify-end">
         <button type="button" onclick="closeAttendanceModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 font-bold rounded-xl text-xs text-slate-700">Cerrar</button>
       </div>
+    </div>
+  <!-- MODAL DE APERTURA / CIERRE DE TURNO DE BAR -->
+  <div id="bar-shift-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200 text-slate-900">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+      <div class="flex justify-between items-center border-b pb-3 border-slate-200">
+        <div>
+          <h3 id="bar-shift-title" class="font-extrabold text-purple-950 text-base flex items-center gap-2">
+            ☕ Apertura de Turno de Bar & Cafetería
+          </h3>
+          <p class="text-xs text-slate-500">Asigna el barista o responsable del turno de la barra</p>
+        </div>
+        <button onclick="closeBarShiftModal()" class="text-slate-400 hover:text-slate-700">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="bar-shift-form" onsubmit="submitBarShift(event)" class="space-y-3">
+        <div id="bar-shift-open-fields" class="space-y-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">☕ Barista / Operario a Cargo del Bar *</label>
+            <input type="text" id="barista-name-input" placeholder="Ej: Lucía / Mario" class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-extrabold text-slate-900 outline-none focus:ring-2 focus:ring-purple-500">
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">🗓️ Nombre del Turno *</label>
+            <select id="barista-shift-name" class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-extrabold text-slate-900 outline-none focus:ring-2 focus:ring-purple-500">
+              <option value="Turno Mañana">Turno Mañana</option>
+              <option value="Turno Tarde">Turno Tarde</option>
+              <option value="Turno Noche">Turno Noche</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">🔑 Tu PIN Personal Registrado *</label>
+          <input type="password" id="barista-pin-input" placeholder="Tu PIN personal (ej: 1111)" required class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm font-mono font-bold text-center outline-none focus:ring-2 focus:ring-purple-500 tracking-widest">
+        </div>
+
+        <div class="flex gap-2 pt-2">
+          <button type="button" onclick="closeBarShiftModal()" class="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs">Cancelar</button>
+          <button type="submit" id="bar-shift-submit-btn" class="flex-1 py-2 bg-purple-700 hover:bg-purple-800 text-white font-extrabold rounded-xl text-xs shadow">🟢 Confirmar Apertura</button>
+        </div>
+      </form>
     </div>
   </div>
 

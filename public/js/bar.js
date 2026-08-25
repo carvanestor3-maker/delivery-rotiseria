@@ -9,6 +9,7 @@ let liveTimerInterval = null;
 document.addEventListener('DOMContentLoaded', () => {
   loadOrders();
   loadAttendanceLogs();
+  loadBarShift();
   setupSocket();
   liveTimerInterval = setInterval(updateLiveTimers, 1000);
 });
@@ -51,6 +52,10 @@ function setupSocket() {
 
   socket.on('attendance_updated', () => {
     loadAttendanceLogs();
+  });
+
+  socket.on('bar_shift_updated', () => {
+    loadBarShift();
   });
 }
 
@@ -478,5 +483,124 @@ async function submitClockOut() {
     }
   } catch (err) {
     console.error('Error al fichar salida:', err);
+  }
+}
+
+// ==========================================
+// APERTURA Y CIERRE DE TURNO DE BAR & CAFETERÍA
+// ==========================================
+
+let activeBarShift = null;
+
+async function loadBarShift() {
+  try {
+    const res = await fetch('/api/bar/shift');
+    const data = await res.json();
+    if (data.success) {
+      activeBarShift = data.active_shift;
+      renderBarShiftButton();
+    }
+  } catch (err) {
+    console.error('Error al cargar turno de bar:', err);
+  }
+}
+
+function renderBarShiftButton() {
+  const btn = document.getElementById('btn-bar-shift');
+  const btnText = document.getElementById('bar-shift-btn-text');
+  if (!btn || !btnText) return;
+
+  if (activeBarShift) {
+    btnText.textContent = `🟢 Barista: ${activeBarShift.barista_name}`;
+    btn.className = 'px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl text-xs font-black flex items-center gap-1 text-white shadow transition cursor-pointer';
+    btn.title = `Turno de Bar Abierto por ${activeBarShift.barista_name}. Clic para cerrar turno.`;
+  } else {
+    btnText.textContent = `🔴 Abrir Turno Bar`;
+    btn.className = 'px-2.5 py-1.5 bg-purple-700 hover:bg-purple-600 rounded-xl text-xs font-black flex items-center gap-1 text-white shadow transition cursor-pointer';
+    btn.title = `No hay turno de Bar abierto. Clic para abrir.`;
+  }
+}
+
+function openBarShiftModal() {
+  const modal = document.getElementById('bar-shift-modal');
+  const title = document.getElementById('bar-shift-title');
+  const openFields = document.getElementById('bar-shift-open-fields');
+  const submitBtn = document.getElementById('bar-shift-submit-btn');
+
+  document.getElementById('bar-shift-form').reset();
+
+  if (activeBarShift) {
+    if (title) title.textContent = `🔒 Cerrar Turno de Bar (Barista: ${activeBarShift.barista_name})`;
+    if (openFields) openFields.classList.add('hidden');
+    if (submitBtn) {
+      submitBtn.textContent = '🔒 Confirmar Cierre de Bar';
+      submitBtn.className = 'flex-1 py-2 bg-slate-800 hover:bg-slate-700 text-white font-extrabold rounded-xl text-xs shadow';
+    }
+  } else {
+    if (title) title.textContent = '☕ Apertura de Turno de Bar & Cafetería';
+    if (openFields) openFields.classList.remove('hidden');
+    if (submitBtn) {
+      submitBtn.textContent = '🟢 Confirmar Apertura de Bar';
+      submitBtn.className = 'flex-1 py-2 bg-purple-700 hover:bg-purple-800 text-white font-extrabold rounded-xl text-xs shadow';
+    }
+  }
+
+  modal.classList.remove('opacity-0', 'pointer-events-none');
+}
+
+function closeBarShiftModal() {
+  const modal = document.getElementById('bar-shift-modal');
+  modal.classList.add('opacity-0', 'pointer-events-none');
+}
+
+async function submitBarShift(e) {
+  e.preventDefault();
+  const pin = document.getElementById('barista-pin-input').value.trim();
+
+  if (activeBarShift) {
+    try {
+      const res = await fetch('/api/bar/shift/close', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin })
+      });
+      const data = await res.json();
+      if (data.success) {
+        closeBarShiftModal();
+        alert(`🔒 TURNO DE BAR CERRADO CON ÉXITO!\n\nBarista: ${data.shift.barista_name}\nCerrado por: ${data.user_name}`);
+        await loadBarShift();
+      } else {
+        alert(`⚠️ ${data.error}`);
+      }
+    } catch (err) {
+      console.error('Error al cerrar turno de bar:', err);
+    }
+  } else {
+    const barista_name = document.getElementById('barista-name-input').value.trim();
+    const shift_name = document.getElementById('barista-shift-name').value;
+
+    if (!barista_name) {
+      alert('⚠️ Por favor ingresa el nombre del Barista a cargo.');
+      document.getElementById('barista-name-input').focus();
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/bar/shift/open', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ barista_name, shift_name, pin })
+      });
+      const data = await res.json();
+      if (data.success) {
+        closeBarShiftModal();
+        alert(`🟢 TURNO DE BAR ABIERTO CON ÉXITO!\n\nBarista a cargo: ${data.shift.barista_name}\nTurno: ${data.shift.shift_name}\nAutorizado por: ${data.user_name}`);
+        await loadBarShift();
+      } else {
+        alert(`⚠️ ${data.error}`);
+      }
+    } catch (err) {
+      console.error('Error al abrir turno de bar:', err);
+    }
   }
 }

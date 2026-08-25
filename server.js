@@ -1662,6 +1662,88 @@ app.post('/api/pos/sale', (req, res) => {
 });
 
 // ==========================================
+// APIS DE GESTIÓN DE TURNO DE BAR & CAFETERÍA
+// ==========================================
+
+app.get('/api/bar/shift', (req, res) => {
+  try {
+    const store = db.getStore();
+    const shifts = store.bar_shifts || [];
+    const activeShift = shifts.find(s => s.status === 'open') || null;
+    res.json({ success: true, active_shift: activeShift, history: shifts });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/bar/shift/open', (req, res) => {
+  try {
+    const { barista_name, shift_name, pin } = req.body;
+    const auth = verifyUserPin(pin, 1);
+    if (!auth.isValid) {
+      return res.status(401).json({ success: false, error: '⚠️ PIN personal no válido. Ingresa tu clave registrada.' });
+    }
+
+    const store = db.getStore();
+    if (!store.bar_shifts) store.bar_shifts = [];
+
+    const existingOpen = store.bar_shifts.find(s => s.status === 'open');
+    if (existingOpen) {
+      return res.status(400).json({ success: false, error: `⚠️ Ya existe un Turno de Bar Abierto a nombre de "${existingOpen.barista_name}". Ciérralo antes de abrir uno nuevo.` });
+    }
+
+    const nextId = store.bar_shifts.length > 0 ? Math.max(...store.bar_shifts.map(s => s.id)) + 1 : 1;
+    const newShift = {
+      id: nextId,
+      barista_name: barista_name || auth.user.name,
+      shift_name: shift_name || 'Turno Bar',
+      opened_at: new Date().toISOString(),
+      closed_at: null,
+      opened_by: auth.user.name,
+      user_id: auth.user.id,
+      status: 'open'
+    };
+
+    store.bar_shifts.unshift(newShift);
+    db.saveStore();
+    io.emit('bar_shift_updated', newShift);
+
+    res.json({ success: true, shift: newShift, user_name: auth.user.name });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/bar/shift/close', (req, res) => {
+  try {
+    const { pin } = req.body;
+    const auth = verifyUserPin(pin, 1);
+    if (!auth.isValid) {
+      return res.status(401).json({ success: false, error: '⚠️ PIN personal no válido. Ingresa tu clave registrada.' });
+    }
+
+    const store = db.getStore();
+    if (!store.bar_shifts) store.bar_shifts = [];
+
+    const activeShift = store.bar_shifts.find(s => s.status === 'open');
+    if (!activeShift) {
+      return res.status(400).json({ success: false, error: '⚠️ No hay ningún turno de Bar abierto para cerrar.' });
+    }
+
+    activeShift.status = 'closed';
+    activeShift.closed_at = new Date().toISOString();
+    activeShift.closed_by = auth.user.name;
+
+    db.saveStore();
+    io.emit('bar_shift_updated', activeShift);
+
+    res.json({ success: true, shift: activeShift, user_name: auth.user.name });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ==========================================
 // APIS DE FICHAJE DE ASISTENCIA Y CÓMPUTO DE HORAS TRABAJADAS
 // ==========================================
 

@@ -7,7 +7,7 @@ const state = {
   deliveryType: 'delivery'
 };
 
-let deferredInstallPrompt = null;
+var deferredInstallPrompt = deferredInstallPrompt || null;
 
 window.addEventListener('beforeinstallprompt', (e) => {
   deferredInstallPrompt = e;

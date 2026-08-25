@@ -24,8 +24,22 @@ function triggerPwaInstall() {
       if (installBanner) installBanner.classList.add('hidden');
     });
   } else {
-    const installBanner = document.getElementById('pwa-install-banner');
-    if (installBanner) installBanner.classList.add('hidden');
+    const modal = document.getElementById('pwa-install-modal');
+    if (modal) modal.classList.remove('opacity-0', 'pointer-events-none');
+  }
+}
+
+function closePwaInstallModal() {
+  const modal = document.getElementById('pwa-install-modal');
+  if (modal) modal.classList.add('opacity-0', 'pointer-events-none');
+}
+
+function confirmPwaInstallModal() {
+  closePwaInstallModal();
+  if (window.deferredInstallPrompt) {
+    window.deferredInstallPrompt.prompt();
+  } else {
+    alert('📱 Para agregar el acceso directo con el logo en tu celular:\n\n1. Tocá los 3 puntos arriba a la derecha en Chrome.\n2. Elegí "Añadir a la pantalla de inicio" o "Instalar aplicación".');
   }
 }
 

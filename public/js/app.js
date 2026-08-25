@@ -7,6 +7,28 @@ const state = {
   deliveryType: 'delivery'
 };
 
+let deferredInstallPrompt = null;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  const installBanner = document.getElementById('pwa-install-banner');
+  if (installBanner) installBanner.classList.remove('hidden');
+});
+
+function triggerPwaInstall() {
+  if (deferredInstallPrompt) {
+    deferredInstallPrompt.prompt();
+    deferredInstallPrompt.userChoice.then((choiceResult) => {
+      deferredInstallPrompt = null;
+      const installBanner = document.getElementById('pwa-install-banner');
+      if (installBanner) installBanner.classList.add('hidden');
+    });
+  } else {
+    alert('📱 Para agregar el acceso directo en tu celular:\n\n1. Tocá los 3 puntos arriba a la derecha en Chrome.\n2. Elegí "Añadir a la pantalla de inicio" o "Instalar aplicación".');
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   loadMenuData();
   loadCartFromStorage();

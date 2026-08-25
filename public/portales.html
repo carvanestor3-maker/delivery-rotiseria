@@ -18,6 +18,20 @@
 </head>
 <body class="bg-slate-950 text-white min-h-screen flex flex-col justify-between p-4 sm:p-6 font-sans">
 
+  <!-- BANNER DE INSTALACIÓN RÁPIDA DE APP EN CELULAR -->
+  <div id="pwa-install-banner" class="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-slate-950 p-2.5 text-center text-xs font-black flex justify-between items-center shadow-lg rounded-2xl mb-4">
+    <div class="flex items-center gap-2">
+      <img src="/apple-touch-icon.png" class="w-8 h-8 rounded-lg shadow border border-amber-300 object-cover">
+      <span>📲 ¿Instalar App "Sistema Gastronómico" en tu celular?</span>
+    </div>
+    <div class="flex items-center gap-1.5">
+      <button onclick="triggerPwaInstall()" class="bg-slate-950 hover:bg-slate-900 text-amber-400 font-extrabold px-3 py-1.5 rounded-xl text-xs shadow active:scale-95 transition">
+        🚀 INSTALAR AHORA
+      </button>
+      <button onclick="document.getElementById('pwa-install-banner').classList.add('hidden')" class="px-2 py-1 text-slate-950/80 hover:text-slate-950 font-bold">✕</button>
+    </div>
+  </div>
+
   <!-- Header del Launcher -->
   <header class="text-center space-y-2 py-4">
     <img src="/logo_icon.png" alt="La Gran Rotisería Logo" class="w-20 h-20 rounded-3xl object-cover shadow-2xl border-2 border-amber-500/40 inline-block mb-1 bg-slate-900">
@@ -163,6 +177,28 @@
   </footer>
 
   <script>
+    let deferredInstallPrompt = null;
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredInstallPrompt = e;
+      const installBanner = document.getElementById('pwa-install-banner');
+      if (installBanner) installBanner.classList.remove('hidden');
+    });
+
+    function triggerPwaInstall() {
+      if (deferredInstallPrompt) {
+        deferredInstallPrompt.prompt();
+        deferredInstallPrompt.userChoice.then((choiceResult) => {
+          deferredInstallPrompt = null;
+          const installBanner = document.getElementById('pwa-install-banner');
+          if (installBanner) installBanner.classList.add('hidden');
+        });
+      } else {
+        alert('📱 Para agregar el acceso directo en tu celular:\n\n1. Tocá los 3 puntos arriba a la derecha en Chrome.\n2. Elegí "Añadir a la pantalla de inicio" o "Instalar aplicación".');
+      }
+    }
+
     function shareAppWhatsApp() {
       const shareText = "¡Hola! 👋 Te comparto el Menú Digital de La Gran Rotisería, Bar & Drugstore 24hs 🍳 Mirá los platos, fotos y videos de elaboración para pedir online acá:\n\nhttps://spressgastro-ar.com";
       

@@ -19,10 +19,24 @@ function formatWhatsAppNumber(phone) {
     clean = '549' + clean;
   } else if (clean.length === 11 && clean.startsWith('0')) {
     clean = '549' + clean.substring(1);
-  } else if (clean.length === 12 && clean.startsWith('54') && !clean.startsWith('549')) {
-    clean = '549' + clean.substring(2);
-  }
   return clean;
+}
+
+function shareAppWhatsApp() {
+  const restName = (state.settings && state.settings.restaurant_name) ? state.settings.restaurant_name : 'La Gran Rotisería, Bar & Drugstore 24hs';
+  const shareText = `¡Hola! 👋 Te comparto el Menú Digital de ${restName} 🍳 Mirá los platos, fotos y videos de preparación para pedir acá:\n\nhttps://spressgastro-ar.com`;
+  
+  if (navigator.share) {
+    navigator.share({
+      title: `${restName} - Comidas Portal`,
+      text: shareText,
+      url: "https://spressgastro-ar.com"
+    }).catch(err => {
+      window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`, '_blank');
+    });
+  } else {
+    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`, '_blank');
+  }
 }
 
 async function loadMenuData() {

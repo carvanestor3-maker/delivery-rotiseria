@@ -36,22 +36,29 @@
   <!-- Grilla de Botones Grandes de Portales (Estilo App Nativa) -->
   <main class="max-w-4xl mx-auto w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 my-auto py-4">
 
-    <!-- BOTÓN 1: MENÚ PÚBLICO -->
-    <a href="/" target="_blank" class="group relative bg-slate-900/90 hover:bg-slate-850 border border-slate-800 hover:border-amber-500/50 p-6 rounded-3xl transition-all duration-300 shadow-xl hover:shadow-2xl hover:shadow-amber-500/10 flex flex-col justify-between overflow-hidden active:scale-98">
+    <!-- BOTÓN 1: MENÚ PÚBLICO & COMPARTIR POR WHATSAPP -->
+    <div class="group relative bg-slate-900/90 border border-slate-800 hover:border-amber-500/50 p-6 rounded-3xl transition-all duration-300 shadow-xl flex flex-col justify-between overflow-hidden space-y-4">
       <div class="flex justify-between items-start">
-        <div class="w-14 h-14 bg-gradient-to-br from-amber-500 to-orange-600 text-slate-950 rounded-2xl flex items-center justify-center text-2xl font-black shadow-lg group-hover:scale-110 transition-transform">
+        <div class="w-14 h-14 bg-gradient-to-br from-amber-500 to-orange-600 text-slate-950 rounded-2xl flex items-center justify-center text-2xl font-black shadow-lg">
           🍽️
         </div>
-        <span class="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-black px-2.5 py-1 rounded-full uppercase">Público</span>
+        <span class="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-black px-2.5 py-1 rounded-full uppercase">Comidas Portal</span>
       </div>
-      <div class="mt-6 space-y-1">
-        <h2 class="text-lg font-black text-white group-hover:text-amber-400 transition-colors flex items-center justify-between">
-          <span>Menú Digital Público</span>
-          <i data-lucide="chevron-right" class="w-5 h-5 text-slate-500 group-hover:translate-x-1 transition-transform"></i>
+      <div class="space-y-1">
+        <h2 class="text-lg font-black text-white">
+          Comidas Portal
         </h2>
-        <p class="text-xs text-slate-400">Ver Carta, fotos, videos y pedidos online de clientes</p>
+        <p class="text-xs text-slate-400">Ver la carta con fotos y videos o enviar la App a cualquier contacto de WhatsApp</p>
       </div>
-    </a>
+      <div class="grid grid-cols-2 gap-2 pt-2">
+        <a href="/" target="_blank" class="py-2.5 bg-amber-500 hover:bg-amber-600 active:scale-95 text-slate-950 font-black text-xs rounded-xl shadow transition flex items-center justify-center gap-1 text-center">
+          🍽️ Abrir Menú
+        </a>
+        <button onclick="shareAppWhatsApp()" class="py-2.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-black text-xs rounded-xl shadow transition flex items-center justify-center gap-1 text-center">
+          📲 Compartir App
+        </button>
+      </div>
+    </div>
 
     <!-- BOTÓN 2: KDS PRODUCCIÓN -->
     <a href="/produccion.html" target="_blank" class="group relative bg-slate-900/90 hover:bg-slate-850 border border-slate-800 hover:border-amber-500/50 p-6 rounded-3xl transition-all duration-300 shadow-xl hover:shadow-2xl hover:shadow-amber-500/10 flex flex-col justify-between overflow-hidden active:scale-98">
@@ -156,6 +163,21 @@
   </footer>
 
   <script>
+    function shareAppWhatsApp() {
+      const shareText = "¡Hola! 👋 Te comparto el Menú Digital de La Gran Rotisería, Bar & Drugstore 24hs 🍳 Mirá los platos, fotos y videos de elaboración para pedir online acá:\n\nhttps://spressgastro-ar.com";
+      
+      if (navigator.share) {
+        navigator.share({
+          title: "Comidas Portal - La Gran Rotisería",
+          text: shareText,
+          url: "https://spressgastro-ar.com"
+        }).catch(err => {
+          window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`, '_blank');
+        });
+      } else {
+        window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`, '_blank');
+      }
+    }
     lucide.createIcons();
   </script>
 </body>

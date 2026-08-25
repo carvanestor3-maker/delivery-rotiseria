@@ -36,24 +36,22 @@
       navigator.serviceWorker.register('/sw.js').catch(err => console.log('SW error:', err));
     }
 
-    window.deferredInstallPrompt = window.deferredInstallPrompt || null;
+    let deferredInstallPrompt = null;
+
     window.addEventListener('beforeinstallprompt', (e) => {
-      window.deferredInstallPrompt = e;
+      deferredInstallPrompt = e;
       const installBanner = document.getElementById('pwa-install-banner');
       if (installBanner) installBanner.classList.remove('hidden');
     });
 
     function triggerPwaInstall() {
-      if (window.deferredInstallPrompt) {
-        window.deferredInstallPrompt.prompt();
-        window.deferredInstallPrompt.userChoice.then((choiceResult) => {
-          window.deferredInstallPrompt = null;
+      if (deferredInstallPrompt) {
+        deferredInstallPrompt.prompt();
+        deferredInstallPrompt.userChoice.then((choiceResult) => {
+          deferredInstallPrompt = null;
           const installBanner = document.getElementById('pwa-install-banner');
           if (installBanner) installBanner.classList.add('hidden');
         });
-      } else {
-        const installBanner = document.getElementById('pwa-install-banner');
-        if (installBanner) installBanner.classList.add('hidden');
       }
     }
   </script>
@@ -71,25 +69,6 @@
         🚀 INSTALAR AHORA
       </button>
       <button onclick="document.getElementById('pwa-install-banner').classList.add('hidden')" class="px-2 py-1 text-slate-950/80 hover:text-slate-950 font-bold">✕</button>
-    </div>
-  </div>
-
-  <!-- MODAL EMERGENTE DE INSTALACIÓN CON LOGO -->
-  <div id="pwa-install-modal" onclick="if (event.target === this) closePwaInstallModal()" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200">
-    <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-sm w-full text-center text-white space-y-4 shadow-2xl">
-      <img src="/logo_icon.png" class="w-20 h-20 rounded-2xl object-cover border-2 border-amber-500 shadow-xl mx-auto">
-      <div class="space-y-1">
-        <h3 class="text-lg font-black text-white">Instalar App "Comidas Portal"</h3>
-        <p class="text-xs text-slate-400">Tené el acceso directo con el logo oficial de La Gran Rotisería en la pantalla de inicio de tu celular.</p>
-      </div>
-      <div class="space-y-2 pt-2">
-        <button onclick="confirmPwaInstallModal()" class="w-full py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 font-black text-sm rounded-xl shadow-lg active:scale-95 transition">
-          📲 INSTALAR AHORA EN TU CELULAR
-        </button>
-        <button onclick="closePwaInstallModal()" class="w-full py-2 text-slate-400 hover:text-white text-xs font-bold">
-          Ahora no
-        </button>
-      </div>
     </div>
   </div>
 

@@ -94,8 +94,20 @@ function isBarOrder(order) {
 function renderBarView() {
   const barOrders = orders.filter(isBarOrder);
 
-  const pendingOrders = barOrders.filter(o => o.status !== 'ready' && o.status !== 'delivered');
-  const historyOrders = barOrders.filter(o => o.status === 'ready' || o.status === 'delivered');
+  // Tickets pendientes de despacho: filtro estricto (excluye ready, bar_despachado, delivered, entregado)
+  const pendingOrders = barOrders.filter(o => 
+    o.status !== 'ready' && 
+    o.status !== 'bar_despachado' && 
+    o.status !== 'delivered' && 
+    o.status !== 'entregado'
+  );
+
+  const historyOrders = barOrders.filter(o => 
+    o.status === 'ready' || 
+    o.status === 'bar_despachado' || 
+    o.status === 'delivered' || 
+    o.status === 'entregado'
+  );
 
   updateMetrics(pendingOrders, historyOrders);
 
@@ -156,10 +168,23 @@ function renderPendingBarGrid(pendingOrders) {
     return;
   }
 
+  const now = new Date();
+
   container.innerHTML = pendingOrders.map(o => {
     const isTicketBar = String(o.order_number || '').startsWith('#BAR');
     const inTime = o.created_at ? new Date(o.created_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '-';
     
+    const diffSec = Math.max(0, Math.floor((now - new Date(o.created_at)) / 1000));
+    const isInProgress = o.bar_status === 'en_proceso' || o.status === 'en_proceso';
+    const isExcessive = diffSec >= 300 && !isInProgress;
+
+    let borderClass = isTicketBar ? 'border-purple-500/50 shadow-purple-900/20 bg-slate-800' : 'border-slate-700 bg-slate-800';
+    if (isInProgress) {
+      borderClass = 'border-2 border-amber-500 bg-amber-950/40 shadow-amber-900/40';
+    } else if (isExcessive) {
+      borderClass = 'border-2 border-red-500 bg-red-950/50 shadow-red-900/60 animate-pulse';
+    }
+
     const itemsHtml = Array.isArray(o.items) ? o.items.map(i => `
       <div class="flex justify-between items-center py-1 border-b border-slate-700/50 text-xs">
         <span class="font-black text-white flex items-center gap-1.5">
@@ -171,7 +196,22 @@ function renderPendingBarGrid(pendingOrders) {
     `).join('') : '<div class="text-xs text-slate-400 italic">Sin detalle</div>';
 
     return `
-      <div class="bg-slate-800 rounded-2xl border ${isTicketBar ? 'border-purple-500/50 shadow-purple-900/20' : 'border-slate-700'} p-4 shadow-xl space-y-3">
+      <div class="rounded-2xl border ${borderClass} p-4 shadow-xl space-y-3 transition-all duration-300">
+        
+        ${isExcessive ? `
+          <div class="bg-red-600 text-white font-black text-xs p-2 rounded-xl flex justify-between items-center animate-bounce shadow-md">
+            <span>🚨 ALERTA: >5 MINUTOS SIN ENTREGAR</span>
+            <span class="font-mono">⏱️ ${Math.floor(diffSec / 60)}m ${diffSec % 60}s</span>
+          </div>
+        ` : ''}
+
+        ${isInProgress ? `
+          <div class="bg-amber-500/20 text-amber-300 border border-amber-500/50 p-2 rounded-xl text-xs font-extrabold flex justify-between items-center">
+            <span>⏸️ EN PROCESO: ${o.bar_incident_note || o.bar_incident_reason || 'Falta Insumo'}</span>
+            <span class="text-[10px] bg-amber-500 text-slate-950 font-black px-1.5 py-0.5 rounded">Caja Notificada</span>
+          </div>
+        ` : ''}
+
         <div class="flex justify-between items-start border-b border-slate-700 pb-2">
           <div>
             <div class="flex items-center gap-2">
@@ -190,17 +230,23 @@ function renderPendingBarGrid(pendingOrders) {
           ${itemsHtml}
         </div>
 
-        <!-- RELOJ TRANSCRURRIDO EN VIVO -->
+        <!-- RELOJ TRANSCURRIDO EN VIVO -->
         <div class="bg-slate-900/80 p-2.5 rounded-xl border border-slate-700 flex justify-between items-center">
           <span class="text-[11px] font-extrabold text-slate-400">⏱️ Tiempo Transcurrido:</span>
-          <span class="live-elapsed-timer font-mono font-black text-sm text-amber-400" data-start="${o.created_at}">Calculando...</span>
+          <span class="live-elapsed-timer font-mono font-black text-sm ${isExcessive ? 'text-red-400' : isInProgress ? 'text-amber-400' : 'text-emerald-400'}" data-start="${o.created_at}">Calculando...</span>
         </div>
 
         ${o.notes ? `<div class="bg-slate-900/60 p-2 rounded-lg text-[11px] text-amber-300 font-semibold border border-amber-500/20">📝 ${o.notes}</div>` : ''}
 
-        <button onclick="deliverBarOrder(${o.id})" class="w-full py-3 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-extrabold rounded-xl text-xs shadow-lg transition flex items-center justify-center gap-1.5 cursor-pointer">
-          ☕ MARCAR ENTREGADO EN BARRA
-        </button>
+        <div class="flex flex-col gap-2 pt-1">
+          <button onclick="deliverBarOrder(${o.id})" class="w-full py-3 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-black rounded-xl text-xs shadow-lg transition flex items-center justify-center gap-1.5 cursor-pointer">
+            ☕ MARCAR ENTREGADO EN BARRA
+          </button>
+          
+          <button onclick="openBarIncidentModal(${o.id})" class="w-full py-2 bg-slate-700 hover:bg-amber-600/30 text-amber-300 hover:text-amber-200 border border-slate-600 hover:border-amber-500 font-bold rounded-xl text-[11px] transition flex items-center justify-center gap-1">
+            ⏸️ EN PROCESO / FALTA INSUMO (AVISAR A CAJA)
+          </button>
+        </div>
       </div>
     `;
   }).join('');
@@ -269,10 +315,56 @@ async function deliverBarOrder(orderId) {
     });
     const data = await res.json();
     if (data.success) {
+      // El pedido pasa inmediatamente al historial y sale de la pantalla activa
       await loadOrders();
     }
   } catch (err) {
     console.error('Error al entregar pedido en Bar:', err);
+  }
+}
+
+function openBarIncidentModal(orderId) {
+  const order = orders.find(o => o.id === orderId);
+  if (!order) return;
+
+  document.getElementById('incident-order-id').value = order.id;
+  document.getElementById('incident-order-label').textContent = `Ticket ${order.order_number} (${order.customer_name || 'Cliente Barra'})`;
+  
+  if (activeBarShift) {
+    document.getElementById('incident-barista-name').value = activeBarShift.barista_name || '';
+  }
+
+  const modal = document.getElementById('bar-incident-modal');
+  if (modal) modal.classList.remove('opacity-0', 'pointer-events-none');
+}
+
+function closeBarIncidentModal() {
+  const modal = document.getElementById('bar-incident-modal');
+  if (modal) modal.classList.add('opacity-0', 'pointer-events-none');
+}
+
+async function submitBarIncident(e) {
+  e.preventDefault();
+  const orderId = document.getElementById('incident-order-id').value;
+  const reason = document.getElementById('incident-reason-select').value;
+  const note = document.getElementById('incident-note-input').value.trim();
+  const barista_name = document.getElementById('incident-barista-name').value.trim();
+
+  try {
+    const res = await fetch(`/api/bar/orders/${orderId}/incident`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason, note, barista_name })
+    });
+    const data = await res.json();
+    if (data.success) {
+      closeBarIncidentModal();
+      await loadOrders();
+    } else {
+      alert(`⚠️ ${data.error}`);
+    }
+  } catch (err) {
+    console.error('Error al notificar incidente en Bar:', err);
   }
 }
 

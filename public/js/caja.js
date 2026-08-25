@@ -29,6 +29,21 @@ function setupSocket() {
   socket.on('cash_shift_updated', () => {
     loadCashSummary();
   });
+
+  socket.on('bar_incident_alert', (incident) => {
+    showBarIncidentToastInCaja(incident);
+  });
+}
+
+function showBarIncidentToastInCaja(incident) {
+  if (!incident) return;
+  alert(`📢 ATENCIÓN CAJA - NOTIFICACIÓN DESDE EL BAR:\n\n` +
+        `Ticket: ${incident.order_number} (${incident.customer_name || 'Cliente'})\n` +
+        `Motivo / Causa: ${incident.reason || 'Demora'}\n` +
+        `Detalle / Insumo Faltante: ${incident.note || 'Sin observación'}\n` +
+        `Barista Responsable: ${incident.barista_name || 'Bar'}\n` +
+        `Hora: ${incident.time || ''}\n\n` +
+        `💡 El ticket pasó a estado "En Proceso" en el Bar hasta resolver la falta de insumo.`);
 }
 
 let activeShiftsListCaja = [];

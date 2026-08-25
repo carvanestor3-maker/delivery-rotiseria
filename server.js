@@ -995,9 +995,9 @@ app.get('/api/orders', (req, res) => {
 app.put('/api/orders/:id/status', (req, res) => {
   try {
     const { id } = req.params;
-    const { status } = req.body;
+    const { status, delivered_at } = req.body;
 
-    const validStatuses = ['nuevo', 'en_preparacion', 'en_camino', 'entregado', 'cancelado'];
+    const validStatuses = ['nuevo', 'en_preparacion', 'en_camino', 'entregado', 'cancelado', 'ready', 'bar_despachado', 'en_proceso', 'falta_insumo'];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ success: false, error: 'Estado no válido' });
     }
@@ -1069,6 +1069,7 @@ app.put('/api/orders/:id/status', (req, res) => {
     }
 
     existingOrder.status = status;
+    if (delivered_at) existingOrder.delivered_at = delivered_at;
     existingOrder.updated_at = new Date().toISOString();
     db.saveStore();
 
@@ -1078,6 +1079,49 @@ app.put('/api/orders/:id/status', (req, res) => {
     };
 
     io.emit('order_updated', updatedOrder);
+
+    res.json({ success: true, order: updatedOrder });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// NOTIFICACIÓN DE INCIDENTE / FALTA DE INSUMO EN BARRA CON ALERTA A CAJA
+app.post('/api/bar/orders/:id/incident', (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason, note, barista_name } = req.body;
+
+    const store = db.getStore();
+    const order = store.orders.find(o => o.id === parseInt(id));
+    if (!order) {
+      return res.status(404).json({ success: false, error: 'Pedido no encontrado' });
+    }
+
+    order.bar_status = 'en_proceso';
+    order.bar_incident_reason = reason || 'Falta de Insumo';
+    order.bar_incident_note = note || '';
+    order.bar_incident_by = barista_name || 'Barista';
+    order.bar_incident_at = new Date().toISOString();
+    order.updated_at = new Date().toISOString();
+
+    db.saveStore();
+
+    const updatedOrder = {
+      ...order,
+      items: typeof order.items === 'string' ? JSON.parse(order.items) : order.items
+    };
+
+    io.emit('order_updated', updatedOrder);
+    io.emit('bar_incident_alert', {
+      order_id: order.id,
+      order_number: order.order_number,
+      customer_name: order.customer_name,
+      reason: order.bar_incident_reason,
+      note: order.bar_incident_note,
+      barista_name: order.bar_incident_by,
+      time: new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
+    });
 
     res.json({ success: true, order: updatedOrder });
   } catch (err) {

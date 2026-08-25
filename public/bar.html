@@ -263,6 +263,57 @@
         </div>
       </form>
     </div>
+  <!-- MODAL DE NOTIFICACIÓN DE INCIDENTE / FALTA DE INSUMO EN BAR (ALERTA A CAJA) -->
+  <div id="bar-incident-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200 text-slate-900">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+      <div class="flex justify-between items-center border-b pb-3 border-slate-200">
+        <div>
+          <h3 class="font-extrabold text-amber-950 text-base flex items-center gap-2">
+            ⏸️ Marcar En Proceso / Reportar Falta de Insumo
+          </h3>
+          <p id="incident-order-label" class="text-xs text-slate-500 font-mono font-bold">Ticket #BAR-101</p>
+        </div>
+        <button onclick="closeBarIncidentModal()" class="text-slate-400 hover:text-slate-700">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="bar-incident-form" onsubmit="submitBarIncident(event)" class="space-y-3">
+        <input type="hidden" id="incident-order-id">
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Causa de la Demora / Inconveniente *</label>
+          <select id="incident-reason-select" required class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500">
+            <option value="Falta de Insumo (Ingrediente)">🥛 Falta de Insumo (ej: Leche / Café / Fruta / Hielo / Jarabe)</option>
+            <option value="Problema Técnico en Máquina">⚙️ Problema Técnico (Cafetera / Molinillo / Licuadora)</option>
+            <option value="En Preparación Compleja Extendida">⏱️ En Preparación Compleja Extendida</option>
+            <option value="Otro Motivo u Observación">⚠️ Otro Inconveniente</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Detalle del Insumo Faltante u Observación *</label>
+          <input type="text" id="incident-note-input" required placeholder="Ej: Sin Leche de Almendras / Falta Café en Grano" class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500">
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Tu Nombre o Barista Responsable</label>
+          <input type="text" id="incident-barista-name" placeholder="Ej: Lucía" class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500">
+        </div>
+
+        <div class="bg-amber-50 border border-amber-200 p-3 rounded-xl text-[11px] text-amber-900 font-semibold space-y-1">
+          <div>📢 <strong>Aviso Automático a Caja:</strong></div>
+          <div>Al guardar, este ticket pasará a estado <em>"En Proceso"</em> (frenando la alarma roja de tiempo excesivo) y enviará una alerta en tiempo real a la pantalla de Caja.</div>
+        </div>
+
+        <div class="flex gap-2 pt-2">
+          <button type="button" onclick="closeBarIncidentModal()" class="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs">Cancelar</button>
+          <button type="submit" class="flex-1 py-2 bg-amber-600 hover:bg-amber-700 text-white font-extrabold rounded-xl text-xs shadow flex items-center justify-center gap-1">
+            📢 Marcar "En Proceso" y Avisar a Caja
+          </button>
+        </div>
+      </form>
+    </div>
   </div>
 
   <script src="/js/bar.js?v=2.0.0"></script>

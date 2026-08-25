@@ -95,6 +95,10 @@ function renderProductionView() {
   lucide.createIcons();
 }
 
+function formatCurrency(val) {
+  return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(val || 0);
+}
+
 function updateMetrics(activeBatches, historyBatches) {
   const elemActive = document.getElementById('metric-in-progress');
   const elemCompleted = document.getElementById('metric-completed-today');
@@ -115,6 +119,33 @@ function updateMetrics(activeBatches, historyBatches) {
       elemAvg.textContent = `${avgMin} min`;
     }
   }
+
+  // Actualizar métricas del Banner Financiero de la Bitácora
+  let totalMatCost = 0;
+  let totalLaborCost = 0;
+  let unitCostSum = 0;
+  let marginSum = 0;
+  let countWithCost = 0;
+
+  historyBatches.forEach(b => {
+    if (b.cost_analysis) {
+      totalMatCost += (b.cost_analysis.raw_material_cost_total || 0);
+      totalLaborCost += (b.cost_analysis.labor_cost_total || 0);
+      unitCostSum += (b.cost_analysis.unit_cost_real || 0);
+      marginSum += (b.cost_analysis.profit_margin_percent || 0);
+      countWithCost++;
+    }
+  });
+
+  const statMat = document.getElementById('stat-total-mat-cost');
+  const statLabor = document.getElementById('stat-total-labor-cost');
+  const statAvgUnit = document.getElementById('stat-avg-unit-cost');
+  const statAvgMargin = document.getElementById('stat-avg-margin');
+
+  if (statMat) statMat.textContent = formatCurrency(totalMatCost);
+  if (statLabor) statLabor.textContent = formatCurrency(totalLaborCost);
+  if (statAvgUnit) statAvgUnit.textContent = countWithCost > 0 ? `${formatCurrency(unitCostSum / countWithCost)} / unid` : '$0';
+  if (statAvgMargin) statAvgMargin.textContent = countWithCost > 0 ? `${(marginSum / countWithCost).toFixed(1)}%` : '0.0%';
 }
 
 function renderActiveGrid(activeBatches) {
@@ -192,27 +223,52 @@ function renderHistoryTable(historyBatches) {
   if (!tbody) return;
 
   if (historyBatches.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-500 font-bold text-xs">No hay lotes concluidos en la bitácora todavía.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-slate-500 font-bold text-xs">No hay lotes concluidos en la bitácora todavía.</td></tr>`;
     return;
   }
 
   tbody.innerHTML = historyBatches.map(b => {
-    const startTime = b.started_at ? new Date(b.started_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) : '-';
-    const endTime = b.finished_at ? new Date(b.finished_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) : '-';
     const durationSec = b.duration_seconds || 0;
     const min = Math.floor(durationSec / 60);
     const sec = durationSec % 60;
-    const durationText = `${min} min ${sec} seg`;
+    const durationText = `${min}m ${sec}s`;
+
+    const c = b.cost_analysis || {};
+    const matCost = c.raw_material_cost_total || 0;
+    const laborCost = c.labor_cost_total || 0;
+    const totalCost = c.total_batch_cost || (matCost + laborCost);
+    const unitCost = c.unit_cost_real || 0;
+    const margin = c.profit_margin_percent || 0;
+
+    let marginBadgeClass = 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40';
+    if (margin < 30) {
+      marginBadgeClass = 'bg-red-500/20 text-red-400 border-red-500/40';
+    } else if (margin < 50) {
+      marginBadgeClass = 'bg-amber-500/20 text-amber-300 border-amber-500/40';
+    }
 
     return `
       <tr class="hover:bg-slate-800/50 transition">
         <td class="p-3 font-mono font-black text-amber-400 text-xs">${b.batch_number}</td>
-        <td class="p-3 font-bold text-white">${b.product_name}</td>
-        <td class="p-3 text-slate-400 text-xs">${b.category_sector}</td>
+        <td class="p-3 font-bold text-white">
+          ${b.product_name}
+          <div class="text-[10px] text-slate-400 font-normal">${b.category_sector}</div>
+        </td>
         <td class="p-3 font-mono font-black text-emerald-400">${b.quantity} ${b.unit_type || 'kg'}</td>
         <td class="p-3 font-semibold text-slate-200">${b.operator_name}</td>
-        <td class="p-3 font-mono text-slate-400 text-xs">${startTime} a ${endTime} hs</td>
-        <td class="p-3 text-right font-mono font-black text-purple-300">${durationText}</td>
+        <td class="p-3 font-mono text-slate-300 text-xs font-bold">${durationText}</td>
+        <td class="p-3 font-mono text-xs">
+          <div class="text-slate-200 font-bold">${formatCurrency(totalCost)}</div>
+          <div class="text-[10px] text-slate-400">Insumos: ${formatCurrency(matCost)} + MO: ${formatCurrency(laborCost)}</div>
+        </td>
+        <td class="p-3 font-mono font-black text-purple-300 text-sm">
+          ${formatCurrency(unitCost)} <span class="text-[10px] font-normal text-slate-400">/ ${b.unit_type || 'unid'}</span>
+        </td>
+        <td class="p-3 text-right">
+          <span class="px-2.5 py-1 rounded-lg border font-mono font-black text-xs ${marginBadgeClass}">
+            📈 ${margin}% Margen
+          </span>
+        </td>
       </tr>
     `;
   }).join('');

@@ -108,12 +108,40 @@
       </div>
     </div>
 
-    <!-- PESTAÑA 2: BITÁCORA E HISTORIAL DE PRODUCCIÓN -->
+    <!-- PESTAÑA 2: BITÁCORA E HISTORIAL DE PRODUCCIÓN CON ANÁLISIS DE COSTOS -->
     <div id="view-history-production" class="hidden space-y-4">
+      
+      <!-- Banner Estadístico de Costos y Rentabilidad -->
+      <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+        <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-1">
+          <div class="text-[11px] text-slate-400 font-bold uppercase">🥩 COSTO DE INSUMOS (TOTAL)</div>
+          <div id="stat-total-mat-cost" class="font-mono font-black text-amber-400 text-lg">$0</div>
+          <div class="text-[10px] text-slate-500">Materias primas descontadas</div>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-1">
+          <div class="text-[11px] text-slate-400 font-bold uppercase">⏱️ COSTO MANO DE OBRA</div>
+          <div id="stat-total-labor-cost" class="font-mono font-black text-blue-400 text-lg">$0</div>
+          <div class="text-[10px] text-slate-500">Computado por tiempo de operario</div>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-1">
+          <div class="text-[11px] text-slate-400 font-bold uppercase">💰 COSTO PROMEDIO PRODUCIDO</div>
+          <div id="stat-avg-unit-cost" class="font-mono font-black text-purple-400 text-lg">$0 / unid</div>
+          <div class="text-[10px] text-slate-500">Costo real unitario de fabricación</div>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-1">
+          <div class="text-[11px] text-slate-400 font-bold uppercase">📈 MARGEN BRUTO PROMEDIO</div>
+          <div id="stat-avg-margin" class="font-mono font-black text-emerald-400 text-lg">0.0%</div>
+          <div class="text-[10px] text-slate-500">Rentabilidad estimada de venta</div>
+        </div>
+      </div>
+
       <div class="bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden shadow-xl">
         <div class="p-4 border-b border-slate-800 flex justify-between items-center">
           <h3 class="font-extrabold text-sm text-amber-400 flex items-center gap-2">
-            📜 Bitácora de Lotes Concluidos y Cómputo de Tiempos
+            📜 Bitácora de Lotes Concluidos y Análisis de Costo Real
           </h3>
         </div>
 
@@ -122,12 +150,13 @@
             <thead>
               <tr class="bg-slate-950 text-slate-400 text-[11px] uppercase font-bold tracking-wider border-b border-slate-800">
                 <th class="p-3">LOTE #</th>
-                <th class="p-3">PRODUCTO / COMIDA ELABORADA</th>
-                <th class="p-3">SECTOR</th>
-                <th class="p-3">CANTIDAD PRODUCIDA</th>
-                <th class="p-3">OPERARIO A CARGO</th>
-                <th class="p-3">INICIO / FIN</th>
-                <th class="p-3 text-right">TIEMPO ELABORACIÓN</th>
+                <th class="p-3">PRODUCTO / ELABORACIÓN</th>
+                <th class="p-3">CANTIDAD</th>
+                <th class="p-3">OPERARIO</th>
+                <th class="p-3">TIEMPO</th>
+                <th class="p-3">COSTO INSUMOS + M.O.</th>
+                <th class="p-3">COSTO UNIT. REAL</th>
+                <th class="p-3 text-right">MARGEN GANANCIA</th>
               </tr>
             </thead>
             <tbody id="production-history-tbody" class="divide-y divide-slate-800 text-xs">

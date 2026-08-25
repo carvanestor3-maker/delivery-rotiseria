@@ -828,31 +828,62 @@ app.post('/api/production/batches/:id/finish', (req, res) => {
     batch.status = 'completed';
     if (notes) batch.notes = (batch.notes ? `${batch.notes} | ` : '') + notes;
 
-    // Actualizar Stock de Comida Preparada
+    // Actualizar Stock de Comida Preparada y Análisis Estadístico de Costos
     const prod = store.products.find(p => p.id === batch.product_id);
     const deductedMaterials = [];
+    let rawMaterialCostTotal = 0;
 
     if (prod) {
       prod.stock_prepared = parseFloat(((prod.stock_prepared || 0) + batch.quantity).toFixed(3));
       prod.is_prepared_food = 1;
 
-      // Descontar insumos genéricos según Ficha Técnica (Escandallo)
+      // Descontar insumos genéricos según Ficha Técnica (Escandallo) y calcular costo directo de materias primas
       const recipes = (store.product_recipes || []).filter(r => r.product_id === prod.id);
       recipes.forEach(r => {
         const mat = store.raw_materials.find(m => m.id === r.raw_material_id);
         if (mat) {
           const totalDeduct = parseFloat((r.qty_per_portion * batch.quantity).toFixed(4));
+          const unitCost = parseFloat(mat.cost_per_unit || mat.cost || 0);
+          const matCost = parseFloat((totalDeduct * unitCost).toFixed(2));
+          rawMaterialCostTotal += matCost;
+
           mat.current_stock = parseFloat(Math.max(0, (mat.current_stock || 0) - totalDeduct).toFixed(4));
           deductedMaterials.push({
             material_name: mat.name,
             code: mat.code,
             unit: mat.unit,
             qty_deducted: totalDeduct,
+            cost_per_unit: unitCost,
+            total_cost: matCost,
             remaining_stock: mat.current_stock
           });
         }
       });
       batch.deducted_materials = deductedMaterials;
+
+      // Cálculo de Mano de Obra por Tiempo (Tarifa Horaria del Operario)
+      const hourlyRate = parseFloat((store.settings && store.settings.production_hourly_wage) || 3500);
+      const laborCostTotal = parseFloat(((durationSeconds / 3600) * hourlyRate).toFixed(2));
+      const totalBatchCost = parseFloat((rawMaterialCostTotal + laborCostTotal).toFixed(2));
+      const unitCostReal = parseFloat((totalBatchCost / batch.quantity).toFixed(2));
+      const sellingPriceUnit = parseFloat(prod.price || 0);
+      const profitMarginPercent = sellingPriceUnit > 0 
+        ? parseFloat((((sellingPriceUnit - unitCostReal) / sellingPriceUnit) * 100).toFixed(1)) 
+        : 0;
+
+      // Guardar Análisis Financiero y Estadístico en el Lote
+      batch.cost_analysis = {
+        raw_material_cost_total: rawMaterialCostTotal,
+        hourly_rate: hourlyRate,
+        labor_cost_total: laborCostTotal,
+        total_batch_cost: totalBatchCost,
+        unit_cost_real: unitCostReal,
+        selling_price_unit: sellingPriceUnit,
+        profit_margin_percent: profitMarginPercent
+      };
+
+      // Actualizar automáticamente el costo unitario del producto en la base de datos
+      prod.cost_price = unitCostReal;
     }
 
     // Guardar también en el registro histórico de production_entries para auditoría
@@ -864,7 +895,8 @@ app.post('/api/production/batches/:id/finish', (req, res) => {
       product_name: batch.product_name,
       unit_type: batch.unit_type,
       quantity: batch.quantity,
-      notes: `Lote ${batch.batch_number} - Duración: ${Math.floor(durationSeconds/60)}m ${durationSeconds%60}s`,
+      cost_analysis: batch.cost_analysis || null,
+      notes: `Lote ${batch.batch_number} - Duración: ${Math.floor(durationSeconds/60)}m ${durationSeconds%60}s | Costo Unitario Real: $${batch.cost_analysis ? batch.cost_analysis.unit_cost_real : 0}`,
       operator_name: batch.operator_name,
       deducted_materials: deductedMaterials,
       registered_by: `${batch.operator_name} (Lote KDS)`

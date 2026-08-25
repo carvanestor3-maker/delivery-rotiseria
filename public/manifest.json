@@ -1,8 +1,10 @@
 {
-  "name": "La Gran Rotisería, Bar & Drugstore 24hs",
-  "short_name": "La Gran Rotisería",
-  "description": "Sistema Gastronómico 24hs - Menú, Pedidos y Portales KDS",
-  "start_url": "/portales.html",
+  "name": "Comidas Portal - La Gran Rotisería",
+  "short_name": "Comidas Portal",
+  "description": "Menú Digital de Comidas, Minutas, Comida por Kilo y Bar 24hs",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
   "background_color": "#0f172a",
@@ -24,6 +26,32 @@
       "src": "/apple-touch-icon.png",
       "sizes": "180x180",
       "type": "image/png"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "📲 Compartir App por WhatsApp",
+      "short_name": "Compartir",
+      "description": "Enviar Menú Digital a un contacto de WhatsApp",
+      "url": "/?action=share",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "🍽️ Abrir Menú de Comidas",
+      "short_name": "Ver Menú",
+      "description": "Abrir Menú Digital de Comidas",
+      "url": "/",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
     }
   ]
 }

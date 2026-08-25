@@ -2,8 +2,8 @@
   "name": "Comidas Portal - La Gran Rotisería",
   "short_name": "Comidas Portal",
   "description": "Menú Digital de Comidas, Minutas, Comida por Kilo y Bar 24hs",
-  "id": "/index.html",
-  "start_url": "/index.html",
+  "id": "/",
+  "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
@@ -33,7 +33,7 @@
       "name": "📲 Compartir App por WhatsApp",
       "short_name": "Compartir",
       "description": "Enviar Menú Digital a un contacto de WhatsApp",
-      "url": "/index.html?action=share",
+      "url": "/?action=share",
       "icons": [
         {
           "src": "/icon-192.png",
@@ -45,7 +45,7 @@
       "name": "🍽️ Abrir Menú de Comidas",
       "short_name": "Ver Menú",
       "description": "Abrir Menú Digital de Comidas",
-      "url": "/index.html",
+      "url": "/",
       "icons": [
         {
           "src": "/icon-192.png",

@@ -38,8 +38,6 @@ function confirmPwaInstallModal() {
   closePwaInstallModal();
   if (window.deferredInstallPrompt) {
     window.deferredInstallPrompt.prompt();
-  } else {
-    alert('📱 Para agregar el acceso directo con el logo en tu celular:\n\n1. Tocá los 3 puntos arriba a la derecha en Chrome.\n2. Elegí "Añadir a la pantalla de inicio" o "Instalar aplicación".');
   }
 }
 

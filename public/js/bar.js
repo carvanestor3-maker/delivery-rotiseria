@@ -138,11 +138,11 @@ function updateMetrics(pendingOrders, historyOrders) {
   if (elemBarista) {
     const barStaff = activeStaffList.filter(s => (s.sector || '').toLowerCase().includes('bar') || (s.sector || '').toLowerCase().includes('cafet'));
     if (barStaff.length > 0) {
-      elemBarista.textContent = barStaff.map(s => s.user_name).join(', ');
-    } else if (activeStaffList.length > 0) {
-      elemBarista.textContent = activeStaffList[0].user_name;
+      elemBarista.textContent = `${barStaff.length} activo(s): ${barStaff.map(s => s.user_name).join(', ')}`;
+    } else if (activeBarShift) {
+      elemBarista.textContent = `Apertura: ${activeBarShift.barista_name}`;
     } else {
-      elemBarista.textContent = 'Sin fichar';
+      elemBarista.textContent = 'Sin baristas fichados';
     }
   }
 }
@@ -511,13 +511,13 @@ function renderBarShiftButton() {
   if (!btn || !btnText) return;
 
   if (activeBarShift) {
-    btnText.textContent = `🟢 Barista: ${activeBarShift.barista_name}`;
+    btnText.textContent = `☕ Sector Bar: 🟢 Abierto`;
     btn.className = 'px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl text-xs font-black flex items-center gap-1 text-white shadow transition cursor-pointer';
-    btn.title = `Turno de Bar Abierto por ${activeBarShift.barista_name}. Clic para cerrar turno.`;
+    btn.title = `Estación de Bar Abierta. Responsable Apertura: ${activeBarShift.barista_name}. Clic para cerrar la estación.`;
   } else {
-    btnText.textContent = `🔴 Abrir Turno Bar`;
+    btnText.textContent = `🔴 Abrir Sector Bar`;
     btn.className = 'px-2.5 py-1.5 bg-purple-700 hover:bg-purple-600 rounded-xl text-xs font-black flex items-center gap-1 text-white shadow transition cursor-pointer';
-    btn.title = `No hay turno de Bar abierto. Clic para abrir.`;
+    btn.title = `Estación de Bar Cerrada. Clic para abrir.`;
   }
 }
 

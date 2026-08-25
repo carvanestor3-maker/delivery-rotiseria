@@ -938,9 +938,20 @@
       <form id="product-form" onsubmit="saveProduct(event)" class="space-y-3">
         <input type="hidden" id="prod-id">
 
-        <div>
-          <label class="block text-xs font-semibold text-slate-700 mb-1">Nombre del Plato / Combo / Minuta *</label>
-          <input type="text" id="prod-name" required placeholder="Ej: Milanesa Napolitana con Papas" class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-purple-500">
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <label class="block text-xs font-bold text-slate-700">Código / SKU *</label>
+              <button type="button" onclick="generateProductAutoCode()" class="text-[10px] font-extrabold text-purple-700 hover:text-purple-900 bg-purple-100 hover:bg-purple-200 px-1.5 py-0.5 rounded transition">
+                ⚡ Auto
+              </button>
+            </div>
+            <input type="text" id="prod-code" required placeholder="Ej: EMP-CAR-002" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm font-mono font-bold outline-none focus:ring-2 focus:ring-purple-500 uppercase">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Nombre del Plato / Combo *</label>
+            <input type="text" id="prod-name" oninput="handleProductNameInput()" required placeholder="Ej: Empanada de Carne Molida" class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-purple-500 font-bold">
+          </div>
         </div>
 
         <div>

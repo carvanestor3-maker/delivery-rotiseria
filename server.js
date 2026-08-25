@@ -1365,7 +1365,7 @@ app.get('/api/admin/products', (req, res) => {
 
 app.post('/api/admin/products', (req, res) => {
   try {
-    const { id, category_id, name, description, price, image_url, available, barcode, plu_code, unit_type, is_weighed, pin } = req.body;
+    const { id, code, category_id, name, description, price, image_url, available, barcode, plu_code, unit_type, is_weighed, pin } = req.body;
 
     const auth = verifyUserPin(pin, 3);
     if (!auth.isValid) {
@@ -1373,8 +1373,16 @@ app.post('/api/admin/products', (req, res) => {
     }
 
     const store = db.getStore();
+    const strCode = code ? String(code).trim().toUpperCase() : '';
     const strBarcode = barcode ? String(barcode).trim() : '';
     const strPlu = plu_code ? String(plu_code).trim() : '';
+
+    if (strCode) {
+      const dupCode = store.products.find(p => p.code === strCode && p.id !== parseInt(id || 0));
+      if (dupCode) {
+        return res.status(400).json({ success: false, error: `⚠️ CÓDIGO SKU DUPLICADO: El código "${strCode}" ya pertenece al plato "${dupCode.name}".` });
+      }
+    }
 
     if (strBarcode) {
       const dup = store.products.find(p => p.barcode === strBarcode && p.id !== parseInt(id || 0));
@@ -1400,6 +1408,7 @@ app.post('/api/admin/products', (req, res) => {
     if (id) {
       const prod = store.products.find(p => p.id === parseInt(id));
       if (prod) {
+        prod.code = strCode || prod.code || `PROD-${String(prod.id).padStart(3, '0')}`;
         prod.category_id = parseInt(category_id);
         prod.name = name;
         prod.description = description;
@@ -1413,8 +1422,10 @@ app.post('/api/admin/products', (req, res) => {
       }
     } else {
       const nextId = store.products.length > 0 ? Math.max(...store.products.map(p => p.id)) + 1 : 1;
+      const finalCode = strCode || `PROD-${String(nextId).padStart(3, '0')}`;
       store.products.push({
         id: nextId,
+        code: finalCode,
         category_id: parseInt(category_id),
         name,
         description,
@@ -1428,6 +1439,7 @@ app.post('/api/admin/products', (req, res) => {
       });
     }
     db.saveStore();
+    io.emit('menu_updated');
     res.json({ success: true, user_name: auth.user.name });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });

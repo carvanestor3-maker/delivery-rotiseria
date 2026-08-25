@@ -1273,6 +1273,19 @@ async function saveCategory(e) {
   }
 }
 
+function generateProductAutoCode() {
+  const name = document.getElementById('prod-name').value.trim();
+  const code = generateMnemonicCode(name, products);
+  document.getElementById('prod-code').value = code;
+}
+
+function handleProductNameInput() {
+  const codeElem = document.getElementById('prod-code');
+  if (codeElem && !codeElem.value) {
+    generateProductAutoCode();
+  }
+}
+
 function openProductModal(prod = null) {
   const modal = document.getElementById('product-modal');
   const title = document.getElementById('modal-title');
@@ -1282,8 +1295,9 @@ function openProductModal(prod = null) {
   showImagePreview('');
 
   if (prod) {
-    title.textContent = 'Editar Producto (Exclusivo Nivel 3)';
+    title.textContent = 'Editar Producto / Plato (Exclusivo Nivel 3)';
     document.getElementById('prod-id').value = prod.id;
+    document.getElementById('prod-code').value = prod.code || `PROD-${String(prod.id).padStart(3, '0')}`;
     document.getElementById('prod-name').value = prod.name;
     document.getElementById('prod-category').value = prod.category_id;
     document.getElementById('prod-price').value = prod.price;
@@ -1295,8 +1309,9 @@ function openProductModal(prod = null) {
     showImagePreview(prod.image_url || '');
     document.getElementById('prod-available').checked = prod.available === 1;
   } else {
-    title.textContent = 'Nuevo Producto (Exclusivo Nivel 3)';
+    title.textContent = 'Nuevo Producto / Plato (Exclusivo Nivel 3)';
     document.getElementById('prod-id').value = '';
+    document.getElementById('prod-code').value = '';
     document.getElementById('prod-unit-type').value = 'unidad';
     document.getElementById('prod-barcode').value = '';
     document.getElementById('prod-plu-code').value = '';
@@ -1350,6 +1365,7 @@ function editProduct(id) {
 async function saveProduct(e) {
   e.preventDefault();
   const id = document.getElementById('prod-id').value;
+  const code = document.getElementById('prod-code').value.trim();
   const name = document.getElementById('prod-name').value.trim();
   const category_id = document.getElementById('prod-category').value;
   const price = document.getElementById('prod-price').value;
@@ -1361,6 +1377,11 @@ async function saveProduct(e) {
   const available = document.getElementById('prod-available').checked;
   const pin = document.getElementById('prod-pin').value.trim();
 
+  if (!code) {
+    alert('⚠️ EL CÓDIGO / SKU DEL PRODUCTO ES OBLIGATORIO:\n\nPor favor presiona el botón ⚡ Auto para generarlo.');
+    document.getElementById('prod-code').focus();
+    return;
+  }
   if (!name) {
     alert('⚠️ El nombre del plato o producto es obligatorio.');
     document.getElementById('prod-name').focus();
@@ -1388,12 +1409,13 @@ async function saveProduct(e) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         id: id ? parseInt(id) : null,
-        name, category_id, price, unit_type, barcode, plu_code, description, image_url, available, pin
+        code, name, category_id, price, unit_type, barcode, plu_code, description, image_url, available, pin
       })
     });
     const data = await res.json();
     if (data.success) {
       closeProductModal();
+      alert(`🍕 Producto "${name}" guardado con éxito por ${data.user_name}!`);
       await loadProducts();
     } else {
       alert(`⚠️ ${data.error}`);

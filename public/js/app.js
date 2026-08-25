@@ -120,7 +120,7 @@ function renderProductCard(prod) {
 
   return `
     <div class="bg-white rounded-2xl p-3.5 shadow-sm border border-slate-200 flex gap-3.5 items-start hover:shadow-md transition">
-      <div class="relative flex-shrink-0 cursor-pointer group" onclick="openPhotoLightbox('${imageUrl}', '${prod.name.replace(/'/g, "\\'")}', '${(prod.description || '').replace(/'/g, "\\'")}')" title="Toca para ampliar foto en pantalla completa HD">
+      <div class="relative flex-shrink-0 cursor-pointer group" onclick="openPhotoLightboxByProductId(${prod.id})" title="Toca para ampliar foto en pantalla completa HD">
         <img src="${imageUrl}" alt="${prod.name}" class="w-20 h-20 rounded-xl object-cover bg-slate-100 group-hover:opacity-90 transition">
         <span class="absolute bottom-1 right-1 bg-slate-900/80 text-white p-1 rounded-md text-[9px] font-black backdrop-blur-xs flex items-center gap-0.5">
           🔍 HD
@@ -128,13 +128,13 @@ function renderProductCard(prod) {
       </div>
       
       <div class="flex-1 min-w-0 space-y-1">
-        <h3 class="font-extrabold text-slate-900 text-sm leading-snug cursor-pointer hover:text-orange-600 transition" onclick="openPhotoLightbox('${imageUrl}', '${prod.name.replace(/'/g, "\\'")}', '${(prod.description || '').replace(/'/g, "\\'")}')">${prod.name}</h3>
+        <h3 class="font-extrabold text-slate-900 text-sm leading-snug cursor-pointer hover:text-orange-600 transition" onclick="openPhotoLightboxByProductId(${prod.id})">${prod.name}</h3>
         ${prod.description ? `<p class="text-slate-500 text-[11px] leading-relaxed line-clamp-2 font-normal">${prod.description}</p>` : ''}
         
         <div class="flex items-center gap-2 pt-0.5">
           <div class="font-black text-slate-900 text-sm font-mono">${formatCurrency(prod.price)}</div>
           ${hasVideo ? `
-            <button type="button" onclick="event.stopPropagation(); openVideoPlayer('${prod.video_url.replace(/'/g, "\\'")}', '${prod.name.replace(/'/g, "\\'")}')" class="px-2 py-0.5 bg-red-100 hover:bg-red-200 text-red-700 font-extrabold rounded-lg text-[10px] transition flex items-center gap-1">
+            <button type="button" onclick="event.stopPropagation(); openVideoPlayerByProductId(${prod.id})" class="px-2.5 py-1 bg-red-600 hover:bg-red-700 active:scale-95 text-white font-extrabold rounded-lg text-[11px] transition flex items-center gap-1 shadow-sm">
               🎬 Ver Video
             </button>
           ` : ''}
@@ -428,6 +428,27 @@ async function submitOrderToWhatsApp() {
 // VISOR DE FOTO FULLSCREEN (LIGHTBOX) & REPRODUCTOR DE VIDEO
 // ==========================================
 
+// ==========================================
+// VISOR DE FOTO FULLSCREEN (LIGHTBOX) & REPRODUCTOR DE VIDEO
+// ==========================================
+
+function openPhotoLightboxByProductId(productId) {
+  const prod = state.products.find(p => p.id === productId);
+  if (!prod) return;
+  const imageUrl = prod.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200';
+
+  const modal = document.getElementById('photo-lightbox-modal');
+  const img = document.getElementById('lightbox-img');
+  const titleElem = document.getElementById('lightbox-title');
+  const descElem = document.getElementById('lightbox-desc');
+
+  if (img) img.src = imageUrl;
+  if (titleElem) titleElem.textContent = prod.name;
+  if (descElem) descElem.textContent = prod.description || 'Ampliación HD al ancho de pantalla';
+
+  if (modal) modal.classList.remove('opacity-0', 'pointer-events-none');
+}
+
 function openPhotoLightbox(imageUrl, title, desc) {
   const modal = document.getElementById('photo-lightbox-modal');
   const img = document.getElementById('lightbox-img');
@@ -446,26 +467,90 @@ function closePhotoLightbox() {
   if (modal) modal.classList.add('opacity-0', 'pointer-events-none');
 }
 
+function getEmbedVideoInfo(videoUrl) {
+  if (!videoUrl) return null;
+  const url = videoUrl.trim();
+
+  // 1. YouTube Shorts (https://www.youtube.com/shorts/VIDEO_ID)
+  if (url.includes('youtube.com/shorts/')) {
+    const parts = url.split('youtube.com/shorts/')[1];
+    const id = parts.split('?')[0].split('/')[0];
+    return { type: 'iframe', src: `https://www.youtube.com/embed/${id}?autoplay=1&rel=0` };
+  }
+
+  // 2. YouTube Standard Watch / Mobile (https://www.youtube.com/watch?v=VIDEO_ID)
+  if (url.includes('youtube.com/watch') || url.includes('m.youtube.com/watch')) {
+    const match = url.match(/[?&]v=([^&]+)/);
+    if (match && match[1]) {
+      return { type: 'iframe', src: `https://www.youtube.com/embed/${match[1]}?autoplay=1&rel=0` };
+    }
+  }
+
+  // 3. YouTube Shortened (https://youtu.be/VIDEO_ID)
+  if (url.includes('youtu.be/')) {
+    const parts = url.split('youtu.be/')[1];
+    const id = parts.split('?')[0].split('/')[0];
+    return { type: 'iframe', src: `https://www.youtube.com/embed/${id}?autoplay=1&rel=0` };
+  }
+
+  // 4. Vimeo (https://vimeo.com/VIDEO_ID)
+  if (url.includes('vimeo.com/')) {
+    const match = url.match(/vimeo\.com\/(\d+)/);
+    if (match && match[1]) {
+      return { type: 'iframe', src: `https://player.vimeo.com/video/${match[1]}?autoplay=1` };
+    }
+  }
+
+  // 5. Archivo de Video Directo (MP4, WebM, OGG, MOV)
+  if (url.match(/\.(mp4|webm|ogg|mov)(\?.*)?$/i)) {
+    return { type: 'video', src: url };
+  }
+
+  // 6. Enlace Web Genérico (TikTok, Instagram Reels, Google Drive, Facebook, etc.)
+  return { type: 'link', src: url };
+}
+
+function openVideoPlayerByProductId(productId) {
+  const prod = state.products.find(p => p.id === productId);
+  if (!prod || !prod.video_url) {
+    alert('⚠️ No se encontró la dirección web del video de este producto.');
+    return;
+  }
+
+  openVideoPlayer(prod.video_url, prod.name);
+}
+
 function openVideoPlayer(videoUrl, title) {
   const modal = document.getElementById('video-modal');
   const titleElem = document.getElementById('video-modal-title');
   const contentElem = document.getElementById('video-player-content');
 
-  if (titleElem) titleElem.textContent = `🎬 Video de Preparación: ${title}`;
+  if (titleElem) titleElem.textContent = `🎬 Video de Preparación: ${title || 'Producto'}`;
 
-  if (contentElem) {
-    if (videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be')) {
-      let embedUrl = videoUrl;
-      if (videoUrl.includes('watch?v=')) {
-        const id = videoUrl.split('watch?v=')[1].split('&')[0];
-        embedUrl = `https://www.youtube.com/embed/${id}?autoplay=1`;
-      } else if (videoUrl.includes('youtu.be/')) {
-        const id = videoUrl.split('youtu.be/')[1].split('?')[0];
-        embedUrl = `https://www.youtube.com/embed/${id}?autoplay=1`;
-      }
-      contentElem.innerHTML = `<iframe src="${embedUrl}" class="w-full h-full border-0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+  const info = getEmbedVideoInfo(videoUrl);
+
+  if (contentElem && info) {
+    if (info.type === 'iframe') {
+      contentElem.innerHTML = `
+        <iframe src="${info.src}" class="w-full h-full border-0 aspect-video rounded-2xl" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+      `;
+    } else if (info.type === 'video') {
+      contentElem.innerHTML = `
+        <video src="${info.src}" controls autoplay class="w-full max-h-[75vh] object-contain rounded-2xl"></video>
+      `;
     } else {
-      contentElem.innerHTML = `<video src="${videoUrl}" controls autoplay class="w-full max-h-[70vh] object-contain"></video>`;
+      contentElem.innerHTML = `
+        <div class="w-full h-full flex flex-col items-center justify-center p-8 bg-slate-950 text-white text-center space-y-4 rounded-2xl">
+          <div class="w-16 h-16 bg-red-600/20 text-red-500 rounded-full flex items-center justify-center text-3xl mx-auto shadow-inner">
+            🎬
+          </div>
+          <h4 class="font-extrabold text-lg text-amber-400">Ver Video de Preparación (${title || 'Plato'})</h4>
+          <p class="text-xs text-slate-400 max-w-sm">Presiona el botón a continuación para abrir y reproducir el video de demostración directamente:</p>
+          <a href="${info.src}" target="_blank" rel="noopener noreferrer" class="px-6 py-3.5 bg-red-600 hover:bg-red-700 active:scale-95 text-white font-black rounded-2xl text-sm transition shadow-lg flex items-center gap-2">
+            ▶️ Reproducir Video Externo en Nueva Pestaña
+          </a>
+        </div>
+      `;
     }
   }
 

@@ -1830,6 +1830,39 @@ function addRecipeIngredientRow(rawMatId = null, qtyPerPortion = null) {
   lucide.createIcons();
 }
 
+function applyRecipePercentageScale() {
+  const pctInput = document.getElementById('rec-pct-input');
+  if (!pctInput) return;
+
+  const pct = parseFloat(pctInput.value);
+  if (isNaN(pct) || pct === 0) {
+    alert('⚠️ Ingrese un porcentaje % válido (ej: 10 para aumentar 10% o -15 para reducir 15%).');
+    return;
+  }
+
+  const multiplier = 1 + (pct / 100);
+  const rows = document.querySelectorAll('.recipe-ingredient-row');
+
+  if (rows.length === 0) {
+    alert('⚠️ No hay insumos en la receta para aplicar el porcentaje.');
+    return;
+  }
+
+  rows.forEach(row => {
+    const qtyInput = row.querySelector('.rec-qty-per-portion');
+    if (qtyInput && qtyInput.value) {
+      const currentQty = parseFloat(qtyInput.value);
+      if (!isNaN(currentQty) && currentQty > 0) {
+        const newQty = parseFloat((currentQty * multiplier).toFixed(4));
+        qtyInput.value = newQty;
+      }
+    }
+  });
+
+  alert(`⚡ Cantidades ajustadas en un ${pct >= 0 ? '+' : ''}${pct}% correctamente!`);
+  pctInput.value = '';
+}
+
 async function saveRecipe(e) {
   e.preventDefault();
   const pid = parseInt(document.getElementById('rec-product-id').value);

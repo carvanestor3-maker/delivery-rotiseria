@@ -222,8 +222,10 @@ function renderHistoryTable(historyBatches) {
   const tbody = document.getElementById('production-history-tbody');
   if (!tbody) return;
 
+  const colCount = isFinancialUnlocked ? 8 : 5;
+
   if (historyBatches.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-slate-500 font-bold text-xs">No hay lotes concluidos en la bitácora todavía.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="${colCount}" class="p-8 text-center text-slate-500 font-bold text-xs">No hay lotes concluidos en la bitácora todavía.</td></tr>`;
     return;
   }
 
@@ -257,16 +259,17 @@ function renderHistoryTable(historyBatches) {
         <td class="p-3 font-mono font-black text-emerald-400">${b.quantity} ${b.unit_type || 'kg'}</td>
         <td class="p-3 font-semibold text-slate-200">${b.operator_name}</td>
         <td class="p-3 font-mono text-slate-300 text-xs font-bold">${durationText}</td>
-        <td class="p-3 font-mono text-xs">
+        
+        <td class="p-3 font-mono text-xs financial-col ${isFinancialUnlocked ? '' : 'hidden'}">
           <div class="text-slate-200 font-bold">${formatCurrency(totalCost)}</div>
           <div class="text-[10px] text-slate-400">Insumos: ${formatCurrency(matCost)} + MO: ${formatCurrency(laborCost)}</div>
         </td>
-        <td class="p-3 font-mono font-black text-purple-300 text-sm">
+        <td class="p-3 font-mono font-black text-purple-300 text-sm financial-col ${isFinancialUnlocked ? '' : 'hidden'}">
           ${formatCurrency(unitCost)} <span class="text-[10px] font-normal text-slate-400">/ ${b.unit_type || 'unid'}</span>
         </td>
-        <td class="p-3 text-right">
+        <td class="p-3 text-right financial-col ${isFinancialUnlocked ? '' : 'hidden'}">
           <span class="px-2.5 py-1 rounded-lg border font-mono font-black text-xs ${marginBadgeClass}">
-            📈 ${margin}% Margen
+            📈 ${margin}%
           </span>
         </td>
       </tr>

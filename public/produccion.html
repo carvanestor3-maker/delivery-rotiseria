@@ -108,30 +108,42 @@
       </div>
     </div>
 
-    <!-- PESTAÑA 2: BITÁCORA E HISTORIAL DE PRODUCCIÓN CON ANÁLISIS DE COSTOS -->
+    <!-- PESTAÑA 2: BITÁCORA E HISTORIAL DE PRODUCCIÓN (OPERATIVO NIVEL 1 + FINANCIERO NIVEL 2/3) -->
     <div id="view-history-production" class="hidden space-y-4">
       
-      <!-- Banner Estadístico de Costos y Rentabilidad -->
-      <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
-        <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-1">
+      <div class="flex justify-between items-center bg-slate-900 p-4 rounded-2xl border border-slate-800">
+        <div>
+          <h3 class="font-extrabold text-sm text-amber-400 flex items-center gap-2">
+            📜 Bitácora de Lotes Concluidos y Cómputo de Tiempos
+          </h3>
+          <p class="text-xs text-slate-400">Historial operativo de elaboración y tiempos de puesto</p>
+        </div>
+        <button id="btn-unlock-financial" onclick="openFinancialUnlockModal()" class="px-3.5 py-2 bg-slate-800 hover:bg-purple-900/40 text-purple-300 border border-purple-500/40 rounded-xl text-xs font-extrabold transition flex items-center gap-1.5 shadow">
+          🔒 Revelar Costos & Margen (PIN Nivel 2 o 3)
+        </button>
+      </div>
+
+      <!-- Banner Estadístico de Costos y Rentabilidad (RESTRINGIDO NIVEL 2 Y 3) -->
+      <div id="financial-summary-banner" class="hidden grid grid-cols-1 sm:grid-cols-4 gap-3">
+        <div class="bg-slate-900 border border-amber-500/30 p-4 rounded-2xl space-y-1">
           <div class="text-[11px] text-slate-400 font-bold uppercase">🥩 COSTO DE INSUMOS (TOTAL)</div>
           <div id="stat-total-mat-cost" class="font-mono font-black text-amber-400 text-lg">$0</div>
           <div class="text-[10px] text-slate-500">Materias primas descontadas</div>
         </div>
 
-        <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-1">
+        <div class="bg-slate-900 border border-blue-500/30 p-4 rounded-2xl space-y-1">
           <div class="text-[11px] text-slate-400 font-bold uppercase">⏱️ COSTO MANO DE OBRA</div>
           <div id="stat-total-labor-cost" class="font-mono font-black text-blue-400 text-lg">$0</div>
           <div class="text-[10px] text-slate-500">Computado por tiempo de operario</div>
         </div>
 
-        <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-1">
+        <div class="bg-slate-900 border border-purple-500/30 p-4 rounded-2xl space-y-1">
           <div class="text-[11px] text-slate-400 font-bold uppercase">💰 COSTO PROMEDIO PRODUCIDO</div>
           <div id="stat-avg-unit-cost" class="font-mono font-black text-purple-400 text-lg">$0 / unid</div>
           <div class="text-[10px] text-slate-500">Costo real unitario de fabricación</div>
         </div>
 
-        <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-1">
+        <div class="bg-slate-900 border border-emerald-500/30 p-4 rounded-2xl space-y-1">
           <div class="text-[11px] text-slate-400 font-bold uppercase">📈 MARGEN BRUTO PROMEDIO</div>
           <div id="stat-avg-margin" class="font-mono font-black text-emerald-400 text-lg">0.0%</div>
           <div class="text-[10px] text-slate-500">Rentabilidad estimada de venta</div>
@@ -139,12 +151,6 @@
       </div>
 
       <div class="bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden shadow-xl">
-        <div class="p-4 border-b border-slate-800 flex justify-between items-center">
-          <h3 class="font-extrabold text-sm text-amber-400 flex items-center gap-2">
-            📜 Bitácora de Lotes Concluidos y Análisis de Costo Real
-          </h3>
-        </div>
-
         <div class="overflow-x-auto">
           <table class="w-full text-left border-collapse">
             <thead>
@@ -154,9 +160,9 @@
                 <th class="p-3">CANTIDAD</th>
                 <th class="p-3">OPERARIO</th>
                 <th class="p-3">TIEMPO</th>
-                <th class="p-3">COSTO INSUMOS + M.O.</th>
-                <th class="p-3">COSTO UNIT. REAL</th>
-                <th class="p-3 text-right">MARGEN GANANCIA</th>
+                <th class="p-3 financial-col hidden">COSTO INSUMOS + M.O.</th>
+                <th class="p-3 financial-col hidden">COSTO UNIT. REAL</th>
+                <th class="p-3 text-right financial-col hidden">MARGEN GANANCIA</th>
               </tr>
             </thead>
             <tbody id="production-history-tbody" class="divide-y divide-slate-800 text-xs">
@@ -234,6 +240,28 @@
           <button type="submit" class="flex-1 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-xl text-xs shadow flex items-center justify-center gap-1">
             🚀 Iniciar Comanda de Producción
           </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL DE DESBLOQUEO DE ANÁLISIS FINANCIERO (REQUERIDO PIN NIVEL 2 O 3) -->
+  <div id="financial-unlock-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200 text-slate-900">
+    <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl space-y-4 text-center">
+      <div class="w-12 h-12 bg-purple-100 text-purple-700 rounded-full flex items-center justify-center text-2xl mx-auto shadow-inner">
+        🔒
+      </div>
+      <div>
+        <h3 class="font-extrabold text-slate-900 text-base">Acceso Reservado a Costos & Márgenes</h3>
+        <p class="text-xs text-slate-500 mt-1">Los operarios de Nivel 1 ven únicamente tiempos y cantidades. Ingrese su PIN de Encargado o Gerente (Nivel 2 o 3) para revelar los costos:</p>
+      </div>
+
+      <form id="financial-unlock-form" onsubmit="submitFinancialUnlock(event)" class="space-y-3">
+        <input type="password" id="financial-pin-input" placeholder="PIN Nivel 2 o 3" required class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-base font-mono font-bold text-center outline-none focus:ring-2 focus:ring-purple-500 tracking-widest">
+        
+        <div class="flex gap-2 pt-2">
+          <button type="button" onclick="closeFinancialUnlockModal()" class="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs">Cancelar</button>
+          <button type="submit" class="flex-1 py-2 bg-purple-700 hover:bg-purple-800 text-white font-extrabold rounded-xl text-xs shadow">🔓 Desbloquear</button>
         </div>
       </form>
     </div>

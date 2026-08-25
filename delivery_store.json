@@ -112,12 +112,14 @@
       "id": 6,
       "code": "EMP-CAR-002",
       "category_id": 5,
-      "name": "Empanada de Carne Molida",
+      "name": "Empanada de Carne Molida Vacuna (Huevo, Morrón y Cebolla)",
       "description": "Jugosa empanada casera de carne molida con cebolla, huevo y especias.",
       "price": 1100,
       "image_url": "https://images.unsplash.com/photo-1626777552726-4a6b54c97e46?w=500",
       "available": 1,
-      "unit_type": "unidad"
+      "unit_type": "unidad",
+      "stock_prepared": 36,
+      "is_prepared_food": 1
     },
     {
       "id": 7,
@@ -555,7 +557,33 @@
       "closed_by": "Encargado de Turno Mañana (Nivel 2)"
     }
   ],
+  "product_recipes": [
+    {
+      "product_id": 6,
+      "raw_material_id": 1,
+      "qty_per_portion": 0.0673
+    }
+  ],
   "production_entries": [
+    {
+      "id": 2,
+      "date": "2026-08-25T00:07:00.000Z",
+      "product_id": 6,
+      "product_name": "Empanada de Carne Molida Vacuna (Huevo, Morrón y Cebolla)",
+      "unit_type": "unidad",
+      "quantity": 36,
+      "notes": "Tanda de empanadas de carne molida",
+      "deducted_materials": [
+        {
+          "material_name": "Carne Vacuna Molida",
+          "code": "INS-001",
+          "unit": "kg",
+          "qty_deducted": 2.4228,
+          "remaining_stock": 22.5772
+        }
+      ],
+      "registered_by": "Gerente General / Dueño (Nivel 3)"
+    },
     {
       "id": 1,
       "date": "2026-08-23T06:09:52.886Z",

@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Bar & Cafetería (Celular 3) - Despacho & Comandas de Barra</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/css/styles.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col font-sans select-none">
+
+  <!-- Header de Bar & Cafetería (Celular 3) -->
+  <header class="bg-slate-800 border-b border-slate-700 px-4 py-2.5 flex justify-between items-center shadow-lg sticky top-0 z-30">
+    <div class="flex items-center gap-2">
+      <div class="w-9 h-9 bg-purple-600 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow">
+        ☕
+      </div>
+      <div>
+        <h1 class="text-sm sm:text-base font-black tracking-wide flex items-center gap-1.5 leading-tight text-white">
+          BAR & CAFETERÍA (KDS BAR)
+          <span id="socket-status" class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+            🟢 En vivo
+          </span>
+        </h1>
+        <p class="text-[10px] text-slate-400 leading-none">Celular 3 - Tickets #BAR, Licuados, Bebidas & Cafetería</p>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <!-- Botón Fichaje de Asistencia Bar -->
+      <button onclick="openAttendanceModal()" class="px-2.5 py-1.5 bg-amber-600 hover:bg-amber-500 rounded-xl text-xs font-black flex items-center gap-1 text-white shadow transition" title="Fichador de Ingreso/Salida de Operario de Bar">
+        ⏱️ <span class="hidden sm:inline">Fichar Horas</span>
+      </button>
+
+      <!-- Botón Sonido Alerta -->
+      <button id="sound-btn" onclick="toggleAudio()" class="px-2.5 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-xl text-xs font-bold flex items-center gap-1 transition text-slate-200 border border-slate-600">
+        <i data-lucide="volume-2" class="w-4 h-4 text-emerald-400"></i>
+        <span class="hidden sm:inline">Sonido</span>
+      </button>
+
+      <!-- Botón Refrescar -->
+      <button onclick="loadOrders()" class="p-1.5 bg-slate-700 hover:bg-slate-600 rounded-xl text-xs font-bold border border-slate-600 transition">
+        <i data-lucide="refresh-cw" class="w-4 h-4 text-slate-300"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- Filtro Móvil por Estados -->
+  <div class="bg-slate-800/80 border-b border-slate-700/80 p-2 flex justify-around gap-1 sm:hidden">
+    <button onclick="setMobileTab('bar_tickets')" id="mtab-bar_tickets" class="flex-1 py-1.5 px-2 rounded-lg text-xs font-black bg-purple-600 text-white transition text-center shadow">
+      🎫 Tickets #BAR (<span id="mcount-bar_tickets">0</span>)
+    </button>
+    <button onclick="setMobileTab('prep')" id="mtab-prep" class="flex-1 py-1.5 px-2 rounded-lg text-xs font-black bg-slate-700 text-slate-300 transition text-center">
+      ⏳ Preparación (<span id="mcount-prep">0</span>)
+    </button>
+    <button onclick="setMobileTab('ready')" id="mtab-ready" class="flex-1 py-1.5 px-2 rounded-lg text-xs font-black bg-slate-700 text-slate-300 transition text-center">
+      ✅ Despachados (<span id="mcount-ready">0</span>)
+    </button>
+  </div>
+
+  <!-- TABLERO KANBAN DE BAR & CAFETERÍA -->
+  <main class="flex-1 p-3 sm:p-5 grid grid-cols-1 md:grid-cols-3 gap-4 overflow-hidden">
+
+    <!-- COLUMNA 1: TICKETS DE RETIRO EN BARRA (#BAR-XXX) -->
+    <div id="col-bar_tickets" class="flex flex-col bg-slate-800/50 rounded-2xl border border-purple-500/30 overflow-hidden shadow-inner">
+      <div class="bg-purple-900/60 border-b border-purple-500/40 p-3 flex justify-between items-center">
+        <h2 class="font-black text-xs uppercase tracking-wider text-purple-300 flex items-center gap-1.5">
+          🎫 Tickets de Retiro en Barra (#BAR)
+        </h2>
+        <span id="count-bar_tickets" class="bg-purple-500/20 text-purple-300 border border-purple-500/40 font-mono font-black text-xs px-2 py-0.5 rounded-full">0</span>
+      </div>
+      <div id="container-bar_tickets" class="flex-1 p-3 space-y-3 overflow-y-auto max-h-[calc(100vh-140px)]">
+        <!-- Tarjetas dinámicas de tickets #BAR -->
+      </div>
+    </div>
+
+    <!-- COLUMNA 2: DRINKS / COMANDAS EN PREPARACIÓN -->
+    <div id="col-prep" class="hidden sm:flex flex-col bg-slate-800/50 rounded-2xl border border-amber-500/30 overflow-hidden shadow-inner">
+      <div class="bg-amber-900/60 border-b border-amber-500/40 p-3 flex justify-between items-center">
+        <h2 class="font-black text-xs uppercase tracking-wider text-amber-300 flex items-center gap-1.5">
+          ⏳ Cafetería & Bebidas en Preparación
+        </h2>
+        <span id="count-prep" class="bg-amber-500/20 text-amber-300 border border-amber-500/40 font-mono font-black text-xs px-2 py-0.5 rounded-full">0</span>
+      </div>
+      <div id="container-prep" class="flex-1 p-3 space-y-3 overflow-y-auto max-h-[calc(100vh-140px)]">
+        <!-- Tarjetas en preparación -->
+      </div>
+    </div>
+
+    <!-- COLUMNA 3: DESPACHADOS / ENTREGADOS EN BARRA -->
+    <div id="col-ready" class="hidden sm:flex flex-col bg-slate-800/50 rounded-2xl border border-emerald-500/30 overflow-hidden shadow-inner">
+      <div class="bg-emerald-900/60 border-b border-emerald-500/40 p-3 flex justify-between items-center">
+        <h2 class="font-black text-xs uppercase tracking-wider text-emerald-300 flex items-center gap-1.5">
+          ✅ Entregados / Despachados
+        </h2>
+        <span id="count-ready" class="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-mono font-black text-xs px-2 py-0.5 rounded-full">0</span>
+      </div>
+      <div id="container-ready" class="flex-1 p-3 space-y-3 overflow-y-auto max-h-[calc(100vh-140px)]">
+        <!-- Tarjetas entregadas -->
+      </div>
+    </div>
+
+  </main>
+
+  <!-- MODAL DE FICHAJE DE ASISTENCIA (BAR) -->
+  <div id="attendance-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200 text-slate-900">
+    <div class="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex justify-between items-center border-b pb-3 border-slate-200">
+        <div>
+          <h3 class="font-extrabold text-purple-950 text-base flex items-center gap-2">
+            ⏱️ Fichador de Asistencia & Cómputo de Horas (Bar & Cafetería)
+          </h3>
+          <p class="text-xs text-slate-500">Ingreso/Salida por PIN para el personal del sector Bar</p>
+        </div>
+        <button onclick="closeAttendanceModal()" class="text-slate-400 hover:text-slate-700">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Tarjeta de Fichaje Rápido por PIN -->
+      <div class="bg-purple-50 border border-purple-200 p-4 rounded-2xl space-y-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div>
+            <label class="block text-xs font-black text-purple-950 mb-1">📍 Sector / Área de Trabajo *</label>
+            <select id="att-sector-input" class="w-full px-3 py-2 bg-white border border-purple-300 rounded-xl text-xs font-bold text-purple-950 outline-none focus:ring-2 focus:ring-purple-500">
+              <option value="☕ Bar & Cafetería" selected>☕ Bar & Cafetería</option>
+              <option value="🍳 Cocina">🍳 Cocina</option>
+              <option value="💰 Caja & Mostrador">💰 Caja & Mostrador</option>
+              <option value="👑 Administración">👑 Administración</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-black text-purple-950 mb-1">🔑 Tu PIN Personal Registrado *</label>
+            <input type="password" id="att-pin-input" placeholder="Tu PIN personal (ej: 1111)" class="w-full px-3 py-2 bg-white border border-purple-300 rounded-xl text-sm font-mono font-bold text-center outline-none focus:ring-2 focus:ring-purple-500 tracking-widest">
+          </div>
+        </div>
+        <div class="flex gap-2 pt-1">
+          <button type="button" onclick="submitClockIn()" class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-extrabold text-xs rounded-xl shadow transition flex items-center justify-center gap-1">
+            🟢 Marcar ENTRADA
+          </button>
+          <button type="button" onclick="submitClockOut()" class="flex-1 py-2.5 bg-red-600 hover:bg-red-700 active:scale-95 text-white font-extrabold text-xs rounded-xl shadow transition flex items-center justify-center gap-1">
+            🔴 Marcar SALIDA
+          </button>
+        </div>
+      </div>
+
+      <!-- Personal en Turno Activo -->
+      <div id="active-staff-banner" class="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 flex justify-between items-center">
+        <span>👥 Personal Activo en Bar: <span id="active-staff-count" class="font-mono text-purple-700 font-extrabold">0 operarios</span></span>
+      </div>
+
+      <!-- Historial de Fichajes y Horas -->
+      <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div class="p-3 bg-slate-100 border-b border-slate-200 font-extrabold text-xs text-slate-800 uppercase tracking-wider">
+          📋 Historial de Turnos de Asistencia y Cómputo de Horas
+        </div>
+        <div class="max-h-64 overflow-y-auto">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead class="sticky top-0 bg-slate-50 shadow-sm">
+              <tr class="border-b border-slate-200 text-slate-500 font-bold uppercase">
+                <th class="p-3">Empleado / Operario</th>
+                <th class="p-3">Estado</th>
+                <th class="p-3">Hora Entrada</th>
+                <th class="p-3">Hora Salida</th>
+                <th class="p-3 text-right">Horas Trabajadas</th>
+              </tr>
+            </thead>
+            <tbody id="attendance-history-tbody" class="divide-y divide-slate-100">
+              <!-- Dinámico -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="pt-2 flex justify-end">
+        <button type="button" onclick="closeAttendanceModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 font-bold rounded-xl text-xs text-slate-700">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/bar.js?v=1.0.0"></script>
+  <script>
+    lucide.createIcons();
+  </script>
+</body>
+</html>

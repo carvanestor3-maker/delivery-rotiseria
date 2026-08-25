@@ -55,190 +55,124 @@
   "products": [
     {
       "id": 1,
-      "category_id": 1,
-      "name": "Promo 2x1 Hamburguesas Clásicas",
-      "description": "2 Hamburguesas dobles con queso cheddar y papas fritas familiares.",
-      "price": 9500,
-      "image_url": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500",
-      "available": 1,
-      "stock_prepared": 0,
-      "is_prepared_food": 1
-    },
-    {
-      "id": 2,
-      "category_id": 1,
-      "name": "Combo Familiar Pizza + 6 Empanadas",
-      "description": "1 Pizza Muzzarella grande + 6 empanadas a elección.",
-      "price": 12500,
-      "image_url": "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=500",
-      "available": 1
-    },
-    {
-      "id": 3,
+      "code": "MIN-MIL-001",
       "category_id": 2,
       "name": "Sándwich de Milanesa Completo",
       "description": "Milanesa de carne, lechuga, tomate, jamón, queso y huevo frito con papas.",
       "price": 7500,
       "image_url": "https://images.unsplash.com/photo-1550547660-d9450f859349?w=500",
-      "available": 1
+      "available": 1,
+      "unit_type": "unidad"
     },
     {
-      "id": 4,
+      "id": 2,
+      "code": "MIN-NAP-001",
       "category_id": 2,
       "name": "Milanesa Napolitana con Papas Fritas",
       "description": "Milanesa grande cubierta con salsa de tomate casera, muzzarella y orégano.",
       "price": 8200,
       "image_url": "https://images.unsplash.com/photo-1544025162-d76694265947?w=500",
-      "available": 1
+      "available": 1,
+      "unit_type": "unidad"
     },
     {
-      "id": 5,
+      "id": 3,
+      "code": "MIN-LOM-001",
       "category_id": 2,
       "name": "Lomito Completo al Pan",
       "description": "Lomo vacuno tierno, lechuga, tomate, jamón, queso, huevo frito y papas.",
       "price": 7900,
       "image_url": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500",
-      "available": 1
+      "available": 1,
+      "unit_type": "unidad"
     },
     {
-      "id": 6,
+      "id": 4,
+      "code": "MIN-PAP-001",
       "category_id": 2,
       "name": "Porción de Papas Fritas Cheddar & Bacon",
       "description": "Papas crocantes bañadas en salsa cheddar caliente y panceta crocante.",
       "price": 4500,
       "image_url": "https://images.unsplash.com/photo-1576107232684-1279f3908594?w=500",
-      "available": 1
+      "available": 1,
+      "unit_type": "unidad"
     },
     {
-      "id": 7,
-      "category_id": 3,
-      "name": "Hamburguesa Doble Cheddar & Bacon",
-      "description": "Doble medallón 120g, cheddar, tocino crocante y salsa de la casa.",
-      "price": 6200,
-      "image_url": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500",
-      "available": 1
-    },
-    {
-      "id": 8,
-      "category_id": 3,
-      "name": "Hamburguesa Veggie de NotBurger",
-      "description": "Medallón vegetal, palta, lechuga, tomate y mayonesa vegana.",
-      "price": 5800,
-      "image_url": "https://images.unsplash.com/photo-1550547660-d9450f859349?w=500",
-      "available": 1
-    },
-    {
-      "id": 9,
-      "category_id": 4,
-      "name": "Pizza Muzzarella Especial",
-      "description": "Salsa de tomate casera, 300g muzzarella, aceitunas y orégano.",
-      "price": 7200,
-      "image_url": "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=500",
-      "available": 1
-    },
-    {
-      "id": 10,
-      "category_id": 4,
-      "name": "Pizza Napolitana con Jamón",
-      "description": "Muzzarella, rodajas de tomate fresco, ajo, perejil y jamón cocido.",
-      "price": 8100,
-      "image_url": "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=500",
-      "available": 1
-    },
-    {
-      "id": 11,
+      "id": 5,
+      "code": "EMP-CAR-001",
       "category_id": 5,
       "name": "Empanada de Carne Cortada a Cuchillo",
       "description": "Relleno jugoso con cebolla, huevo y especias tradicionales.",
       "price": 1100,
       "image_url": "https://images.unsplash.com/photo-1626777552726-4a6b54c97e46?w=500",
-      "available": 1
+      "available": 1,
+      "unit_type": "unidad"
     },
     {
-      "id": 12,
+      "id": 6,
+      "code": "EMP-CAR-002",
       "category_id": 5,
       "name": "Empanada de Carne Molida",
       "description": "Jugosa empanada casera de carne molida con cebolla, huevo y especias.",
       "price": 1100,
       "image_url": "https://images.unsplash.com/photo-1626777552726-4a6b54c97e46?w=500",
       "available": 1,
-      "code": "EMP-CAR-002"
+      "unit_type": "unidad"
     },
     {
-      "id": 13,
+      "id": 7,
+      "code": "EMP-JYQ-001",
       "category_id": 5,
       "name": "Empanada de Jamón y Queso",
       "description": "Queso tirante y jamón cocido seleccionado.",
       "price": 1000,
       "image_url": "https://images.unsplash.com/photo-1626777552726-4a6b54c97e46?w=500",
-      "available": 1
+      "available": 1,
+      "unit_type": "unidad"
     },
     {
-      "id": 13,
+      "id": 8,
+      "code": "PIZ-MUZ-001",
+      "category_id": 4,
+      "name": "Pizza Muzzarella Especial",
+      "description": "Salsa de tomate casera, 300g muzzarella, aceitunas y orégano.",
+      "price": 7200,
+      "image_url": "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=500",
+      "available": 1,
+      "unit_type": "unidad"
+    },
+    {
+      "id": 9,
+      "code": "HAM-DOB-001",
+      "category_id": 3,
+      "name": "Hamburguesa Doble Cheddar & Bacon",
+      "description": "Doble medallón 120g, cheddar, tocino crocante y salsa de la casa.",
+      "price": 6200,
+      "image_url": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500",
+      "available": 1,
+      "unit_type": "unidad"
+    },
+    {
+      "id": 10,
+      "code": "BEB-COC-001",
       "category_id": 6,
       "name": "Coca Cola 1.5L",
       "description": "Botella 1.5 Litros bien fría.",
       "price": 2500,
       "image_url": "https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=500",
-      "available": 1
-    },
-    {
-      "id": 14,
-      "category_id": 6,
-      "name": "Cerveza Cautiva IPA 473ml",
-      "description": "Lata artesanal bien helada.",
-      "price": 2800,
-      "image_url": "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=500",
-      "available": 1
-    },
-    {
-      "id": 15,
-      "category_id": 7,
-      "name": "Café con Leche + 2 Medialunas",
-      "description": "Café expreso cremoso acompañado de 2 medialunas artesanal de manteca.",
-      "price": 2800,
-      "image_url": "https://images.unsplash.com/photo-1517256064527-09c73fc73e38?w=500",
       "available": 1,
-      "sector": "bar"
+      "unit_type": "unidad"
     },
     {
-      "id": 16,
+      "id": 11,
+      "code": "BAR-LIC-001",
       "category_id": 7,
       "name": "Licuado de Banana o Frutilla (500cc)",
       "description": "Licuado batido al momento con leche o agua (500cc).",
       "price": 3200,
       "image_url": "https://images.unsplash.com/photo-1553530666-ba11a7da3888?w=500",
       "available": 1,
-      "sector": "bar"
-    },
-    {
-      "id": 17,
-      "category_id": 7,
-      "name": "Tostado Mixto Jamón y Queso en Pan de Miga",
-      "description": "Tostado dorado crocante en pan de miga con jamón y queso dote.",
-      "price": 3500,
-      "image_url": "https://images.unsplash.com/photo-1528735602780-2552fd46c7af?w=500",
-      "available": 1,
-      "sector": "bar"
-    },
-    {
-      "id": 18,
-      "original_product_id": 1,
-      "category_id": 1,
-      "name": "❄️ Promo 2x1 Hamburguesas Clásicas (Refrigerado 4hs - 30% OFF)",
-      "description": "Conservación en frío de 4 hs. Calidad óptima a precio rebajado (30% OFF).",
-      "price": 6650,
-      "original_price": 9500,
-      "image_url": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500",
-      "available": 1,
-      "stock_prepared": 3.5,
-      "unit_type": "kg",
-      "is_prepared_food": 1,
-      "is_refrigerated_offer": 1,
-      "discount_percent": 30,
-      "refrigerated_hours": 4,
-      "plu_code": "9001",
-      "barcode": "20900100000"
+      "unit_type": "unidad"
     }
   ],
   "orders": [
@@ -507,32 +441,32 @@
   ],
   "product_recipes": [
     {
-      "product_id": 3,
+      "product_id": 1,
       "raw_material_id": 1,
       "qty_per_portion": 0.25
     },
     {
-      "product_id": 3,
+      "product_id": 1,
       "raw_material_id": 2,
       "qty_per_portion": 0.2
     },
     {
-      "product_id": 3,
+      "product_id": 1,
       "raw_material_id": 4,
       "qty_per_portion": 1
     },
     {
-      "product_id": 4,
+      "product_id": 2,
       "raw_material_id": 1,
       "qty_per_portion": 0.3
     },
     {
-      "product_id": 4,
+      "product_id": 2,
       "raw_material_id": 2,
       "qty_per_portion": 0.25
     },
     {
-      "product_id": 4,
+      "product_id": 2,
       "raw_material_id": 3,
       "qty_per_portion": 0.15
     }

@@ -161,7 +161,7 @@ function renderMenuSections() {
         <span class="text-xl">${cat.icon || '🍽️'}</span>
         <span>${cat.name}</span>
       </h2>
-      <div class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3.5">
+      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
         ${catProducts.map(p => renderProductCard(p)).join('')}
       </div>
     `;

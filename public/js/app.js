@@ -287,19 +287,50 @@ function updateCartUI() {
   `).join('');
 }
 
+function pushModalState(name) {
+  try {
+    history.pushState({ modalOpen: name }, '');
+  } catch (e) {}
+}
+
+window.addEventListener('popstate', (e) => {
+  closeAllPublicModals();
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    closeAllPublicModals();
+  }
+});
+
+function closeAllPublicModals() {
+  closePhotoLightbox();
+  closeVideoPlayer();
+  closeCartModal();
+  const successModal = document.getElementById('order-success-modal');
+  if (successModal && !successModal.classList.contains('opacity-0')) {
+    closeOrderSuccessModal();
+  }
+}
+
 function openCartModal() {
   const modal = document.getElementById('cart-modal');
-  modal.classList.remove('opacity-0', 'pointer-events-none');
+  if (modal) modal.classList.remove('opacity-0', 'pointer-events-none');
+  pushModalState('cart');
 }
 
 function closeCartModal() {
   const modal = document.getElementById('cart-modal');
-  modal.classList.add('opacity-0', 'pointer-events-none');
+  if (modal) modal.classList.add('opacity-0', 'pointer-events-none');
 }
 
 function closeOrderSuccessModal() {
   const modal = document.getElementById('order-success-modal');
-  modal.classList.add('opacity-0', 'pointer-events-none');
+  if (modal) modal.classList.add('opacity-0', 'pointer-events-none');
+  state.cart = [];
+  saveCartToStorage();
+  updateCartUI();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function saveCartToStorage() {
@@ -450,6 +481,7 @@ function openPhotoLightboxByProductId(productId) {
   if (descElem) descElem.textContent = prod.description || 'Ampliación HD al ancho de pantalla';
 
   if (modal) modal.classList.remove('opacity-0', 'pointer-events-none');
+  pushModalState('lightbox');
 }
 
 function openPhotoLightbox(imageUrl, title, desc) {
@@ -463,6 +495,7 @@ function openPhotoLightbox(imageUrl, title, desc) {
   if (descElem) descElem.textContent = desc || 'Ampliación HD al ancho de pantalla';
 
   if (modal) modal.classList.remove('opacity-0', 'pointer-events-none');
+  pushModalState('lightbox');
 }
 
 function closePhotoLightbox() {
@@ -558,6 +591,7 @@ function openVideoPlayer(videoUrl, title) {
   }
 
   if (modal) modal.classList.remove('opacity-0', 'pointer-events-none');
+  pushModalState('video');
 }
 
 function closeVideoPlayer() {

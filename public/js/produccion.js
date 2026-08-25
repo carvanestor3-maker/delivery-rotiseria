@@ -107,45 +107,95 @@ function updateMetrics(activeBatches, historyBatches) {
   if (elemActive) elemActive.textContent = activeBatches.length;
   if (elemCompleted) elemCompleted.textContent = historyBatches.length;
 
-  if (elemAvg) {
-    if (historyBatches.length === 0) {
-      elemAvg.textContent = '0.0 min';
+  let totalSecs = 0;
+  let minSecs = Infinity;
+
+  if (historyBatches.length > 0) {
+    historyBatches.forEach(b => {
+      const dur = b.duration_seconds || 0;
+      totalSecs += dur;
+      if (dur < minSecs && dur > 0) minSecs = dur;
+    });
+  }
+
+  const avgMin = historyBatches.length > 0 ? (totalSecs / historyBatches.length / 60).toFixed(1) : '0.0';
+  if (elemAvg) elemAvg.textContent = `${avgMin} min`;
+
+  // Métricas del Banner Estadístico de Tiempos y Performance Operativo (Pestaña Bitácora)
+  const statAvg = document.getElementById('stat-avg-prep-time');
+  const statFastest = document.getElementById('stat-fastest-prep-time');
+  const statTarget = document.getElementById('stat-target-status');
+
+  if (statAvg) statAvg.textContent = `${avgMin} min`;
+
+  if (statFastest) {
+    if (minSecs === Infinity || historyBatches.length === 0) {
+      statFastest.textContent = '0.0 min';
     } else {
-      let totalSecs = 0;
-      historyBatches.forEach(b => {
-        totalSecs += (b.duration_seconds || 0);
-      });
-      const avgMin = (totalSecs / historyBatches.length / 60).toFixed(1);
-      elemAvg.textContent = `${avgMin} min`;
+      const fMin = Math.floor(minSecs / 60);
+      const fSec = minSecs % 60;
+      statFastest.textContent = `${fMin}m ${fSec}s`;
     }
   }
 
-  // Actualizar métricas del Banner Financiero de la Bitácora
-  let totalMatCost = 0;
-  let totalLaborCost = 0;
-  let unitCostSum = 0;
-  let marginSum = 0;
-  let countWithCost = 0;
-
-  historyBatches.forEach(b => {
-    if (b.cost_analysis) {
-      totalMatCost += (b.cost_analysis.raw_material_cost_total || 0);
-      totalLaborCost += (b.cost_analysis.labor_cost_total || 0);
-      unitCostSum += (b.cost_analysis.unit_cost_real || 0);
-      marginSum += (b.cost_analysis.profit_margin_percent || 0);
-      countWithCost++;
+  if (statTarget) {
+    const avgNum = parseFloat(avgMin);
+    if (historyBatches.length === 0) {
+      statTarget.textContent = '⏱️ En Espera';
+      statTarget.className = 'font-mono font-black text-slate-400 text-lg';
+    } else if (avgNum <= 25) {
+      statTarget.textContent = '⚡ Ritmo Muy Ágil';
+      statTarget.className = 'font-mono font-black text-emerald-400 text-lg';
+    } else if (avgNum <= 45) {
+      statTarget.textContent = '🏆 Ritmo Eficiente';
+      statTarget.className = 'font-mono font-black text-amber-400 text-lg';
+    } else {
+      statTarget.textContent = '🐢 Elaboración Extensa';
+      statTarget.className = 'font-mono font-black text-purple-400 text-lg';
     }
-  });
+  }
+}
 
-  const statMat = document.getElementById('stat-total-mat-cost');
-  const statLabor = document.getElementById('stat-total-labor-cost');
-  const statAvgUnit = document.getElementById('stat-avg-unit-cost');
-  const statAvgMargin = document.getElementById('stat-avg-margin');
+function renderHistoryTable(historyBatches) {
+  const tbody = document.getElementById('production-history-tbody');
+  if (!tbody) return;
 
-  if (statMat) statMat.textContent = formatCurrency(totalMatCost);
-  if (statLabor) statLabor.textContent = formatCurrency(totalLaborCost);
-  if (statAvgUnit) statAvgUnit.textContent = countWithCost > 0 ? `${formatCurrency(unitCostSum / countWithCost)} / unid` : '$0';
-  if (statAvgMargin) statAvgMargin.textContent = countWithCost > 0 ? `${(marginSum / countWithCost).toFixed(1)}%` : '0.0%';
+  if (historyBatches.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-500 font-bold text-xs">No hay lotes concluidos en la bitácora todavía.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = historyBatches.map(b => {
+    const startTime = b.started_at ? new Date(b.started_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) : '-';
+    const endTime = b.finished_at ? new Date(b.finished_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) : '-';
+    const durationSec = b.duration_seconds || 0;
+    const min = Math.floor(durationSec / 60);
+    const sec = durationSec % 60;
+    const durationText = `${min} min ${sec} seg`;
+
+    let speedBadgeClass = 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40';
+    if (min >= 45) {
+      speedBadgeClass = 'bg-purple-500/20 text-purple-300 border-purple-500/40';
+    } else if (min >= 25) {
+      speedBadgeClass = 'bg-amber-500/20 text-amber-300 border-amber-500/40';
+    }
+
+    return `
+      <tr class="hover:bg-slate-800/50 transition">
+        <td class="p-3 font-mono font-black text-amber-400 text-xs">${b.batch_number}</td>
+        <td class="p-3 font-extrabold text-white">${b.product_name}</td>
+        <td class="p-3 text-slate-400 text-xs">${b.category_sector}</td>
+        <td class="p-3 font-mono font-black text-emerald-400">${b.quantity} ${b.unit_type || 'kg'}</td>
+        <td class="p-3 font-semibold text-slate-200">${b.operator_name}</td>
+        <td class="p-3 font-mono text-slate-400 text-xs">${startTime} a ${endTime} hs</td>
+        <td class="p-3 text-right">
+          <span class="px-2.5 py-1 rounded-lg border font-mono font-black text-xs ${speedBadgeClass}">
+            ⏱️ ${durationText}
+          </span>
+        </td>
+      </tr>
+    `;
+  }).join('');
 }
 
 function renderActiveGrid(activeBatches) {

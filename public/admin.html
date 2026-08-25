@@ -340,6 +340,35 @@
         </button>
       </div>
 
+      <!-- MONITOR EN VIVO: PERSONAL ACTIVO POR SECTOR Y CAJAS ABIERTAS -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Tarjeta 1: Personal en Turno Activo (Fichados por Sector) -->
+        <div class="bg-amber-50 border border-amber-200 p-4 rounded-2xl space-y-2">
+          <div class="flex justify-between items-center border-b border-amber-200/80 pb-2">
+            <h3 class="font-extrabold text-amber-950 text-sm flex items-center gap-1.5">
+              ⏱️ Personal en Turno Activo (Fichados)
+            </h3>
+            <span id="users-active-count-badge" class="bg-amber-200 text-amber-950 font-mono font-black text-xs px-2.5 py-0.5 rounded-full">0 activos</span>
+          </div>
+          <div id="users-active-staff-list" class="text-xs font-semibold text-slate-700 space-y-1.5 pt-1">
+            <!-- Dinámico -->
+          </div>
+        </div>
+
+        <!-- Tarjeta 2: Cajas Abiertas y Cajero Asignado -->
+        <div class="bg-emerald-50 border border-emerald-200 p-4 rounded-2xl space-y-2">
+          <div class="flex justify-between items-center border-b border-emerald-200/80 pb-2">
+            <h3 class="font-extrabold text-emerald-950 text-sm flex items-center gap-1.5">
+              💰 Cajas Abiertas & Cajero Asignado
+            </h3>
+            <span id="users-active-shifts-count-badge" class="bg-emerald-200 text-emerald-950 font-mono font-black text-xs px-2.5 py-0.5 rounded-full">0 cajas</span>
+          </div>
+          <div id="users-active-shifts-list" class="text-xs font-semibold text-slate-700 space-y-1.5 pt-1">
+            <!-- Dinámico -->
+          </div>
+        </div>
+      </div>
+
       <!-- Tabla de Usuarios del Sistema -->
       <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         <div class="overflow-x-auto">
@@ -1327,7 +1356,7 @@
     </div>
   </div>
 
-  <script src="/js/admin.js?v=11.0.0"></script>
+  <script src="/js/admin.js?v=12.0.0"></script>
   <script>
     lucide.createIcons();
   </script>

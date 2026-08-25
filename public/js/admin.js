@@ -39,10 +39,61 @@ async function loadUsers() {
     const data = await res.json();
     if (data.success) {
       staffUsers = data.users || [];
+      await renderUsersLiveMonitor();
       renderUsersTable();
     }
   } catch (err) {
     console.error('Error al cargar personal:', err);
+  }
+}
+
+async function renderUsersLiveMonitor() {
+  const staffListElem = document.getElementById('users-active-staff-list');
+  const staffBadgeElem = document.getElementById('users-active-count-badge');
+  const shiftsListElem = document.getElementById('users-active-shifts-list');
+  const shiftsBadgeElem = document.getElementById('users-active-shifts-count-badge');
+
+  try {
+    const resAtt = await fetch('/api/attendance/logs');
+    const dataAtt = await resAtt.json();
+    if (dataAtt.success) {
+      const activeStaff = dataAtt.active_staff || [];
+      if (staffBadgeElem) staffBadgeElem.textContent = `${activeStaff.length} activo(s)`;
+      if (staffListElem) {
+        if (activeStaff.length === 0) {
+          staffListElem.innerHTML = `<div class="text-slate-400 italic">No hay personal fichado en turno activo actualmente.</div>`;
+        } else {
+          staffListElem.innerHTML = activeStaff.map(s => {
+            const inTime = new Date(s.clock_in).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+            return `
+              <div class="flex justify-between items-center bg-white p-2 rounded-xl border border-amber-200 shadow-sm">
+                <span class="font-extrabold text-amber-950 flex items-center gap-1.5">🟢 ${s.user_name} <span class="text-[10px] font-normal text-slate-500">(Nivel ${s.level})</span></span>
+                <span class="font-mono text-slate-600 font-bold">Ingreso: ${inTime} hs</span>
+              </div>
+            `;
+          }).join('');
+        }
+      }
+    }
+  } catch (e) {
+    console.error('Error al renderizar monitor de asistencia:', e);
+  }
+
+  if (shiftsBadgeElem) shiftsBadgeElem.textContent = `${activeShiftsList.length} caja(s)`;
+  if (shiftsListElem) {
+    if (activeShiftsList.length === 0) {
+      shiftsListElem.innerHTML = `<div class="text-slate-400 italic">No hay cajas abiertas en este momento.</div>`;
+    } else {
+      shiftsListElem.innerHTML = activeShiftsList.map(s => {
+        const inTime = new Date(s.opened_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+        return `
+          <div class="flex justify-between items-center bg-white p-2 rounded-xl border border-emerald-200 shadow-sm">
+            <span class="font-extrabold text-emerald-950 flex items-center gap-1.5">💰 Caja N° ${s.box_number || 1} <span class="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">Cajero: ${s.cashier_name}</span></span>
+            <span class="font-mono text-slate-600 font-bold">Abierta: ${inTime} hs</span>
+          </div>
+        `;
+      }).join('');
+    }
   }
 }
 

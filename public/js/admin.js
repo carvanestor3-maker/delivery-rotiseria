@@ -1454,6 +1454,7 @@ function openProductModal(prod = null) {
     document.getElementById('prod-image').value = prod.image_url || '';
     if (document.getElementById('prod-video-url')) document.getElementById('prod-video-url').value = prod.video_url || '';
     showImagePreview(prod.image_url || '');
+    showVideoPreview(prod.video_url || '');
     document.getElementById('prod-available').checked = prod.available === 1;
   } else {
     if (title) title.textContent = 'Nuevo Producto / Plato (Exclusivo Nivel 3)';
@@ -1464,11 +1465,66 @@ function openProductModal(prod = null) {
     document.getElementById('prod-desc').value = '';
     document.getElementById('prod-image').value = '';
     if (document.getElementById('prod-video-url')) document.getElementById('prod-video-url').value = '';
+    showImagePreview('');
+    showVideoPreview('');
     document.getElementById('prod-unit-type').value = 'unidad';
     document.getElementById('prod-available').checked = true;
   }
 
   modal.classList.remove('opacity-0', 'pointer-events-none');
+}
+
+function handleVideoFileSelect(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  if (file.size > 60 * 1024 * 1024) {
+    alert('⚠️ EL ARCHIVO DE VIDEO EXCEDE LOS 60MB:\n\nPara mejor velocidad, selecciona un video comprimido en .MP4 o ingresa el enlace web.');
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const dataUrl = e.target.result;
+    const urlInput = document.getElementById('prod-video-url');
+    if (urlInput) urlInput.value = dataUrl;
+    showVideoPreview(dataUrl);
+  };
+  reader.readAsDataURL(file);
+}
+
+function handleVideoUrlInput(event) {
+  const url = event.target.value.trim();
+  showVideoPreview(url);
+}
+
+function showVideoPreview(url) {
+  const container = document.getElementById('video-preview-container');
+  const player = document.getElementById('video-preview-player');
+
+  if (!container || !player) return;
+
+  if (url && url.length > 0) {
+    if (url.startsWith('data:video/') || url.match(/\.(mp4|webm|ogg|mov)(\?.*)?$/i)) {
+      player.src = url;
+      player.style.display = 'block';
+    } else {
+      player.src = '';
+      player.style.display = 'none';
+    }
+    container.classList.remove('hidden');
+  } else {
+    player.src = '';
+    container.classList.add('hidden');
+  }
+}
+
+function clearVideoPreview() {
+  const urlInput = document.getElementById('prod-video-url');
+  const fileInput = document.getElementById('prod-video-file-input');
+  if (urlInput) urlInput.value = '';
+  if (fileInput) fileInput.value = '';
+  showVideoPreview('');
 }
 
 function closeProductModal() {

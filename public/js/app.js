@@ -120,25 +120,26 @@ function renderProductCard(prod) {
 
   return `
     <div class="bg-white rounded-2xl p-3.5 shadow-sm border border-slate-200 flex gap-3.5 items-start hover:shadow-md transition">
-      <div class="relative flex-shrink-0 cursor-pointer group" onclick="openPhotoLightboxByProductId(${prod.id})" title="Toca para ampliar foto en pantalla completa HD">
-        <img src="${imageUrl}" alt="${prod.name}" class="w-20 h-20 rounded-xl object-cover bg-slate-100 group-hover:opacity-90 transition">
-        <span class="absolute bottom-1 right-1 bg-slate-900/80 text-white p-1 rounded-md text-[9px] font-black backdrop-blur-xs flex items-center gap-0.5">
-          🔍 HD
-        </span>
+      <!-- Columna Foto + Botón Video abajo -->
+      <div class="flex flex-col items-center gap-1.5 flex-shrink-0">
+        <div class="relative cursor-pointer group" onclick="openPhotoLightboxByProductId(${prod.id})" title="Toca para ampliar foto en pantalla completa HD">
+          <img src="${imageUrl}" alt="${prod.name}" class="w-20 h-20 rounded-xl object-cover bg-slate-100 group-hover:opacity-90 transition shadow-xs border border-slate-100">
+          <span class="absolute bottom-1 right-1 bg-slate-900/80 text-white p-1 rounded-md text-[9px] font-black backdrop-blur-xs flex items-center gap-0.5">
+            🔍 HD
+          </span>
+        </div>
+        ${hasVideo ? `
+          <button type="button" onclick="event.stopPropagation(); openVideoPlayerByProductId(${prod.id})" class="w-20 py-1 bg-red-600 hover:bg-red-700 active:scale-95 text-white font-black rounded-lg text-[10px] transition flex items-center justify-center gap-1 shadow-sm leading-none">
+            🎬 Ver Video
+          </button>
+        ` : ''}
       </div>
       
       <div class="flex-1 min-w-0 space-y-1">
         <h3 class="font-extrabold text-slate-900 text-sm leading-snug cursor-pointer hover:text-orange-600 transition" onclick="openPhotoLightboxByProductId(${prod.id})">${prod.name}</h3>
         ${prod.description ? `<p class="text-slate-500 text-[11px] leading-relaxed line-clamp-2 font-normal">${prod.description}</p>` : ''}
         
-        <div class="flex items-center gap-2 pt-0.5">
-          <div class="font-black text-slate-900 text-sm font-mono">${formatCurrency(prod.price)}</div>
-          ${hasVideo ? `
-            <button type="button" onclick="event.stopPropagation(); openVideoPlayerByProductId(${prod.id})" class="px-2.5 py-1 bg-red-600 hover:bg-red-700 active:scale-95 text-white font-extrabold rounded-lg text-[11px] transition flex items-center gap-1 shadow-sm">
-              🎬 Ver Video
-            </button>
-          ` : ''}
-        </div>
+        <div class="font-black text-slate-900 text-sm font-mono pt-0.5">${formatCurrency(prod.price)}</div>
       </div>
 
       <div class="flex-shrink-0">

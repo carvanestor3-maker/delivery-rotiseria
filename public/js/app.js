@@ -19,6 +19,9 @@ function formatWhatsAppNumber(phone) {
     clean = '549' + clean;
   } else if (clean.length === 11 && clean.startsWith('0')) {
     clean = '549' + clean.substring(1);
+  } else if (clean.length === 12 && clean.startsWith('54') && !clean.startsWith('549')) {
+    clean = '549' + clean.substring(2);
+  }
   return clean;
 }
 

@@ -112,7 +112,7 @@ function renderCategoryTabs() {
   if (!container) return;
 
   container.innerHTML = `
-    <button onclick="selectCategory('all')" class="category-tab px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all shadow-sm ${state.selectedCategory === 'all' ? 'bg-orange-500 text-white shadow-md' : 'bg-white text-slate-700 hover:bg-slate-200'}">
+    <button onclick="selectCategory('all')" class="category-tab px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs ${state.selectedCategory === 'all' ? 'bg-orange-500 text-white shadow-md' : 'bg-white text-slate-700 hover:bg-slate-200'}">
       🔥 Todo el Menú
     </button>
   `;
@@ -121,7 +121,7 @@ function renderCategoryTabs() {
     const isActive = state.selectedCategory === String(cat.id);
     const btn = document.createElement('button');
     btn.onclick = () => selectCategory(String(cat.id));
-    btn.className = `category-tab px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all shadow-sm ${isActive ? 'bg-orange-500 text-white shadow-md' : 'bg-white text-slate-700 hover:bg-slate-200'}`;
+    btn.className = `category-tab px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs ${isActive ? 'bg-orange-500 text-white shadow-md' : 'bg-white text-slate-700 hover:bg-slate-200'}`;
     btn.textContent = `${cat.icon || '🍽️'} ${cat.name}`;
     container.appendChild(btn);
   });
@@ -161,7 +161,7 @@ function renderMenuSections() {
         <span class="text-xl">${cat.icon || '🍽️'}</span>
         <span>${cat.name}</span>
       </h2>
-      <div class="grid grid-cols-1 gap-3">
+      <div class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3.5">
         ${catProducts.map(p => renderProductCard(p)).join('')}
       </div>
     `;
@@ -179,41 +179,47 @@ function renderProductCard(prod) {
   const hasVideo = prod.video_url && prod.video_url.trim().length > 0;
 
   return `
-    <div class="bg-white rounded-2xl p-3.5 shadow-sm border border-slate-200 flex gap-3.5 items-start hover:shadow-md transition">
-      <!-- Columna Foto + Botón Video abajo -->
-      <div class="flex flex-col items-center gap-1.5 flex-shrink-0">
-        <div class="relative w-20 h-20 rounded-xl overflow-hidden bg-slate-100 cursor-pointer group flex-shrink-0 border border-slate-200 shadow-xs" onclick="openPhotoLightboxByProductId(${prod.id})" title="Toca para ampliar foto en pantalla completa HD">
-          <img src="${imageUrl}" alt="${prod.name}" onerror="this.onerror=null; this.src='${fallbackUrl}';" class="w-full h-full object-cover group-hover:opacity-90 transition">
-          <span class="absolute bottom-1 right-1 bg-slate-900/80 text-white px-1 py-0.5 rounded-md text-[8px] font-black backdrop-blur-xs flex items-center gap-0.5">
+    <div class="bg-white rounded-2xl p-2.5 sm:p-3 shadow-xs border border-slate-200/80 flex flex-col justify-between hover:shadow-md transition group">
+      <div>
+        <!-- Foto HD y Video Badge -->
+        <div class="relative w-full aspect-4/3 rounded-xl overflow-hidden bg-slate-100 cursor-pointer group flex-shrink-0 border border-slate-200/60 shadow-xs mb-2" onclick="openPhotoLightboxByProductId(${prod.id})" title="Toca para ampliar foto en pantalla completa HD">
+          <img src="${imageUrl}" alt="${prod.name}" onerror="this.onerror=null; this.src='${fallbackUrl}';" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+          
+          <span class="absolute top-1.5 left-1.5 bg-slate-900/80 text-white px-1.5 py-0.5 rounded-md text-[9px] font-black backdrop-blur-xs flex items-center gap-0.5 shadow">
             🔍 HD
           </span>
+
+          ${hasVideo ? `
+            <button type="button" onclick="event.stopPropagation(); openVideoPlayerByProductId(${prod.id})" class="absolute bottom-1.5 right-1.5 px-2 py-1 bg-red-600 hover:bg-red-700 active:scale-95 text-white font-black rounded-lg text-[9px] transition flex items-center gap-1 shadow-md leading-none">
+              🎬 Video
+            </button>
+          ` : ''}
         </div>
-        ${hasVideo ? `
-          <button type="button" onclick="event.stopPropagation(); openVideoPlayerByProductId(${prod.id})" class="w-20 py-1 bg-red-600 hover:bg-red-700 active:scale-95 text-white font-black rounded-lg text-[10px] transition flex items-center justify-center gap-1 shadow-sm leading-none">
-            🎬 Ver Video
-          </button>
-        ` : ''}
-      </div>
-      
-      <div class="flex-1 min-w-0 space-y-1">
-        <h3 class="font-extrabold text-slate-900 text-sm leading-snug cursor-pointer hover:text-orange-600 transition" onclick="openPhotoLightboxByProductId(${prod.id})">${prod.name}</h3>
-        ${prod.description ? `<p class="text-slate-500 text-[11px] leading-relaxed line-clamp-2 font-normal">${prod.description}</p>` : ''}
-        
-        <div class="font-black text-slate-900 text-sm font-mono pt-0.5">${formatCurrency(prod.price)}</div>
+
+        <!-- Título y Descripción -->
+        <div class="space-y-1">
+          <h3 class="font-extrabold text-slate-900 text-xs sm:text-sm leading-tight cursor-pointer hover:text-orange-600 transition line-clamp-2" onclick="openPhotoLightboxByProductId(${prod.id})">${prod.name}</h3>
+          ${prod.description ? `<p class="text-slate-500 text-[10px] sm:text-[11px] leading-snug line-clamp-2 font-normal">${prod.description}</p>` : ''}
+        </div>
       </div>
 
-      <div class="flex-shrink-0">
-        ${qty === 0 ? `
-          <button onclick="addToCart(${prod.id})" class="bg-orange-500 hover:bg-orange-600 active:scale-95 text-white font-extrabold text-xs px-3.5 py-2 rounded-xl shadow transition flex items-center gap-1">
-            <span>+</span> Agregar
-          </button>
-        ` : `
-          <div class="flex items-center bg-slate-900 text-white rounded-xl overflow-hidden shadow-md">
-            <button onclick="updateItemQty(${prod.id}, -1)" class="px-2 py-1 hover:bg-slate-800 font-bold text-xs">-</button>
-            <span class="px-2 font-black text-xs font-mono text-orange-400">${qty}</span>
-            <button onclick="addToCart(${prod.id})" class="px-2 py-1 hover:bg-slate-800 font-bold text-xs">+</button>
-          </div>
-        `}
+      <!-- Precio y Botón Agregar -->
+      <div class="pt-2 mt-2 border-t border-slate-100 flex items-center justify-between gap-1">
+        <div class="font-black text-slate-950 text-xs sm:text-sm font-mono tracking-tight">${formatCurrency(prod.price)}</div>
+        
+        <div>
+          ${qty === 0 ? `
+            <button onclick="addToCart(${prod.id})" class="bg-orange-500 hover:bg-orange-600 active:scale-95 text-white font-extrabold text-[11px] sm:text-xs px-2.5 sm:px-3 py-1.5 rounded-xl shadow-xs transition flex items-center gap-0.5">
+              <span>+</span> Agregar
+            </button>
+          ` : `
+            <div class="flex items-center bg-slate-900 text-white rounded-xl overflow-hidden shadow-xs">
+              <button onclick="updateItemQty(${prod.id}, -1)" class="px-2 py-1 hover:bg-slate-800 font-bold text-xs">-</button>
+              <span class="px-1.5 font-black text-xs font-mono text-orange-400">${qty}</span>
+              <button onclick="addToCart(${prod.id})" class="px-2 py-1 hover:bg-slate-800 font-bold text-xs">+</button>
+            </div>
+          `}
+        </div>
       </div>
     </div>
   `;

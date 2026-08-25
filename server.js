@@ -2116,6 +2116,25 @@ app.post('/api/settings', (req, res) => {
   }
 });
 
+// RUTAS EXPLÍCITAS DE NAVEGACIÓN Y PORTALES (MÁXIMA COMPATIBILIDAD EN CELULARES Y TABLETS)
+app.get('/portales', (req, res) => res.sendFile(path.join(__dirname, 'public', 'portales.html')));
+app.get('/portales.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'portales.html')));
+
+app.get('/produccion', (req, res) => res.sendFile(path.join(__dirname, 'public', 'produccion.html')));
+app.get('/produccion.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'produccion.html')));
+
+app.get('/caja', (req, res) => res.sendFile(path.join(__dirname, 'public', 'caja.html')));
+app.get('/caja.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'caja.html')));
+
+app.get('/cocina', (req, res) => res.sendFile(path.join(__dirname, 'public', 'cocina.html')));
+app.get('/cocina.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'cocina.html')));
+
+app.get('/bar', (req, res) => res.sendFile(path.join(__dirname, 'public', 'bar.html')));
+app.get('/bar.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'bar.html')));
+
+app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
+app.get('/admin.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
+
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`

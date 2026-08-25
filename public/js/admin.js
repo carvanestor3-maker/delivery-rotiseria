@@ -1878,11 +1878,11 @@ async function openRecipeModal(selectedProductId = null) {
     console.error('Error al cargar recetas:', e);
   }
 
-  const genProducts = products.filter(p => p.available === 1);
+  const genProducts = products || [];
   if (sel) {
     sel.innerHTML = genProducts.map(p => `
       <option value="${p.id}" ${selectedProductId === p.id ? 'selected' : ''}>
-        [${p.barcode ? `BAR: ${p.barcode}` : p.plu_code ? `PLU: ${p.plu_code}` : `PROD-${p.id}`}] ${p.name} (${p.unit_type === 'kg' ? 'x Kg' : 'x Unidad'})
+        [${p.code || `PROD-${String(p.id).padStart(3, '0')}`}] ${p.name} (${p.unit_type === 'kg' ? 'x Kg' : 'x Unidad'})
       </option>
     `).join('');
   }

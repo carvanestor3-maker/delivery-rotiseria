@@ -1236,7 +1236,7 @@ function renderProductsTable() {
   }
 
   filtered.forEach(p => {
-    const isAvail = p.available === 1;
+    const isAvail = p.available === 1 || p.available === true || p.available === undefined || p.available === '1';
     const tr = document.createElement('tr');
     tr.className = 'hover:bg-slate-50 transition';
 

@@ -1434,6 +1434,89 @@ app.post('/api/admin/products', (req, res) => {
   }
 });
 
+// RUTAS API GESTIÓN MODULAR DE CATEGORÍAS (REQUERIDO NIVEL 3 - GERENTE / DUEÑO)
+app.post('/api/admin/categories', (req, res) => {
+  try {
+    const { id, name, icon, sector, sort_order, pin } = req.body;
+
+    const auth = verifyUserPin(pin, 3);
+    if (!auth.isValid) {
+      return res.status(401).json({ success: false, error: 'Acceso Denegado: La gestión modular de categorías requiere PIN de Gerente / Dueño (Nivel 3).' });
+    }
+
+    if (!name || !name.trim()) {
+      return res.status(400).json({ success: false, error: 'El nombre de la categoría es obligatorio.' });
+    }
+
+    const store = db.getStore();
+    if (!store.categories) store.categories = [];
+
+    const strName = name.trim();
+    const strIcon = (icon || '🍽️').trim();
+
+    const dupCat = store.categories.find(c => c.name.toLowerCase() === strName.toLowerCase() && c.id !== parseInt(id || 0));
+    if (dupCat) {
+      return res.status(400).json({ success: false, error: `⚠️ CATEGORÍA DUPLICADA: Ya existe una categoría con el nombre "${dupCat.name}".` });
+    }
+
+    if (id) {
+      const cat = store.categories.find(c => c.id === parseInt(id));
+      if (cat) {
+        cat.name = strName;
+        cat.icon = strIcon;
+        if (sector) cat.sector = sector;
+        if (sort_order !== undefined) cat.sort_order = parseInt(sort_order);
+      }
+    } else {
+      const nextId = store.categories.length > 0 ? Math.max(...store.categories.map(c => c.id)) + 1 : 1;
+      store.categories.push({
+        id: nextId,
+        name: strName,
+        icon: strIcon,
+        sort_order: sort_order !== undefined ? parseInt(sort_order) : store.categories.length,
+        sector: sector || 'kitchen'
+      });
+    }
+
+    db.saveStore();
+    io.emit('menu_updated');
+    res.json({ success: true, categories: store.categories, user_name: auth.user.name });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/admin/categories/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    const { pin } = req.body;
+
+    const auth = verifyUserPin(pin, 3);
+    if (!auth.isValid) {
+      return res.status(401).json({ success: false, error: 'Acceso Denegado: Se requiere PIN Nivel 3 para eliminar categorías.' });
+    }
+
+    const store = db.getStore();
+    const cid = parseInt(id);
+
+    const prodsInCat = store.products.filter(p => p.category_id === cid);
+    if (prodsInCat.length > 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: `⚠️ NO SE PUEDE ELIMINAR: La categoría contiene ${prodsInCat.length} plato(s) o producto(s). Reasigne o elimine esos productos antes de borrar la categoría.` 
+      });
+    }
+
+    store.categories = store.categories.filter(c => c.id !== cid);
+    db.saveStore();
+    io.emit('menu_updated');
+
+    res.json({ success: true, categories: store.categories });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // RUTA API POS: VENTA DIRECTA EN MOSTRADOR POR ESCÁNER / BALANZA
 app.post('/api/pos/sale', (req, res) => {
   try {

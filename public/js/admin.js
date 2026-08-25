@@ -1102,11 +1102,19 @@ function renderAdminCategoryFilters() {
 
   categories.forEach(c => {
     const isActive = selectedAdminCat === String(c.id);
-    const btn = document.createElement('button');
-    btn.onclick = () => setAdminCatFilter(String(c.id));
-    btn.className = `px-3 py-1 rounded-xl text-xs font-bold transition ${isActive ? 'bg-orange-500 text-white shadow' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`;
-    btn.textContent = `${c.icon || '🍽️'} ${c.name}`;
-    container.appendChild(btn);
+    const wrap = document.createElement('div');
+    wrap.className = `flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold transition ${isActive ? 'bg-orange-500 text-white shadow' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`;
+
+    wrap.innerHTML = `
+      <button onclick="setAdminCatFilter('${c.id}')" class="flex items-center gap-1 outline-none">
+        <span>${c.icon || '🍽️'} ${c.name}</span>
+      </button>
+      <button onclick="openCategoryModal(categories.find(cat => cat.id === ${c.id}))" class="ml-1 text-[10px] opacity-70 hover:opacity-100 transition" title="Editar Categoría (Nivel 3)">
+        ✏️
+      </button>
+    `;
+
+    container.appendChild(wrap);
   });
 }
 
@@ -1198,7 +1206,71 @@ function renderProductsTable() {
 
 function populateCategorySelect() {
   const sel = document.getElementById('prod-category');
-  sel.innerHTML = categories.map(c => `<option value="${c.id}">${c.icon || '🍽️'} ${c.name}</option>`).join('');
+  if (sel) sel.innerHTML = categories.map(c => `<option value="${c.id}">${c.icon || '🍽️'} ${c.name}</option>`).join('');
+}
+
+function openCategoryModal(cat = null) {
+  const modal = document.getElementById('category-modal');
+  const title = document.getElementById('cat-modal-title');
+  const form = document.getElementById('category-form');
+
+  if (form) form.reset();
+  if (cat) {
+    if (title) title.textContent = 'Editar Categoría / Rubro (Nivel 3)';
+    document.getElementById('cat-id').value = cat.id;
+    document.getElementById('cat-name').value = cat.name;
+    document.getElementById('cat-icon').value = cat.icon || '🍽️';
+    document.getElementById('cat-sector').value = cat.sector || 'kitchen';
+  } else {
+    if (title) title.textContent = 'Nueva Categoría (Nivel 3)';
+    document.getElementById('cat-id').value = '';
+    document.getElementById('cat-icon').value = '🍽️';
+    document.getElementById('cat-sector').value = 'kitchen';
+  }
+
+  modal.classList.remove('opacity-0', 'pointer-events-none');
+}
+
+function closeCategoryModal() {
+  const modal = document.getElementById('category-modal');
+  modal.classList.add('opacity-0', 'pointer-events-none');
+}
+
+async function saveCategory(e) {
+  e.preventDefault();
+  const id = document.getElementById('cat-id').value;
+  const name = document.getElementById('cat-name').value.trim();
+  const icon = document.getElementById('cat-icon').value.trim();
+  const sector = document.getElementById('cat-sector').value;
+  const pin = document.getElementById('cat-pin').value.trim();
+
+  if (!name) {
+    alert('⚠️ El nombre de la categoría es obligatorio.');
+    return;
+  }
+  if (!pin) {
+    alert('⚠️ La clave PIN Nivel 3 de Gerente/Dueño es obligatoria.');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/admin/categories', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: id ? parseInt(id) : null, name, icon, sector, pin })
+    });
+    const data = await res.json();
+    if (data.success) {
+      closeCategoryModal();
+      alert(`📂 Categoría "${name}" guardada con éxito por ${data.user_name}!`);
+      await loadCategories();
+      await loadProducts();
+    } else {
+      alert(`⚠️ ${data.error}`);
+    }
+  } catch (err) {
+    console.error('Error al guardar categoría:', err);
+  }
 }
 
 function openProductModal(prod = null) {

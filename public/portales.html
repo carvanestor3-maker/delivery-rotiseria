@@ -190,6 +190,11 @@
     <div class="text-[11px] text-slate-600 font-mono">
       URL Directa: https://spressgastro-ar.com/portales.html
     </div>
+    <div class="pt-2">
+      <button type="button" onclick="emergencyAppReset()" class="text-slate-500 hover:text-amber-400 font-bold text-[11px] py-1.5 px-3 rounded-xl border border-slate-800 bg-slate-900 shadow-2xs transition inline-flex items-center gap-1.5">
+        <span>🔄</span> Reiniciar App (Reset de Emergencia)
+      </button>
+    </div>
   </footer>
 
   <script>
@@ -215,6 +220,32 @@
           const installBanner = document.getElementById('pwa-install-banner');
           if (installBanner) installBanner.classList.add('hidden');
         });
+      }
+    }
+
+    async function emergencyAppReset() {
+      const confirmReset = confirm('📱 ¿Deseas reiniciar y limpiar la app por completo en este dispositivo?');
+      if (!confirmReset) return;
+
+      try {
+        localStorage.clear();
+        sessionStorage.clear();
+
+        if ('caches' in window) {
+          const keys = await caches.keys();
+          await Promise.all(keys.map(k => caches.delete(k)));
+        }
+
+        if ('serviceWorker' in navigator) {
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          for (let reg of registrations) {
+            await reg.unregister();
+          }
+        }
+
+        window.location.href = window.location.pathname + '?reset=' + Date.now();
+      } catch (err) {
+        window.location.reload(true);
       }
     }
 

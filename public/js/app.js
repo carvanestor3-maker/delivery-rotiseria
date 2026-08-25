@@ -28,9 +28,9 @@ function triggerPwaInstall() {
   }
 }
 
-async function forceReinstallApp() {
-  const confirmAction = confirm('📱 ¿Deseas limpiar la memoria y reinstalar por completo el acceso directo de "Comidas Portal" en tu celular?');
-  if (!confirmAction) return;
+async function emergencyAppReset() {
+  const confirmReset = confirm('📱 ¿Deseas reiniciar y limpiar la app por completo en este dispositivo?');
+  if (!confirmReset) return;
 
   try {
     localStorage.clear();
@@ -43,19 +43,19 @@ async function forceReinstallApp() {
 
     if ('serviceWorker' in navigator) {
       const registrations = await navigator.serviceWorker.getRegistrations();
-      for (let registration of registrations) {
-        await registration.unregister();
+      for (let reg of registrations) {
+        await reg.unregister();
       }
     }
 
-    if (window.deferredInstallPrompt) {
-      window.deferredInstallPrompt.prompt();
-    }
-
-    window.location.href = '/index.html?v=' + Date.now();
+    window.location.href = window.location.pathname + '?reset=' + Date.now();
   } catch (err) {
     window.location.reload(true);
   }
+}
+
+async function forceReinstallApp() {
+  return emergencyAppReset();
 }
 
 document.addEventListener('DOMContentLoaded', () => {

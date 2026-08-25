@@ -1,0 +1,30 @@
+{
+  "name": "La Gran Rotisería, Bar & Drugstore 24hs",
+  "short_name": "La Gran Rotisería",
+  "description": "Sistema Gastronómico 24hs - Menú, Pedidos y Portales KDS",
+  "start_url": "/portales.html",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0f172a",
+  "theme_color": "#f59e0b",
+  "icons": [
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

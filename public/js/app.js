@@ -7,20 +7,20 @@ const state = {
   deliveryType: 'delivery'
 };
 
-let deferredInstallPrompt = null;
+window.deferredInstallPrompt = window.deferredInstallPrompt || null;
 
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
-  deferredInstallPrompt = e;
+  window.deferredInstallPrompt = e;
   const installBanner = document.getElementById('pwa-install-banner');
   if (installBanner) installBanner.classList.remove('hidden');
 });
 
 function triggerPwaInstall() {
-  if (deferredInstallPrompt) {
-    deferredInstallPrompt.prompt();
-    deferredInstallPrompt.userChoice.then((choiceResult) => {
-      deferredInstallPrompt = null;
+  if (window.deferredInstallPrompt) {
+    window.deferredInstallPrompt.prompt();
+    window.deferredInstallPrompt.userChoice.then((choiceResult) => {
+      window.deferredInstallPrompt = null;
       const installBanner = document.getElementById('pwa-install-banner');
       if (installBanner) installBanner.classList.add('hidden');
     });

@@ -32,6 +32,10 @@
   <link rel="stylesheet" href="/css/styles.css">
   <script src="https://unpkg.com/lucide@latest"></script>
   <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(err => console.log('SW error:', err));
+    }
+
     window.deferredInstallPrompt = window.deferredInstallPrompt || null;
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
@@ -39,6 +43,17 @@
       const installBanner = document.getElementById('pwa-install-banner');
       if (installBanner) installBanner.classList.remove('hidden');
     });
+
+    function triggerPwaInstall() {
+      if (window.deferredInstallPrompt) {
+        window.deferredInstallPrompt.prompt();
+        window.deferredInstallPrompt.userChoice.then((choiceResult) => {
+          window.deferredInstallPrompt = null;
+          const installBanner = document.getElementById('pwa-install-banner');
+          if (installBanner) installBanner.classList.add('hidden');
+        });
+      }
+    }
   </script>
 </head>
 <body class="bg-slate-100 text-slate-800 font-sans antialiased min-h-screen pb-24">

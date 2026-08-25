@@ -768,6 +768,10 @@
         <input type="hidden" id="mat-id">
 
         <div class="grid grid-cols-3 gap-2">
+          <div class="col-span-2">
+            <label class="block text-xs font-bold text-slate-700 mb-1">Nombre Insumo Genérico *</label>
+            <input type="text" id="mat-name" oninput="handleMatNameInput()" required placeholder="Ej: Carne Vacuna para Milanesas" class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 font-bold">
+          </div>
           <div class="col-span-1">
             <div class="flex justify-between items-center mb-1">
               <label class="block text-xs font-bold text-slate-700">Código / SKU *</label>
@@ -775,11 +779,7 @@
                 ⚡ Auto
               </button>
             </div>
-            <input type="text" id="mat-code" required placeholder="Escanea de fábrica o ⚡ Auto" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm font-mono font-bold outline-none focus:ring-2 focus:ring-blue-500 uppercase">
-          </div>
-          <div class="col-span-2">
-            <label class="block text-xs font-bold text-slate-700 mb-1">Nombre Insumo Genérico *</label>
-            <input type="text" id="mat-name" oninput="handleMatNameInput()" required placeholder="Ej: Carne Vacuna para Milanesas" class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 font-bold">
+            <input type="text" id="mat-code" required placeholder="Escanea o ⚡ Auto" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm font-mono font-bold outline-none focus:ring-2 focus:ring-blue-500 uppercase">
           </div>
         </div>
 
@@ -938,8 +938,13 @@
       <form id="product-form" onsubmit="saveProduct(event)" class="space-y-3">
         <input type="hidden" id="prod-id">
 
-        <div class="grid grid-cols-2 gap-2">
-          <div>
+        <!-- Fila 1: Nombre del Plato (Largo a la izquierda) + Código SKU a la derecha con botón ⚡ Auto -->
+        <div class="grid grid-cols-3 gap-2">
+          <div class="col-span-2">
+            <label class="block text-xs font-bold text-slate-800 mb-1">Nombre del Plato / Combo / Bebida *</label>
+            <input type="text" id="prod-name" oninput="handleProductNameInput()" required placeholder="Ej: Empanada de Carne Molida, Milanesa Completa" class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-purple-500 font-bold">
+          </div>
+          <div class="col-span-1">
             <div class="flex justify-between items-center mb-1">
               <label class="block text-xs font-bold text-slate-700">Código / SKU *</label>
               <button type="button" onclick="generateProductAutoCode()" class="text-[10px] font-extrabold text-purple-700 hover:text-purple-900 bg-purple-100 hover:bg-purple-200 px-1.5 py-0.5 rounded transition">
@@ -948,28 +953,24 @@
             </div>
             <input type="text" id="prod-code" required placeholder="Ej: EMP-CAR-002" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm font-mono font-bold outline-none focus:ring-2 focus:ring-purple-500 uppercase">
           </div>
-          <div>
-            <label class="block text-xs font-bold text-slate-700 mb-1">Nombre del Plato / Combo *</label>
-            <input type="text" id="prod-name" oninput="handleProductNameInput()" required placeholder="Ej: Empanada de Carne Molida" class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-purple-500 font-bold">
-          </div>
         </div>
 
-        <div>
-          <label class="block text-xs font-semibold text-slate-700 mb-1">Categoría *</label>
-          <select id="prod-category" required class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-purple-500 bg-white font-medium">
-          </select>
-        </div>
-
-        <div class="grid grid-cols-2 gap-2">
+        <!-- Fila 2: Categoría + Precio + Tipo de Venta -->
+        <div class="grid grid-cols-3 gap-2">
           <div>
-            <label class="block text-xs font-semibold text-slate-700 mb-1">Precio ($) *</label>
-            <input type="number" step="0.01" id="prod-price" required class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-purple-500 font-mono font-bold">
+            <label class="block text-xs font-bold text-slate-700 mb-1">Categoría *</label>
+            <select id="prod-category" required class="w-full px-2.5 py-2 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-purple-500 bg-white font-bold text-slate-800">
+            </select>
           </div>
           <div>
-            <label class="block text-xs font-semibold text-slate-700 mb-1">Tipo de Venta *</label>
-            <select id="prod-unit-type" required class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-purple-500 bg-white font-bold text-slate-800">
+            <label class="block text-xs font-bold text-slate-700 mb-1">Precio ($) *</label>
+            <input type="number" step="0.01" id="prod-price" required placeholder="Ej: 8200" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-purple-500 font-mono font-bold">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Venta *</label>
+            <select id="prod-unit-type" required class="w-full px-2.5 py-2 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-purple-500 bg-white font-bold text-slate-800">
               <option value="unidad">📦 Por Unidad ($)</option>
-              <option value="kg">⚖️ Por Kilo / Peso Variable ($/kg)</option>
+              <option value="kg">⚖️ Por Kilo ($/kg)</option>
             </select>
           </div>
         </div>

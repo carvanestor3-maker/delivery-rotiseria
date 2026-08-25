@@ -420,7 +420,6 @@ function closeAllPublicModals() {
 function openCartModal() {
   const modal = document.getElementById('cart-modal');
   if (modal) modal.classList.remove('opacity-0', 'pointer-events-none');
-  pushModalState('cart');
 }
 
 function closeCartModal() {
@@ -438,18 +437,17 @@ function closeOrderSuccessModal() {
 }
 
 function saveCartToStorage() {
-  localStorage.setItem('rotiseria_cart', JSON.stringify(state.cart));
+  try {
+    localStorage.setItem('rotiseria_cart', JSON.stringify(state.cart));
+  } catch (e) {}
 }
 
 function loadCartFromStorage() {
-  const saved = localStorage.getItem('rotiseria_cart');
-  if (saved) {
-    try {
-      state.cart = JSON.parse(saved);
-    } catch (e) {
-      state.cart = [];
-    }
-  }
+  state.cart = [];
+  try {
+    localStorage.removeItem('rotiseria_cart');
+  } catch (e) {}
+  updateCartUI();
 }
 
 function clearCart() {

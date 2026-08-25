@@ -1432,7 +1432,7 @@ app.get('/api/admin/products', (req, res) => {
 
 app.post('/api/admin/products', (req, res) => {
   try {
-    const { id, code, category_id, name, description, price, image_url, available, barcode, plu_code, unit_type, is_weighed, pin } = req.body;
+    const { id, code, category_id, name, description, price, image_url, video_url, available, barcode, plu_code, unit_type, is_weighed, pin } = req.body;
 
     const auth = verifyUserPin(pin, 3);
     if (!auth.isValid) {
@@ -1481,6 +1481,7 @@ app.post('/api/admin/products', (req, res) => {
         prod.description = description;
         prod.price = parseFloat(price);
         prod.image_url = image_url;
+        prod.video_url = video_url || '';
         prod.available = available ? 1 : 0;
         prod.barcode = strBarcode;
         prod.plu_code = strPlu;
@@ -1498,6 +1499,7 @@ app.post('/api/admin/products', (req, res) => {
         description,
         price: parseFloat(price),
         image_url,
+        video_url: video_url || '',
         available: available !== undefined ? (available ? 1 : 0) : 1,
         barcode: strBarcode,
         plu_code: strPlu,

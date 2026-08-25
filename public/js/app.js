@@ -115,15 +115,30 @@ function renderMenuSections() {
 function renderProductCard(prod) {
   const cartItem = state.cart.find(item => item.id === prod.id);
   const qty = cartItem ? cartItem.qty : 0;
+  const imageUrl = prod.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200';
+  const hasVideo = prod.video_url && prod.video_url.trim().length > 0;
 
   return `
     <div class="bg-white rounded-2xl p-3.5 shadow-sm border border-slate-200 flex gap-3.5 items-start hover:shadow-md transition">
-      <img src="${prod.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200'}" alt="${prod.name}" class="w-20 h-20 rounded-xl object-cover bg-slate-100 flex-shrink-0">
+      <div class="relative flex-shrink-0 cursor-pointer group" onclick="openPhotoLightbox('${imageUrl}', '${prod.name.replace(/'/g, "\\'")}', '${(prod.description || '').replace(/'/g, "\\'")}')" title="Toca para ampliar foto en pantalla completa HD">
+        <img src="${imageUrl}" alt="${prod.name}" class="w-20 h-20 rounded-xl object-cover bg-slate-100 group-hover:opacity-90 transition">
+        <span class="absolute bottom-1 right-1 bg-slate-900/80 text-white p-1 rounded-md text-[9px] font-black backdrop-blur-xs flex items-center gap-0.5">
+          🔍 HD
+        </span>
+      </div>
       
       <div class="flex-1 min-w-0 space-y-1">
-        <h3 class="font-extrabold text-slate-900 text-sm leading-snug">${prod.name}</h3>
-        ${prod.description ? `<p class="text-slate-500 text-[11px] leading-relaxed line-clamp-3 font-normal">${prod.description}</p>` : ''}
-        <div class="font-black text-slate-900 text-sm font-mono pt-0.5">${formatCurrency(prod.price)}</div>
+        <h3 class="font-extrabold text-slate-900 text-sm leading-snug cursor-pointer hover:text-orange-600 transition" onclick="openPhotoLightbox('${imageUrl}', '${prod.name.replace(/'/g, "\\'")}', '${(prod.description || '').replace(/'/g, "\\'")}')">${prod.name}</h3>
+        ${prod.description ? `<p class="text-slate-500 text-[11px] leading-relaxed line-clamp-2 font-normal">${prod.description}</p>` : ''}
+        
+        <div class="flex items-center gap-2 pt-0.5">
+          <div class="font-black text-slate-900 text-sm font-mono">${formatCurrency(prod.price)}</div>
+          ${hasVideo ? `
+            <button type="button" onclick="event.stopPropagation(); openVideoPlayer('${prod.video_url.replace(/'/g, "\\'")}', '${prod.name.replace(/'/g, "\\'")}')" class="px-2 py-0.5 bg-red-100 hover:bg-red-200 text-red-700 font-extrabold rounded-lg text-[10px] transition flex items-center gap-1">
+              🎬 Ver Video
+            </button>
+          ` : ''}
+        </div>
       </div>
 
       <div class="flex-shrink-0">
@@ -407,4 +422,59 @@ async function submitOrderToWhatsApp() {
     console.error('Error al enviar pedido:', err);
     alert('Ocurrió un error al registrar el pedido. Intenta nuevamente.');
   }
+}
+
+// ==========================================
+// VISOR DE FOTO FULLSCREEN (LIGHTBOX) & REPRODUCTOR DE VIDEO
+// ==========================================
+
+function openPhotoLightbox(imageUrl, title, desc) {
+  const modal = document.getElementById('photo-lightbox-modal');
+  const img = document.getElementById('lightbox-img');
+  const titleElem = document.getElementById('lightbox-title');
+  const descElem = document.getElementById('lightbox-desc');
+
+  if (img) img.src = imageUrl;
+  if (titleElem) titleElem.textContent = title;
+  if (descElem) descElem.textContent = desc || 'Ampliación HD al ancho de pantalla';
+
+  if (modal) modal.classList.remove('opacity-0', 'pointer-events-none');
+}
+
+function closePhotoLightbox() {
+  const modal = document.getElementById('photo-lightbox-modal');
+  if (modal) modal.classList.add('opacity-0', 'pointer-events-none');
+}
+
+function openVideoPlayer(videoUrl, title) {
+  const modal = document.getElementById('video-modal');
+  const titleElem = document.getElementById('video-modal-title');
+  const contentElem = document.getElementById('video-player-content');
+
+  if (titleElem) titleElem.textContent = `🎬 Video de Preparación: ${title}`;
+
+  if (contentElem) {
+    if (videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be')) {
+      let embedUrl = videoUrl;
+      if (videoUrl.includes('watch?v=')) {
+        const id = videoUrl.split('watch?v=')[1].split('&')[0];
+        embedUrl = `https://www.youtube.com/embed/${id}?autoplay=1`;
+      } else if (videoUrl.includes('youtu.be/')) {
+        const id = videoUrl.split('youtu.be/')[1].split('?')[0];
+        embedUrl = `https://www.youtube.com/embed/${id}?autoplay=1`;
+      }
+      contentElem.innerHTML = `<iframe src="${embedUrl}" class="w-full h-full border-0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+    } else {
+      contentElem.innerHTML = `<video src="${videoUrl}" controls autoplay class="w-full max-h-[70vh] object-contain"></video>`;
+    }
+  }
+
+  if (modal) modal.classList.remove('opacity-0', 'pointer-events-none');
+}
+
+function closeVideoPlayer() {
+  const modal = document.getElementById('video-modal');
+  const contentElem = document.getElementById('video-player-content');
+  if (contentElem) contentElem.innerHTML = '';
+  if (modal) modal.classList.add('opacity-0', 'pointer-events-none');
 }

@@ -1452,6 +1452,7 @@ function openProductModal(prod = null) {
     document.getElementById('prod-unit-type').value = prod.unit_type || 'unidad';
     document.getElementById('prod-desc').value = prod.description || '';
     document.getElementById('prod-image').value = prod.image_url || '';
+    if (document.getElementById('prod-video-url')) document.getElementById('prod-video-url').value = prod.video_url || '';
     showImagePreview(prod.image_url || '');
     document.getElementById('prod-available').checked = prod.available === 1;
   } else {
@@ -1462,6 +1463,7 @@ function openProductModal(prod = null) {
     document.getElementById('prod-price').value = '';
     document.getElementById('prod-desc').value = '';
     document.getElementById('prod-image').value = '';
+    if (document.getElementById('prod-video-url')) document.getElementById('prod-video-url').value = '';
     document.getElementById('prod-unit-type').value = 'unidad';
     document.getElementById('prod-available').checked = true;
   }
@@ -1472,37 +1474,6 @@ function openProductModal(prod = null) {
 function closeProductModal() {
   const modal = document.getElementById('product-modal');
   modal.classList.add('opacity-0', 'pointer-events-none');
-}
-
-function openCategoryModal() {
-  const modal = document.getElementById('category-modal');
-  modal.classList.remove('opacity-0', 'pointer-events-none');
-}
-
-function closeCategoryModal() {
-  const modal = document.getElementById('category-modal');
-  modal.classList.add('opacity-0', 'pointer-events-none');
-}
-
-async function saveCategory(e) {
-  e.preventDefault();
-  const name = document.getElementById('cat-name').value.trim();
-  const icon = document.getElementById('cat-icon').value.trim();
-
-  try {
-    const res = await fetch('/api/admin/categories', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, icon })
-    });
-    const data = await res.json();
-    if (data.success) {
-      closeCategoryModal();
-      await loadCategories();
-    }
-  } catch (err) {
-    console.error('Error al guardar categoría:', err);
-  }
 }
 
 function editProduct(id) {
@@ -1520,6 +1491,7 @@ async function saveProduct(e) {
   const unit_type = document.getElementById('prod-unit-type').value;
   const description = document.getElementById('prod-desc').value.trim();
   const image_url = document.getElementById('prod-image').value.trim();
+  const video_url = document.getElementById('prod-video-url') ? document.getElementById('prod-video-url').value.trim() : '';
   const available = document.getElementById('prod-available').checked;
   const pin = document.getElementById('prod-pin').value.trim();
 
@@ -1555,7 +1527,7 @@ async function saveProduct(e) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         id: id ? parseInt(id) : null,
-        code, name, category_id, price, unit_type, description, image_url, available, pin
+        code, name, category_id, price, unit_type, description, image_url, video_url, available, pin
       })
     });
     const data = await res.json();

@@ -624,9 +624,9 @@ app.post('/api/production/add', (req, res) => {
   try {
     const { product_id, quantity, notes, operator_name, pin } = req.body;
 
-    const auth = verifyUserPin(pin, 2);
+    const auth = verifyUserPin(pin, 1);
     if (!auth.isValid) {
-      return res.status(401).json({ success: false, error: 'PIN de Encargado (Nivel 2) o Gerente (Nivel 3) requerido' });
+      return res.status(401).json({ success: false, error: 'PIN personal de operario o personal registrado (Nivel 1, 2 o 3) requerido' });
     }
 
     const store = db.getStore();

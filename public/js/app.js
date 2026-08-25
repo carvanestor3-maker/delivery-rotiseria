@@ -10,7 +10,6 @@ const state = {
 window.deferredInstallPrompt = window.deferredInstallPrompt || null;
 
 window.addEventListener('beforeinstallprompt', (e) => {
-  e.preventDefault();
   window.deferredInstallPrompt = e;
   const installBanner = document.getElementById('pwa-install-banner');
   if (installBanner) installBanner.classList.remove('hidden');

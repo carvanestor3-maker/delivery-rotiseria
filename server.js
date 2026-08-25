@@ -1686,6 +1686,19 @@ app.post('/api/bar/shift/open', (req, res) => {
 
     const store = db.getStore();
     if (!store.bar_shifts) store.bar_shifts = [];
+    if (!store.cash_shifts) store.cash_shifts = [];
+
+    // REGLA DE NEGOCIO DEL BAR:
+    // El Bar no tiene caja propia, recibe tickets generados en Caja al momento de cobrar.
+    // Por lo tanto, NO se puede abrir el Bar si no hay al menos una Estación de Caja Abierta.
+    // (La Cocina sí puede abrir sin caja para producción previa).
+    const activeCashShift = store.cash_shifts.find(s => s.status === 'open');
+    if (!activeCashShift) {
+      return res.status(400).json({
+        success: false,
+        error: '⚠️ REGLA DE APERTURA DE BAR: No se puede abrir el Turno de Bar si no hay ninguna Estación de Caja Abierta.\n\nEl Bar elabora en el momento los tickets emitidos al cobrar. Abre primero la Caja N° 1.'
+      });
+    }
 
     const existingOpen = store.bar_shifts.find(s => s.status === 'open');
     if (existingOpen) {

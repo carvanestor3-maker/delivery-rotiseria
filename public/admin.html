@@ -232,12 +232,12 @@
           <div class="font-extrabold text-amber-950 text-sm flex items-center gap-2">
             📋 Historial de Cargas de Producción de Cocina (Tandas del Día)
           </div>
-          <span class="text-xs font-bold text-amber-800">Descuenta materias primas automáticamente según la Ficha Técnica</span>
+          <span class="text-xs font-bold text-amber-800 bg-amber-200/60 px-2.5 py-1 rounded-full"> Descuenta materias primas automáticamente</span>
         </div>
-        <div class="overflow-x-auto">
+        <div class="max-h-72 overflow-y-auto overflow-x-auto shadow-inner">
           <table class="w-full text-left border-collapse text-sm">
-            <thead>
-              <tr class="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase">
+            <thead class="sticky top-0 bg-slate-100 z-10 shadow-sm">
+              <tr class="border-b border-slate-200 text-xs font-bold text-slate-600 uppercase">
                 <th class="p-3">Fecha / Hora</th>
                 <th class="p-3">Plato / Elaborado</th>
                 <th class="p-3">Cantidad Producida</th>
@@ -258,16 +258,16 @@
           <span>Inventario General de Materias Primas / Insumos Genéricos</span>
           <span class="text-xs text-slate-500 font-normal">🛒 Se compran a proveedores con su Código de Artículo (SKU)</span>
         </div>
-        <div class="overflow-x-auto">
+        <div class="max-h-64 overflow-y-auto overflow-x-auto shadow-inner">
           <table class="w-full text-left border-collapse text-sm">
-            <thead>
-              <tr class="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase">
-                <th class="p-4">Código / SKU</th>
-                <th class="p-4">Materia Prima / Insumo Genérico</th>
-                <th class="p-4">Unidad de Medida</th>
-                <th class="p-4">Stock Actual Virtual</th>
-                <th class="p-4">Stock Mínimo (Alerta)</th>
-                <th class="p-4 text-right">Acciones</th>
+            <thead class="sticky top-0 bg-slate-100 z-10 shadow-sm">
+              <tr class="border-b border-slate-200 text-xs font-bold text-slate-600 uppercase">
+                <th class="p-3">Código / SKU</th>
+                <th class="p-3">Materia Prima / Insumo Genérico</th>
+                <th class="p-3">Unidad</th>
+                <th class="p-3">Stock Virtual</th>
+                <th class="p-3">Mínimo</th>
+                <th class="p-3 text-right">Acciones</th>
               </tr>
             </thead>
             <tbody id="materials-table-body" class="divide-y divide-slate-100">
@@ -1253,7 +1253,7 @@
     </div>
   </div>
 
-  <script src="/js/admin.js?v=5.0.0"></script>
+  <script src="/js/admin.js?v=6.0.0"></script>
   <script>
     lucide.createIcons();
   </script>

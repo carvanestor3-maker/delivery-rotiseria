@@ -33,7 +33,7 @@
   <script src="https://unpkg.com/lucide@latest"></script>
   <script>
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js?v=3.0').then(reg => {
+      navigator.serviceWorker.register('/sw.js?v=5.0').then(reg => {
         reg.update();
       }).catch(err => console.log('SW error:', err));
     }
@@ -341,7 +341,7 @@
     </div>
   </div>
 
-  <script src="/js/app.js?v=4.2"></script>
+  <script src="/js/app.js?v=5.0"></script>
   <script>
     lucide.createIcons();
   </script>

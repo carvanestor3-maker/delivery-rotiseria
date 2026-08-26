@@ -1368,6 +1368,11 @@ function openCategoryModal(cat = null) {
   modal.classList.remove('opacity-0', 'pointer-events-none');
 }
 
+function selectQuickEmoji(char) {
+  const input = document.getElementById('cat-icon');
+  if (input) input.value = char;
+}
+
 function closeCategoryModal() {
   const modal = document.getElementById('category-modal');
   modal.classList.add('opacity-0', 'pointer-events-none');

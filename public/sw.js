@@ -1,4 +1,4 @@
-const CACHE_NAME = 'la-gran-rotiseria-v17.0';
+const CACHE_NAME = 'la-gran-rotiseria-v18.0';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();

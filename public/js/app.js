@@ -1351,7 +1351,7 @@ function handleSendReferralWhatsApp(e) {
   const refCode = state.customer ? state.customer.referral_code : '';
   const shareUrl = refCode ? `https://spressgastro-ar.com?ref=${encodeURIComponent(refCode)}` : `https://spressgastro-ar.com`;
 
-  const shareText = `${shareUrl}\n\n🍳 *La Gran Rotisería, Bar & Drugstore 24hs*\n¡Hola! 👋 ${myName} te invita a probar la App del Club La Gran Rotisería.\n\nInstalala en tu celular, hace un pedido, recibis 1000 puntos de regalo para cangear por el 50% OFF del plato que elijas. Consulta las promos o los platos que te permitan utilizar tus puntos, con cada compras tambien acumuas puntos, y por cada amigo referido que mandes la invitacion, baje la app haga su primér pedido acreditas 500 puntos mas.\n\n_(Primera compra mínima para asociarse y acreditar los puntos $10.000 para todos los socios)_`;
+  const shareText = `🍳 *La Gran Rotisería, Bar & Drugstore 24hs*\n¡Hola! 👋 ${myName} te invita a probar la App del Club La Gran Rotisería.\n\nInstalala en tu celular, hace un pedido, recibis 1000 puntos de regalo para cangear por el 50% OFF del plato que elijas. Consulta las promos o los platos que te permitan utilizar tus puntos, con cada compras tambien acumuas puntos, y por cada amigo referido que mandes la invitacion, baje la app haga su primér pedido acreditas 500 puntos mas.\n\n_(Primera compra mínima para asociarse y acreditar los puntos $10.000 para todos los socios)_\n\n📲 *Instalá la App y hacé tu pedido aquí:*\n${shareUrl}`;
 
   window.open(`https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(shareText)}`, '_blank');
   closeReferralModal();

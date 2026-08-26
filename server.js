@@ -1089,9 +1089,117 @@ app.get('/api/menu', (req, res) => {
   }
 });
 
+// REGISTRO DE NUEVO SOCIO DEL CLUB / EDICIÓN DE PERFIL
+app.post('/api/club/register', (req, res) => {
+  try {
+    const { dni, name, phone, address, birthdate, referral_code } = req.body;
+    const strDni = (dni || '').trim();
+    const strName = (name || '').trim();
+    const strPhone = (phone || '').trim();
+
+    if (!strDni || !strName || !strPhone) {
+      return res.status(400).json({ success: false, error: '⚠️ DNI, Nombre y Teléfono WhatsApp son obligatorios.' });
+    }
+
+    const store = db.getStore();
+    if (!store.customers) store.customers = [];
+
+    let customer = store.customers.find(c => String(c.dni).trim() === strDni);
+    let isNew = false;
+    const welcomePts = parseInt((store.settings && store.settings.welcome_points) || 1000);
+    const referralPts = parseInt((store.settings && store.settings.referral_points) || 500);
+
+    if (customer) {
+      customer.name = strName;
+      customer.phone = strPhone;
+      if (address) customer.address = address.trim();
+      if (birthdate) customer.birthdate = birthdate.trim();
+      customer.updated_at = new Date().toISOString();
+    } else {
+      isNew = true;
+      const nextId = store.customers.length > 0 ? Math.max(...store.customers.map(c => c.id)) + 1 : 1;
+      customer = {
+        id: nextId,
+        dni: strDni,
+        name: strName,
+        phone: strPhone,
+        address: (address || '').trim(),
+        birthdate: (birthdate || '').trim(),
+        points: welcomePts,
+        total_orders: 0,
+        total_spent: 0,
+        referral_code: `REF-${strDni}`,
+        referred_by: (referral_code || '').trim(),
+        history: [
+          {
+            date: new Date().toISOString(),
+            description: '🎁 Regalo de Bienvenida al Club La Gran Rotisería',
+            points_change: welcomePts,
+            type: 'welcome'
+          }
+        ],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      // Si fue referido por otro socio, acreditarle puntos al referente
+      if (referral_code) {
+        const cleanRef = String(referral_code).trim().replace('REF-', '');
+        const referrer = store.customers.find(c => String(c.dni).trim() === cleanRef || String(c.phone).trim() === cleanRef);
+        if (referrer) {
+          referrer.points = (referrer.points || 0) + referralPts;
+          if (!referrer.history) referrer.history = [];
+          referrer.history.unshift({
+            date: new Date().toISOString(),
+            description: `👥 Premio por Invitar al Nuevo Socio ${strName} (DNI ${strDni})`,
+            points_change: referralPts,
+            type: 'referral'
+          });
+        }
+      }
+
+      store.customers.unshift(customer);
+    }
+
+    db.saveStore();
+    io.emit('customer_updated', customer);
+
+    res.json({
+      success: true,
+      is_new: isNew,
+      welcome_points: isNew ? welcomePts : 0,
+      customer
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// RECUPERAR CUENTA Y SALDO DE SOCIO POR DNI
+app.post('/api/club/login-by-dni', (req, res) => {
+  try {
+    const { dni } = req.body;
+    const strDni = (dni || '').trim();
+    if (!strDni) {
+      return res.status(400).json({ success: false, error: 'Ingrese el número de DNI.' });
+    }
+
+    const store = db.getStore();
+    const customer = (store.customers || []).find(c => String(c.dni).trim() === strDni);
+
+    if (!customer) {
+      return res.status(404).json({ success: false, error: `Socio no encontrado con DNI ${strDni}. Debe asociarse completando su perfil.` });
+    }
+
+    res.json({ success: true, customer });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.post('/api/orders', (req, res) => {
   try {
-    const { customer_name, customer_phone, address, delivery_type, payment_method, payment_note, notes, items, total } = req.body;
+    const { customer_name, customer_phone, customer_dni, address, delivery_type, payment_method, payment_note, notes, items, total } = req.body;
 
     if (!customer_name || !customer_phone || !items || !total) {
       return res.status(400).json({ success: false, error: 'Faltan datos obligatorios del pedido' });
@@ -1124,6 +1232,7 @@ app.post('/api/orders', (req, res) => {
       order_number: orderNumber,
       customer_name,
       customer_phone,
+      customer_dni: customer_dni || '',
       address: address || 'Retiro en local',
       delivery_type: delivery_type || 'delivery',
       payment_method: payment_method || 'Efectivo',
@@ -1138,9 +1247,42 @@ app.post('/api/orders', (req, res) => {
     };
 
     store.orders.unshift(newOrder);
+
+    // Acreditar puntos automáticamente al Socio si está registrado en el Club
+    const strSearchDni = (customer_dni || '').trim();
+    let customerObj = null;
+    if (strSearchDni) {
+      customerObj = (store.customers || []).find(c => String(c.dni).trim() === strSearchDni);
+    }
+    if (!customerObj && customer_phone) {
+      customerObj = (store.customers || []).find(c => String(c.phone).trim() === String(customer_phone).trim());
+    }
+
+    if (customerObj) {
+      const ptsRatio = parseFloat((store.settings && store.settings.points_per_100_currency) || 10);
+      const pointsEarned = Math.floor((parseFloat(total) / 100) * ptsRatio);
+      
+      if (pointsEarned > 0) {
+        customerObj.points = (customerObj.points || 0) + pointsEarned;
+        customerObj.total_orders = (customerObj.total_orders || 0) + 1;
+        customerObj.total_spent = (customerObj.total_spent || 0) + parseFloat(total);
+        
+        if (!customerObj.history) customerObj.history = [];
+        customerObj.history.unshift({
+          date: new Date().toISOString(),
+          description: `🛒 Puntos acumulados por Pedido ${orderNumber} ($${total})`,
+          points_change: pointsEarned,
+          type: 'purchase'
+        });
+
+        newOrder.points_earned = pointsEarned;
+      }
+    }
+
     db.saveStore();
 
     io.emit('new_order', newOrder);
+    if (customerObj) io.emit('customer_updated', customerObj);
 
     const settings = getSettingsMap();
     if (settings.auto_print_epson === '1' && settings.epson_printer_ip) {
@@ -1151,7 +1293,8 @@ app.post('/api/orders', (req, res) => {
 
     res.json({
       success: true,
-      order: newOrder
+      order: newOrder,
+      customer: customerObj || null
     });
   } catch (err) {
     console.error('Error al guardar pedido:', err);
@@ -1336,6 +1479,60 @@ app.put('/api/orders/:id/paid', (req, res) => {
       return res.json({ success: true, order: updatedOrder });
     }
     res.status(404).json({ success: false, error: 'Pedido no encontrado' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GESTIÓN DE SOCIOS DEL CLUB Y REGISTRO CENTRALIZADO DE PUNTOS
+app.get('/api/admin/customers', (req, res) => {
+  try {
+    const store = db.getStore();
+    res.json({
+      success: true,
+      customers: store.customers || [],
+      settings: getSettingsMap()
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/admin/customers/adjust-points', (req, res) => {
+  try {
+    const { customer_id, points_change, reason, pin } = req.body;
+
+    const auth = verifyUserPin(pin, 2);
+    if (!auth.isValid) {
+      return res.status(401).json({ success: false, error: 'Acceso Denegado: La acreditación o ajuste manual de puntos requiere PIN de Encargado (Nivel 2) o Gerente (Nivel 3).' });
+    }
+
+    const store = db.getStore();
+    const customer = (store.customers || []).find(c => c.id === parseInt(customer_id));
+
+    if (!customer) {
+      return res.status(404).json({ success: false, error: 'Socio no encontrado en la base de datos.' });
+    }
+
+    const changeNum = parseInt(points_change || 0);
+    if (changeNum === 0) {
+      return res.status(400).json({ success: false, error: 'La cantidad de puntos a ajustar debe ser distinta de 0.' });
+    }
+
+    customer.points = Math.max(0, (customer.points || 0) + changeNum);
+    if (!customer.history) customer.history = [];
+
+    customer.history.unshift({
+      date: new Date().toISOString(),
+      description: `⭐ Ajuste Manual por ${auth.user.name}: ${reason || 'Acreditación especial de puntos'}`,
+      points_change: changeNum,
+      type: 'manual_adjustment'
+    });
+
+    db.saveStore();
+    io.emit('customer_updated', customer);
+
+    res.json({ success: true, customer, user_name: auth.user.name });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -1664,7 +1861,7 @@ app.get('/api/admin/products', (req, res) => {
 
 app.post('/api/admin/products', (req, res) => {
   try {
-    const { id, code, category_id, name, description, price, image_url, video_url, available, barcode, plu_code, unit_type, is_weighed, pin } = req.body;
+    const { id, code, category_id, name, description, price, image_url, video_url, points_cost, available, barcode, plu_code, unit_type, is_weighed, pin } = req.body;
 
     const auth = verifyUserPin(pin, 3);
     if (!auth.isValid) {
@@ -1714,6 +1911,7 @@ app.post('/api/admin/products', (req, res) => {
         prod.price = parseFloat(price);
         prod.image_url = image_url;
         prod.video_url = video_url || '';
+        prod.points_cost = points_cost ? parseInt(points_cost) : null;
         prod.available = available ? 1 : 0;
         prod.barcode = strBarcode;
         prod.plu_code = strPlu;
@@ -1732,6 +1930,7 @@ app.post('/api/admin/products', (req, res) => {
         price: parseFloat(price),
         image_url,
         video_url: video_url || '',
+        points_cost: points_cost ? parseInt(points_cost) : null,
         available: available !== undefined ? (available ? 1 : 0) : 1,
         barcode: strBarcode,
         plu_code: strPlu,
@@ -1741,6 +1940,7 @@ app.post('/api/admin/products', (req, res) => {
     }
     db.saveStore();
     io.emit('menu_updated');
+    res.json({ success: true, user_name: auth.user.name });
     res.json({ success: true, user_name: auth.user.name });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });

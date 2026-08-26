@@ -77,6 +77,9 @@
       <button onclick="switchTab('production-analytics')" id="tab-btn-production-analytics" class="tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2">
         📊 Costos & Rentabilidad de Producción
       </button>
+      <button onclick="switchTab('customers')" id="tab-btn-customers" class="tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2">
+        👥 Socios del Club & Fidelización
+      </button>
       <button onclick="switchTab('settings')" id="tab-btn-settings" class="tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2">
         <i data-lucide="sliders" class="w-4 h-4"></i> Ajustes Generales
       </button>
@@ -722,6 +725,69 @@
       </div>
     </section>
 
+    <!-- PESTAÑA 7: SOCIOS DEL CLUB & FIDELIZACIÓN -->
+    <section id="tab-customers" class="hidden space-y-6">
+      <div class="flex justify-between items-center bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+        <div>
+          <h2 class="font-extrabold text-slate-900 text-lg flex items-center gap-2">
+            👥 Base de Datos Centralizada de Socios del Club La Gran Rotisería
+          </h2>
+          <p class="text-xs text-slate-500">Gestión de perfil completo, DNI, saldo de puntos acumulados e historial de consumos</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <input type="text" id="cust-search-input" oninput="filterAdminCustomers()" placeholder="🔍 Buscar por DNI, Nombre o Teléfono..." class="px-3.5 py-2 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500 w-64 shadow-xs">
+        </div>
+      </div>
+
+      <!-- Tarjetas de Métricas de Socios -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="bg-white p-5 rounded-2xl border border-amber-200 shadow-sm">
+          <span class="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">👥 Socios Registrados</span>
+          <span id="cust-total-count" class="text-2xl font-black text-amber-600 font-mono">0</span>
+          <p class="text-[11px] text-slate-400 mt-1">Socios activos en la base de datos</p>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-emerald-200 shadow-sm">
+          <span class="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">⭐ Puntos Acumulados Totales</span>
+          <span id="cust-total-points" class="text-2xl font-black text-emerald-600 font-mono">0 pts</span>
+          <p class="text-[11px] text-slate-400 mt-1">Disponibles para canje 50% OFF</p>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-purple-200 shadow-sm">
+          <span class="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">💰 Total Facturado a Socios</span>
+          <span id="cust-total-spent" class="text-2xl font-black text-purple-600 font-mono">$0</span>
+          <p class="text-[11px] text-slate-400 mt-1">Ventas totales a socios del club</p>
+        </div>
+      </div>
+
+      <!-- Tabla de Socios -->
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden space-y-3">
+        <div class="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
+          <h3 class="font-extrabold text-slate-800 text-sm">Listado Completo de Socios</h3>
+          <span id="cust-filtered-count" class="text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300 px-2.5 py-1 rounded-full">0 socios</span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-sm">
+            <thead>
+              <tr class="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase">
+                <th class="p-3">Socio</th>
+                <th class="p-3">DNI / CUIT</th>
+                <th class="p-3">WhatsApp / Teléfono</th>
+                <th class="p-3">Dirección</th>
+                <th class="p-3">Puntos Actuales</th>
+                <th class="p-3">Compras Totales</th>
+                <th class="p-3">Total $ Gastado</th>
+                <th class="p-3 text-right">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="customers-table-body" class="divide-y divide-slate-100 text-xs">
+              <!-- Dinámico -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
   </main>
 
   <!-- MODAL DE ALTA / EDICIÓN DE PERSONAL CON CLAVE INDIVIDUAL (EXCLUSIVO NIVEL 3) -->
@@ -1174,6 +1240,11 @@
           </div>
         </div>
 
+        <div class="bg-amber-500/10 border border-amber-500/30 p-3 rounded-xl">
+          <label class="block text-xs font-bold text-amber-900 mb-1">⭐ Puntos Requeridos para Canje 50% OFF (Opcional)</label>
+          <input type="number" id="prod-points-cost" placeholder="Ej: 50 (dejar vacío para usar el cálculo automático del 1%)" class="w-full px-3 py-2 border border-amber-300 rounded-xl text-xs font-mono font-bold bg-white outline-none focus:ring-2 focus:ring-amber-500">
+        </div>
+
         <div class="bg-purple-50 border border-purple-200 p-3 rounded-xl">
           <label class="block text-xs font-bold text-purple-900 mb-1">👑 PIN Personal Nivel 3 de Gerente / Dueño *</label>
           <input type="password" id="prod-pin" required placeholder="Tu PIN personal (ej: 9999)" class="w-full px-3.5 py-2 bg-white border border-purple-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-purple-500 font-mono">
@@ -1508,7 +1579,52 @@
     </div>
   </div>
 
-  <script src="/js/admin.js?v=12.0.0"></script>
+  <!-- MODAL DE AJUSTE MANUAL DE PUNTOS DE SOCIO (REQUERIDO PIN NIVEL 2 O 3) -->
+  <div id="adjust-points-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+      <div class="flex justify-between items-center border-b pb-3 border-slate-200">
+        <h3 class="font-extrabold text-slate-900 text-lg flex items-center gap-2">
+          ⭐ Acreditar / Ajustar Puntos de Socio
+        </h3>
+        <button onclick="closeAdjustPointsModal()" class="text-slate-400 hover:text-slate-700">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="adjust-points-form" onsubmit="submitAdjustPoints(event)" class="space-y-3">
+        <input type="hidden" id="adj-pts-cust-id">
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Socio Seleccionado</label>
+          <div id="adj-pts-cust-name" class="p-2.5 bg-slate-100 rounded-xl font-extrabold text-slate-900 text-xs border border-slate-200">
+            -
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Puntos a Acreditar o Restar (Ej: 50 o -20) *</label>
+          <input type="number" id="adj-pts-change" required placeholder="Ej: 50 (positivo suma, negativo resta)" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-amber-500 font-mono font-black text-base">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Motivo / Aclaración (Cumpleaños, Premio, Sorteo) *</label>
+          <input type="text" id="adj-pts-reason" required placeholder="Ej: Regalo especial de Cumpleaños" class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-amber-500 font-medium">
+        </div>
+
+        <div class="bg-amber-50 border border-amber-200 p-3 rounded-xl">
+          <label class="block text-xs font-bold text-amber-900 mb-1">🔑 Clave PIN Personal (Encargado Nivel 2 o Gerente Nivel 3) *</label>
+          <input type="password" id="adj-pts-pin" required placeholder="Tu PIN personal (ej: 2222)" class="w-full px-3.5 py-2 bg-white border border-amber-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-amber-500 font-mono">
+        </div>
+
+        <div class="pt-4 flex justify-end gap-2 border-t border-slate-200">
+          <button type="button" onclick="closeAdjustPointsModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 font-bold rounded-xl text-xs text-slate-700">Cancelar</button>
+          <button type="submit" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 font-black rounded-xl text-xs text-slate-950 shadow">Confirmar Carga de Puntos</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="/js/admin.js?v=13.0.0"></script>
   <script>
     lucide.createIcons();
   </script>

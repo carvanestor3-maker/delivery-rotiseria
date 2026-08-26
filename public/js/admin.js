@@ -1461,6 +1461,7 @@ function openProductModal(prod = null) {
     document.getElementById('prod-desc').value = prod.description || '';
     document.getElementById('prod-image').value = prod.image_url || '';
     if (document.getElementById('prod-video-url')) document.getElementById('prod-video-url').value = prod.video_url || '';
+    if (document.getElementById('prod-points-cost')) document.getElementById('prod-points-cost').value = prod.points_cost || '';
     showImagePreview(prod.image_url || '');
     showVideoPreview(prod.video_url || '');
     document.getElementById('prod-available').checked = prod.available === 1;
@@ -1473,6 +1474,7 @@ function openProductModal(prod = null) {
     document.getElementById('prod-desc').value = '';
     document.getElementById('prod-image').value = '';
     if (document.getElementById('prod-video-url')) document.getElementById('prod-video-url').value = '';
+    if (document.getElementById('prod-points-cost')) document.getElementById('prod-points-cost').value = '';
     showImagePreview('');
     showVideoPreview('');
     document.getElementById('prod-unit-type').value = 'unidad';
@@ -1580,6 +1582,7 @@ async function saveProduct(e) {
   const description = document.getElementById('prod-desc').value.trim();
   const image_url = document.getElementById('prod-image').value.trim();
   const video_url = document.getElementById('prod-video-url') ? document.getElementById('prod-video-url').value.trim() : '';
+  const points_cost_val = document.getElementById('prod-points-cost') ? document.getElementById('prod-points-cost').value.trim() : '';
   const available = document.getElementById('prod-available').checked;
   const pin = document.getElementById('prod-pin').value.trim();
 
@@ -1615,7 +1618,9 @@ async function saveProduct(e) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         id: id ? parseInt(id) : null,
-        code, name, category_id, price, unit_type, description, image_url, video_url, available, pin
+        code, name, category_id, price, unit_type, description, image_url, video_url, 
+        points_cost: points_cost_val ? parseInt(points_cost_val) : null,
+        available, pin
       })
     });
     const data = await res.json();
@@ -1689,6 +1694,7 @@ function switchTab(tab) {
   const usrSection = document.getElementById('tab-users');
   const uSection = document.getElementById('tab-audit');
   const prodAnalyticsSection = document.getElementById('tab-production-analytics');
+  const custSection = document.getElementById('tab-customers');
   const sSection = document.getElementById('tab-settings');
   
   const cBtn = document.getElementById('tab-btn-cash');
@@ -1697,6 +1703,7 @@ function switchTab(tab) {
   const pBtn = document.getElementById('tab-btn-products');
   const usrBtn = document.getElementById('tab-btn-users');
   const uBtn = document.getElementById('tab-btn-audit');
+  const custBtn = document.getElementById('tab-btn-customers');
   const prodAnalyticsBtn = document.getElementById('tab-btn-production-analytics');
   const sBtn = document.getElementById('tab-btn-settings');
 
@@ -1707,6 +1714,7 @@ function switchTab(tab) {
   if (usrSection) usrSection.classList.add('hidden');
   if (uSection) uSection.classList.add('hidden');
   if (prodAnalyticsSection) prodAnalyticsSection.classList.add('hidden');
+  if (custSection) custSection.classList.add('hidden');
   if (sSection) sSection.classList.add('hidden');
 
   if (cBtn) cBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
@@ -1716,6 +1724,7 @@ function switchTab(tab) {
   if (usrBtn) usrBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
   if (uBtn) uBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
   if (prodAnalyticsBtn) prodAnalyticsBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
+  if (custBtn) custBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
   if (sBtn) sBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
 
   if (tab === 'cash') {
@@ -1746,6 +1755,10 @@ function switchTab(tab) {
     if (prodAnalyticsSection) prodAnalyticsSection.classList.remove('hidden');
     if (prodAnalyticsBtn) prodAnalyticsBtn.className = 'tab-btn pb-3 border-b-2 border-amber-500 text-amber-700 flex items-center gap-2 font-bold';
     loadProductionAnalyticsAdmin();
+  } else if (tab === 'customers') {
+    if (custSection) custSection.classList.remove('hidden');
+    if (custBtn) custBtn.className = 'tab-btn pb-3 border-b-2 border-amber-500 text-amber-700 flex items-center gap-2 font-bold';
+    loadAdminCustomers();
   } else {
     if (sSection) sSection.classList.remove('hidden');
     if (sBtn) sBtn.className = 'tab-btn pb-3 border-b-2 border-orange-500 text-orange-600 flex items-center gap-2 font-bold';
@@ -2406,4 +2419,134 @@ async function submitClockOut() {
   } catch (err) {
     console.error('Error al fichar salida:', err);
   }
+}
+
+// GESTIÓN DE SOCIOS DEL CLUB Y REGISTRO DE PUNTOS
+let adminCustomers = [];
+
+async function loadAdminCustomers() {
+  try {
+    const res = await fetch('/api/admin/customers');
+    const data = await res.json();
+    if (data.success) {
+      adminCustomers = data.customers || [];
+      renderAdminCustomersTable();
+    }
+  } catch (err) {
+    console.error('Error al cargar socios del club:', err);
+  }
+}
+
+function filterAdminCustomers() {
+  renderAdminCustomersTable();
+}
+
+function renderAdminCustomersTable() {
+  const query = (document.getElementById('cust-search-input')?.value || '').trim().toLowerCase();
+  const tbody = document.getElementById('customers-table-body');
+  if (!tbody) return;
+
+  let filtered = adminCustomers;
+  if (query) {
+    filtered = adminCustomers.filter(c => 
+      String(c.dni || '').toLowerCase().includes(query) ||
+      String(c.name || '').toLowerCase().includes(query) ||
+      String(c.phone || '').toLowerCase().includes(query)
+    );
+  }
+
+  const totalCountEl = document.getElementById('cust-total-count');
+  const totalPtsEl = document.getElementById('cust-total-points');
+  const totalSpentEl = document.getElementById('cust-total-spent');
+  const filteredCountEl = document.getElementById('cust-filtered-count');
+
+  const sumPoints = adminCustomers.reduce((acc, c) => acc + (c.points || 0), 0);
+  const sumSpent = adminCustomers.reduce((acc, c) => acc + (c.total_spent || 0), 0);
+
+  if (totalCountEl) totalCountEl.textContent = adminCustomers.length;
+  if (totalPtsEl) totalPtsEl.textContent = `${sumPoints} pts`;
+  if (totalSpentEl) totalSpentEl.textContent = formatCurrency(sumSpent);
+  if (filteredCountEl) filteredCountEl.textContent = `${filtered.length} socios`;
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400 italic">No se encontraron socios registrados en la base de datos.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(c => `
+    <tr class="hover:bg-slate-50 transition border-b border-slate-100">
+      <td class="p-3 font-bold text-slate-900 flex items-center gap-2">
+        <div class="w-7 h-7 rounded-full bg-gradient-to-tr from-amber-500 to-orange-500 text-slate-950 font-black text-xs flex items-center justify-center shadow">👤</div>
+        <div>
+          <div class="font-extrabold text-slate-900 text-xs">${c.name}</div>
+          <div class="text-[10px] text-slate-400 font-mono">Alta: ${new Date(c.created_at || Date.now()).toLocaleDateString('es-AR')}</div>
+        </div>
+      </td>
+      <td class="p-3 font-mono font-extrabold text-amber-900">${c.dni}</td>
+      <td class="p-3 font-mono text-slate-600 font-bold">${c.phone}</td>
+      <td class="p-3 text-slate-600 text-xs">${c.address || 'Retiro en Local'}</td>
+      <td class="p-3">
+        <span class="inline-flex items-center gap-1 bg-amber-100 text-amber-900 border border-amber-300 px-2 py-0.5 rounded-full text-xs font-black">
+          ⭐ ${c.points || 0} pts
+        </span>
+      </td>
+      <td class="p-3 font-mono text-slate-700 font-bold">${c.total_orders || 0} pedidos</td>
+      <td class="p-3 font-mono text-slate-900 font-extrabold">${formatCurrency(c.total_spent || 0)}</td>
+      <td class="p-3 text-right">
+        <button onclick="openAdjustPointsModal(${c.id})" class="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 active:scale-95 text-slate-950 font-extrabold text-xs rounded-lg shadow-xs transition">
+          ⭐ Cargar Puntos
+        </button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function openAdjustPointsModal(customerId) {
+  const cust = adminCustomers.find(c => c.id === customerId);
+  if (!cust) return;
+
+  document.getElementById('adj-pts-cust-id').value = cust.id;
+  document.getElementById('adj-pts-cust-name').textContent = `${cust.name} (DNI ${cust.dni}) - Saldo Actual: ⭐ ${cust.points || 0} pts`;
+  document.getElementById('adjust-points-form').reset();
+
+  const modal = document.getElementById('adjust-points-modal');
+  if (modal) modal.classList.remove('opacity-0', 'pointer-events-none');
+}
+
+function closeAdjustPointsModal() {
+  const modal = document.getElementById('adjust-points-modal');
+  if (modal) modal.classList.add('opacity-0', 'pointer-events-none');
+}
+
+async function submitAdjustPoints(e) {
+  e.preventDefault();
+  const customer_id = document.getElementById('adj-pts-cust-id').value;
+  const points_change = document.getElementById('adj-pts-change').value;
+  const reason = document.getElementById('adj-pts-reason').value.trim();
+  const pin = document.getElementById('adj-pts-pin').value.trim();
+
+  try {
+    const res = await fetch('/api/admin/customers/adjust-points', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ customer_id, points_change, reason, pin })
+    });
+    const data = await res.json();
+    if (data.success) {
+      closeAdjustPointsModal();
+      alert(`✅ Puntos ajustados exitosamente por ${data.user_name}!\n\nNuevo Saldo de ${data.customer.name}: ⭐ ${data.customer.points} Puntos.`);
+      await loadAdminCustomers();
+    } else {
+      alert(`⚠️ ${data.error}`);
+    }
+  } catch (err) {
+    alert('⚠️ Error de conexión al ajustar puntos del socio.');
+  }
+}
+
+if (typeof io !== 'undefined') {
+  const socket = io();
+  socket.on('customer_updated', () => {
+    loadAdminCustomers();
+  });
 }

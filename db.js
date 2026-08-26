@@ -13,9 +13,13 @@ const initialData = {
     is_open: '1',
     auto_print_epson: '0',
     epson_printer_ip: '',
+    welcome_points: 1000,
+    referral_points: 500,
+    points_per_100_currency: 10,
     encargado_pin: '2222', // PIN Nivel 2 por defecto
     admin_pin: '9999'      // PIN Nivel 3 por defecto
   },
+  customers: [],
   users: [
     { id: 1, name: 'Gerente General / Dueño', pin: '9999', level: 3, active: 1 },
     { id: 2, name: 'Encargado de Turno Mañana', pin: '2222', level: 2, active: 1 },

@@ -62,6 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
   closeAllPublicModals();
   loadMenuData();
   loadCartFromStorage();
+  loadCustomerFromStorage();
 
   if (window.location.search.includes('action=share')) {
     setTimeout(() => {
@@ -632,6 +633,7 @@ async function submitOrderToWhatsApp() {
   const orderPayload = {
     customer_name: name,
     customer_phone: rawPhone,
+    customer_dni: state.customer ? state.customer.dni : (paymentMethod.includes('Cuenta Corriente') ? paymentNote : ''),
     address: state.deliveryType === 'delivery' ? address : 'Retiro en Local',
     delivery_type: state.deliveryType,
     payment_method: paymentMethod,
@@ -652,6 +654,12 @@ async function submitOrderToWhatsApp() {
     if (!data.success) {
       alert(`⚠️ ERROR AL PROCESAR PEDIDO: ${data.error}`);
       return;
+    }
+
+    if (data.customer) {
+      state.customer = data.customer;
+      saveCustomerToStorage();
+      updateCustomerUI();
     }
 
     const orderNumber = data.order.order_number;
@@ -1488,7 +1496,7 @@ function renderRedemptionsList() {
   container.innerHTML = products.map(prod => {
     const normalPrice = prod.price;
     const halfPrice = Math.round(prod.price * 0.5);
-    const pointsCost = Math.max(10, Math.round(prod.price / 100));
+    const pointsCost = prod.points_cost || Math.max(100, Math.round(prod.price / 10));
     const canAfford = customerPoints >= pointsCost;
     const rawImage = prod.image_url ? prod.image_url.trim() : '';
     const imageUrl = rawImage.length > 0 ? rawImage : '/logo_preview.jpg';
@@ -1519,7 +1527,7 @@ function redeemProductWithPoints(productId) {
   const prod = state.products.find(p => String(p.id) === String(productId));
   if (!prod) return;
 
-  const pointsCost = Math.max(10, Math.round(prod.price / 100));
+  const pointsCost = prod.points_cost || Math.max(100, Math.round(prod.price / 10));
   const halfPrice = Math.round(prod.price * 0.5);
 
   const existingItem = state.cart.find(item => String(item.id) === `redeem-${prod.id}`);
@@ -1540,6 +1548,181 @@ function redeemProductWithPoints(productId) {
   closeRedemptionsModal();
   openCartModal();
   alert(`🎉 ¡Canje Agregado al Carrito!\n\n${prod.name}\n💰 Precio Canje 50%: ${formatCurrency(halfPrice)}\n⭐ Puntos a utilizar: ${pointsCost} pts.`);
+}
+
+function openClubProfileModal() {
+  closeAllPublicModals();
+  const modal = document.getElementById('club-profile-modal');
+  if (!modal) return;
+
+  if (state.customer) {
+    const nameInput = document.getElementById('club-cust-name');
+    const dniInput = document.getElementById('club-cust-dni');
+    const phoneInput = document.getElementById('club-cust-phone');
+    const addressInput = document.getElementById('club-cust-address');
+    const birthdateInput = document.getElementById('club-cust-birthdate');
+    const titleEl = document.getElementById('club-modal-title');
+
+    if (nameInput) nameInput.value = state.customer.name || '';
+    if (dniInput) dniInput.value = state.customer.dni || '';
+    if (phoneInput) phoneInput.value = state.customer.phone || '';
+    if (addressInput) addressInput.value = state.customer.address || '';
+    if (birthdateInput) birthdateInput.value = state.customer.birthdate || '';
+    if (titleEl) titleEl.textContent = 'Mi Perfil de Socio - Club La Gran Rotisería';
+  }
+
+  modal.classList.remove('opacity-0', 'pointer-events-none');
+}
+
+function closeClubProfileModal() {
+  const modal = document.getElementById('club-profile-modal');
+  if (modal) modal.classList.add('opacity-0', 'pointer-events-none');
+}
+
+async function submitClubRegistration(e) {
+  e.preventDefault();
+  const name = document.getElementById('club-cust-name').value.trim();
+  const dni = document.getElementById('club-cust-dni').value.trim();
+  const phone = document.getElementById('club-cust-phone').value.trim();
+  const address = document.getElementById('club-cust-address').value.trim();
+  const birthdate = document.getElementById('club-cust-birthdate').value;
+
+  if (!name || !dni || !phone) {
+    alert('⚠️ Nombre, DNI y Celular WhatsApp son obligatorios.');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/club/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dni, name, phone, address, birthdate })
+    });
+    const data = await res.json();
+    if (data.success) {
+      state.customer = data.customer;
+      saveCustomerToStorage();
+      updateCustomerUI();
+      closeClubProfileModal();
+
+      if (data.is_new) {
+        alert(`🎉 ¡FELICIDADES ${data.customer.name.toUpperCase()}!\n\nTe asociaste exitosamente al Club La Gran Rotisería 24hs.\n\n⭐ Te regalamos ${data.welcome_points} PUNTOS DE BIENVENIDA para usar en tus próximos pedidos.`);
+      } else {
+        alert(`✅ Perfil actualizado correctamente.\n\nHola ${data.customer.name}, tu saldo actual es de ⭐ ${data.customer.points} Puntos.`);
+      }
+    } else {
+      alert(`⚠️ Error: ${data.error}`);
+    }
+  } catch (err) {
+    alert('⚠️ Error de conexión al guardar perfil de socio.');
+  }
+}
+
+function openDniLoginModal() {
+  closeAllPublicModals();
+  const modal = document.getElementById('dni-login-modal');
+  if (modal) modal.classList.remove('opacity-0', 'pointer-events-none');
+}
+
+function closeDniLoginModal() {
+  const modal = document.getElementById('dni-login-modal');
+  if (modal) modal.classList.add('opacity-0', 'pointer-events-none');
+}
+
+async function handleDniLoginSubmit(e) {
+  e.preventDefault();
+  const dni = document.getElementById('login-dni-input').value.trim();
+  if (!dni) return;
+
+  try {
+    const res = await fetch('/api/club/login-by-dni', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dni })
+    });
+    const data = await res.json();
+    if (data.success) {
+      state.customer = data.customer;
+      saveCustomerToStorage();
+      updateCustomerUI();
+      closeDniLoginModal();
+      alert(`👋 ¡BIENVENIDO DE NUEVO ${data.customer.name.toUpperCase()}!\n\nRecuperaste tu cuenta de socio.\n⭐ Saldo actual: ${data.customer.points} Puntos.`);
+    } else {
+      alert(`⚠️ ${data.error}`);
+    }
+  } catch (err) {
+    alert('⚠️ Error de conexión al buscar socio por DNI.');
+  }
+}
+
+function saveCustomerToStorage() {
+  try {
+    if (state.customer) {
+      localStorage.setItem('rotiseria_customer', JSON.stringify(state.customer));
+    } else {
+      localStorage.removeItem('rotiseria_customer');
+    }
+  } catch (e) {}
+}
+
+function loadCustomerFromStorage() {
+  try {
+    const saved = localStorage.getItem('rotiseria_customer');
+    if (saved) {
+      state.customer = JSON.parse(saved);
+      updateCustomerUI();
+      if (state.customer && state.customer.dni) {
+        fetch('/api/club/login-by-dni', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dni: state.customer.dni })
+        }).then(r => r.json()).then(data => {
+          if (data.success) {
+            state.customer = data.customer;
+            saveCustomerToStorage();
+            updateCustomerUI();
+          }
+        }).catch(() => {});
+      }
+    }
+  } catch (e) {}
+}
+
+function updateCustomerUI() {
+  const c = state.customer;
+  const pts = c ? (c.points || 0) : 0;
+  const name = c ? c.name : 'Cliente No Registrado';
+  const dni = c ? `DNI: ${c.dni}` : 'DNI: Sin Ingresar';
+
+  const ptsBalance = document.getElementById('app-points-balance');
+  if (ptsBalance) ptsBalance.textContent = pts;
+
+  const drawerPts = document.getElementById('drawer-cust-points');
+  if (drawerPts) drawerPts.textContent = pts;
+
+  const drawerName = document.getElementById('drawer-cust-name');
+  if (drawerName) drawerName.textContent = name;
+
+  const drawerDni = document.getElementById('drawer-cust-dni');
+  if (drawerDni) drawerDni.textContent = dni;
+
+  const welcomeName = document.getElementById('welcome-cust-name');
+  if (welcomeName) welcomeName.textContent = c ? c.name : 'Cliente';
+
+  const redemptionsPts = document.getElementById('redemptions-points-balance');
+  if (redemptionsPts) redemptionsPts.textContent = `⭐ ${pts} pts`;
+
+  // Auto-completar formulario de compra con datos guardados del socio
+  if (c) {
+    const custNameInput = document.getElementById('cust-name');
+    if (custNameInput && !custNameInput.value) custNameInput.value = c.name || '';
+
+    const custPhoneInput = document.getElementById('cust-phone');
+    if (custPhoneInput && !custPhoneInput.value) custPhoneInput.value = c.phone || '';
+
+    const custAddressInput = document.getElementById('cust-address');
+    if (custAddressInput && !custAddressInput.value) custAddressInput.value = c.address || '';
+  }
 }
 
 // Exportar globalmente a window para asegurar invocación garantizada desde botones redondos
@@ -1569,3 +1752,9 @@ window.closeRedemptionsModal = closeRedemptionsModal;
 window.redeemProductWithPoints = redeemProductWithPoints;
 window.filterByShortcut = filterByShortcut;
 window.switchCouponsTab = switchCouponsTab;
+window.openClubProfileModal = openClubProfileModal;
+window.closeClubProfileModal = closeClubProfileModal;
+window.submitClubRegistration = submitClubRegistration;
+window.openDniLoginModal = openDniLoginModal;
+window.closeDniLoginModal = closeDniLoginModal;
+window.handleDniLoginSubmit = handleDniLoginSubmit;

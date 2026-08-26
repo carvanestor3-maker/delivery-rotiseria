@@ -1259,7 +1259,7 @@ app.post('/api/orders', (req, res) => {
     }
 
     if (customerObj) {
-      const ptsRatio = parseFloat((store.settings && store.settings.points_per_100_currency) || 10);
+      const ptsRatio = parseFloat((store.settings && store.settings.points_per_100_currency) || 3);
       const pointsEarned = Math.floor((parseFloat(total) / 100) * ptsRatio);
       
       if (pointsEarned > 0) {

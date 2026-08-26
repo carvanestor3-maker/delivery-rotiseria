@@ -15,7 +15,7 @@ const initialData = {
     epson_printer_ip: '',
     welcome_points: 1000,
     referral_points: 500,
-    points_per_100_currency: 10,
+    points_per_100_currency: 3,
     encargado_pin: '2222', // PIN Nivel 2 por defecto
     admin_pin: '9999'      // PIN Nivel 3 por defecto
   },

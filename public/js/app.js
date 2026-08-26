@@ -111,12 +111,13 @@ async function loadMenuData() {
     const data = await res.json();
 
     if (data.success) {
-      state.categories = data.categories;
-      state.products = data.products;
-      state.settings = data.settings;
+      state.categories = data.categories || [];
+      state.products = data.products || [];
+      state.settings = data.settings || {};
 
-      if (state.settings.restaurant_name) {
-        document.getElementById('restaurant-title').textContent = state.settings.restaurant_name;
+      const restTitleEl = document.getElementById('restaurant-title');
+      if (restTitleEl && state.settings.restaurant_name) {
+        restTitleEl.textContent = state.settings.restaurant_name;
       }
 
       const addr = state.settings.restaurant_address || 'España 1028 (Casi Yrigoyen)';
@@ -135,7 +136,7 @@ async function loadMenuData() {
       renderCategoryTabs();
       renderMenuSections();
       updateCartUI();
-      handlePaymentMethodChange();
+      try { handlePaymentMethodChange(); } catch(e) {}
     }
   } catch (err) {
     console.error('Error al cargar el menú:', err);

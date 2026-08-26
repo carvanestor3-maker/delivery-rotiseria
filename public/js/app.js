@@ -1343,12 +1343,15 @@ function closeReferralModal() {
 
 function handleSendReferralWhatsApp(e) {
   e.preventDefault();
-  const phone = document.getElementById('referral-phone').value.trim();
-  if (!phone) return;
-
+  const phoneInput = document.getElementById('referral-phone');
+  const phone = phoneInput ? phoneInput.value.trim() : '';
   const cleanPhone = formatWhatsAppNumber(phone);
+
   const myName = state.customer ? state.customer.name : 'Tu amigo';
-  const shareText = `https://spressgastro-ar.com\n\n🍳 *La Gran Rotisería, Bar & Drugstore 24hs*\n¡Hola! 👋 ${myName} te invita a probar la App del Club La Gran Rotisería. ¡Instalala en tu celular para recibir 100 Puntos de Regalo y 50% OFF en canjes!`;
+  const refCode = state.customer ? state.customer.referral_code : '';
+  const shareUrl = refCode ? `https://spressgastro-ar.com?ref=${encodeURIComponent(refCode)}` : `https://spressgastro-ar.com`;
+
+  const shareText = `${shareUrl}\n\n🍳 *La Gran Rotisería, Bar & Drugstore 24hs*\n¡Hola! 👋 ${myName} te invita a probar la App del Club La Gran Rotisería.\n\nInstalala en tu celular, hace un pedido, recibis 1000 puntos de regalo para cangear por el 50% OFF del plato que elijas. Consulta las promos o los platos que te permitan utilizar tus puntos, con cada compras tambien acumuas puntos, y por cada amigo referido que mandes la invitacion, baje la app haga su primér pedido acreditas 500 puntos mas.\n\n_(Primera compra mínima para asociarse y acreditar los puntos $10.000 para todos los socios)_`;
 
   window.open(`https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(shareText)}`, '_blank');
   closeReferralModal();
@@ -1485,7 +1488,7 @@ function renderRedemptionsList() {
   const container = document.getElementById('redemptions-list-container');
   if (!container) return;
 
-  const customerPoints = (state.customer && state.customer.points_balance) ? state.customer.points_balance : 100;
+  const customerPoints = (state.customer && state.customer.points) ? state.customer.points : 0;
   const products = state.products || [];
 
   if (products.length === 0) {
@@ -1496,7 +1499,7 @@ function renderRedemptionsList() {
   container.innerHTML = products.map(prod => {
     const normalPrice = prod.price;
     const halfPrice = Math.round(prod.price * 0.5);
-    const pointsCost = prod.points_cost || Math.max(100, Math.round(prod.price / 10));
+    const pointsCost = prod.points_cost || Math.max(100, Math.round(prod.price / 5));
     const canAfford = customerPoints >= pointsCost;
     const rawImage = prod.image_url ? prod.image_url.trim() : '';
     const imageUrl = rawImage.length > 0 ? rawImage : '/logo_preview.jpg';
@@ -1527,7 +1530,7 @@ function redeemProductWithPoints(productId) {
   const prod = state.products.find(p => String(p.id) === String(productId));
   if (!prod) return;
 
-  const pointsCost = prod.points_cost || Math.max(100, Math.round(prod.price / 10));
+  const pointsCost = prod.points_cost || Math.max(100, Math.round(prod.price / 5));
   const halfPrice = Math.round(prod.price * 0.5);
 
   const existingItem = state.cart.find(item => String(item.id) === `redeem-${prod.id}`);

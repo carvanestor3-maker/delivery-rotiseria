@@ -941,10 +941,35 @@ function generateAiResponse(text) {
 // ==========================================
 
 function openDrawer() {
-  closeAllPublicModals();
+  const modalIds = [
+    'cart-modal',
+    'ai-help-modal',
+    'photo-lightbox-modal',
+    'video-modal',
+    'virtual-card-modal',
+    'transfer-points-modal',
+    'points-history-modal',
+    'coupons-modal',
+    'redemptions-modal',
+    'saved-addresses-modal',
+    'referral-modal',
+    'settings-modal',
+    'legales-modal',
+    'order-success-modal'
+  ];
+
+  modalIds.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.classList.add('opacity-0', 'pointer-events-none');
+      el.classList.remove('pointer-events-auto');
+    }
+  });
+
   const drawer = document.getElementById('app-drawer');
   if (drawer) {
     drawer.classList.remove('opacity-0', 'pointer-events-none');
+    drawer.classList.add('pointer-events-auto');
     const panel = drawer.children[0];
     if (panel) {
       panel.classList.remove('-translate-x-full');
@@ -963,6 +988,7 @@ function closeDrawer() {
     }
     setTimeout(() => {
       drawer.classList.add('opacity-0', 'pointer-events-none');
+      drawer.classList.remove('pointer-events-auto');
     }, 200);
   }
 }

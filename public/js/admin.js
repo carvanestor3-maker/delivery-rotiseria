@@ -2459,14 +2459,89 @@ function renderAdminCustomersTable() {
   const totalPtsEl = document.getElementById('cust-total-points');
   const totalSpentEl = document.getElementById('cust-total-spent');
   const filteredCountEl = document.getElementById('cust-filtered-count');
+  const avgTicketEl = document.getElementById('cust-avg-ticket');
+  const referralCountEl = document.getElementById('cust-referral-count');
+  const issuedPointsEl = document.getElementById('cust-issued-points');
 
   const sumPoints = adminCustomers.reduce((acc, c) => acc + (c.points || 0), 0);
   const sumSpent = adminCustomers.reduce((acc, c) => acc + (c.total_spent || 0), 0);
+  const totalOrdersSum = adminCustomers.reduce((acc, c) => acc + (c.total_orders || 0), 0);
+  const avgTicket = totalOrdersSum > 0 ? (sumSpent / totalOrdersSum) : 0;
+  const totalReferrals = adminCustomers.filter(c => c.referred_by).length;
+
+  let totalIssuedPoints = 0;
+  let allHistories = [];
+
+  adminCustomers.forEach(c => {
+    if (Array.isArray(c.history)) {
+      c.history.forEach(h => {
+        allHistories.push({
+          ...h,
+          customer_name: c.name,
+          customer_dni: c.dni
+        });
+        if (h.points_change > 0) {
+          totalIssuedPoints += h.points_change;
+        }
+      });
+    }
+  });
 
   if (totalCountEl) totalCountEl.textContent = adminCustomers.length;
   if (totalPtsEl) totalPtsEl.textContent = `${sumPoints} pts`;
   if (totalSpentEl) totalSpentEl.textContent = formatCurrency(sumSpent);
   if (filteredCountEl) filteredCountEl.textContent = `${filtered.length} socios`;
+  if (avgTicketEl) avgTicketEl.textContent = formatCurrency(avgTicket);
+  if (referralCountEl) referralCountEl.textContent = totalReferrals;
+  if (issuedPointsEl) issuedPointsEl.textContent = `${totalIssuedPoints} pts`;
+
+  // Renderizar Ranking Top 5 Socios VIP (por consumos $)
+  const vipRankingBody = document.getElementById('cust-vip-ranking-body');
+  if (vipRankingBody) {
+    const vipSorted = [...adminCustomers].sort((a, b) => (b.total_spent || 0) - (a.total_spent || 0)).slice(0, 5);
+    const badges = ['🥇 Oro', '🥈 Plata', '🥉 Bronce', '🏅 VIP', '🏅 VIP'];
+
+    if (vipSorted.length === 0) {
+      vipRankingBody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-400 italic">No hay consumos registrados aún.</td></tr>`;
+    } else {
+      vipRankingBody.innerHTML = vipSorted.map((c, idx) => `
+        <tr class="hover:bg-amber-50/50 transition">
+          <td class="p-2 font-black text-amber-600">${badges[idx] || '🏅'}</td>
+          <td class="p-2 font-extrabold text-slate-900">${c.name} <span class="text-[10px] text-slate-400 font-mono">(DNI ${c.dni})</span></td>
+          <td class="p-2 font-mono font-bold text-slate-700">${c.total_orders || 0} ped.</td>
+          <td class="p-2 font-mono font-black text-emerald-600">${formatCurrency(c.total_spent || 0)}</td>
+          <td class="p-2 text-right font-mono font-bold text-amber-700">⭐ ${c.points || 0} pts</td>
+        </tr>
+      `).join('');
+    }
+  }
+
+  // Renderizar Historial General de Auditoría de Puntos
+  const globalHistoryEl = document.getElementById('cust-points-history-global');
+  if (globalHistoryEl) {
+    allHistories.sort((a, b) => new Date(b.date) - new Date(a.date));
+    const recentLogs = allHistories.slice(0, 15);
+
+    if (recentLogs.length === 0) {
+      globalHistoryEl.innerHTML = `<div class="text-center py-4 text-slate-400 italic">No hay movimientos de puntos registrados.</div>`;
+    } else {
+      globalHistoryEl.innerHTML = recentLogs.map(l => {
+        const isPos = (l.points_change || 0) > 0;
+        const dt = new Date(l.date || Date.now()).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' });
+        return `
+          <div class="py-2 flex items-center justify-between gap-2">
+            <div>
+              <div class="font-extrabold text-slate-900">${l.description || 'Movimiento de puntos'}</div>
+              <div class="text-[10px] text-slate-500 font-mono">Socio: ${l.customer_name} (DNI ${l.customer_dni}) • ${dt} hs</div>
+            </div>
+            <span class="font-mono font-black text-xs ${isPos ? 'text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200' : 'text-red-600 bg-red-50 px-2 py-0.5 rounded-full border border-red-200'}">
+              ${isPos ? '+' : ''}${l.points_change} pts
+            </span>
+          </div>
+        `;
+      }).join('');
+    }
+  }
 
   if (filtered.length === 0) {
     tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400 italic">No se encontraron socios registrados en la base de datos.</td></tr>`;

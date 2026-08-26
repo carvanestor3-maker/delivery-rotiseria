@@ -740,23 +740,41 @@
       </div>
 
       <!-- Tarjetas de Métricas de Socios -->
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div class="bg-white p-5 rounded-2xl border border-amber-200 shadow-sm">
-          <span class="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">👥 Socios Registrados</span>
-          <span id="cust-total-count" class="text-2xl font-black text-amber-600 font-mono">0</span>
-          <p class="text-[11px] text-slate-400 mt-1">Socios activos en la base de datos</p>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+        <div class="bg-white p-4 rounded-2xl border border-amber-200 shadow-sm">
+          <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">👥 Socios Registrados</span>
+          <span id="cust-total-count" class="text-xl font-black text-amber-600 font-mono">0</span>
+          <p class="text-[10px] text-slate-400 mt-1">Socios activos</p>
         </div>
 
-        <div class="bg-white p-5 rounded-2xl border border-emerald-200 shadow-sm">
-          <span class="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">⭐ Puntos Acumulados Totales</span>
-          <span id="cust-total-points" class="text-2xl font-black text-emerald-600 font-mono">0 pts</span>
-          <p class="text-[11px] text-slate-400 mt-1">Disponibles para canje 50% OFF</p>
+        <div class="bg-white p-4 rounded-2xl border border-emerald-200 shadow-sm">
+          <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">⭐ Puntos Disponibles</span>
+          <span id="cust-total-points" class="text-xl font-black text-emerald-600 font-mono">0 pts</span>
+          <p class="text-[10px] text-slate-400 mt-1">Saldo acumulado total</p>
         </div>
 
-        <div class="bg-white p-5 rounded-2xl border border-purple-200 shadow-sm">
-          <span class="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">💰 Total Facturado a Socios</span>
-          <span id="cust-total-spent" class="text-2xl font-black text-purple-600 font-mono">$0</span>
-          <p class="text-[11px] text-slate-400 mt-1">Ventas totales a socios del club</p>
+        <div class="bg-white p-4 rounded-2xl border border-purple-200 shadow-sm">
+          <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">💰 Facturación a Socios</span>
+          <span id="cust-total-spent" class="text-xl font-black text-purple-600 font-mono">$0</span>
+          <p class="text-[10px] text-slate-400 mt-1">Ventas acumuladas</p>
+        </div>
+
+        <div class="bg-white p-4 rounded-2xl border border-blue-200 shadow-sm">
+          <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">🧾 Ticket Promedio</span>
+          <span id="cust-avg-ticket" class="text-xl font-black text-blue-600 font-mono">$0</span>
+          <p class="text-[10px] text-slate-400 mt-1">Por socio registrado</p>
+        </div>
+
+        <div class="bg-white p-4 rounded-2xl border border-teal-200 shadow-sm">
+          <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">👥 Red de Referidos</span>
+          <span id="cust-referral-count" class="text-xl font-black text-teal-600 font-mono">0</span>
+          <p class="text-[10px] text-slate-400 mt-1">Contactos invitados</p>
+        </div>
+
+        <div class="bg-white p-4 rounded-2xl border border-orange-200 shadow-sm">
+          <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">🎁 Puntos Otorgados</span>
+          <span id="cust-issued-points" class="text-xl font-black text-orange-600 font-mono">0 pts</span>
+          <p class="text-[10px] text-slate-400 mt-1">Emitidos por el club</p>
         </div>
       </div>
 
@@ -784,6 +802,50 @@
               <!-- Dinámico -->
             </tbody>
           </table>
+        </div>
+      </div>
+
+      <!-- WIDGETS DE ANALÍTICAS: TOP VIP & HISTORIAL GENERAL DE PUNTOS -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Ranking Top 5 Socios VIP -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+          <div class="p-4 bg-amber-50 border-b border-amber-200 flex justify-between items-center">
+            <h3 class="font-extrabold text-amber-950 text-sm flex items-center gap-2">
+              🏆 Top 5 Socios VIP del Club (Ranking por Consumos)
+            </h3>
+            <span class="text-[10px] font-extrabold bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full">Mayores Compradores</span>
+          </div>
+          <div class="p-4 flex-1 overflow-x-auto">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr class="border-b border-slate-200 text-slate-500 font-bold uppercase">
+                  <th class="p-2">Rank</th>
+                  <th class="p-2">Socio</th>
+                  <th class="p-2">Pedidos</th>
+                  <th class="p-2">Total $ Gastado</th>
+                  <th class="p-2 text-right">Puntos</th>
+                </tr>
+              </thead>
+              <tbody id="cust-vip-ranking-body" class="divide-y divide-slate-100">
+                <!-- Dinámico -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Historial General de Auditoría de Puntos -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+          <div class="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
+            <h3 class="font-extrabold text-slate-800 text-sm flex items-center gap-2">
+              📊 Historial Reciente de Movimientos de Puntos
+            </h3>
+            <span class="text-[10px] font-extrabold bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full">Auditoría en Vivo</span>
+          </div>
+          <div class="p-4 flex-1 overflow-y-auto max-h-72">
+            <div id="cust-points-history-global" class="space-y-2 text-xs divide-y divide-slate-100">
+              <!-- Dinámico -->
+            </div>
+          </div>
         </div>
       </div>
     </section>

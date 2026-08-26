@@ -1287,12 +1287,18 @@ function filterByShortcut(type) {
     state.selectedCategory = 'all';
     renderCategoryTabs();
     renderMenuSections();
-    window.scrollTo({ top: 350, behavior: 'smooth' });
+    const menuEl = document.getElementById('category-tabs') || document.getElementById('menu-container');
+    if (menuEl) {
+      menuEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   } else if (type === 'redemptions') {
     state.selectedCategory = 'all';
     renderCategoryTabs();
     renderMenuSections();
+    const menuEl = document.getElementById('category-tabs') || document.getElementById('menu-container');
+    if (menuEl) {
+      menuEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
     alert('🎁 ¡Canjes 50% OFF de Fidelización!\n\nElegí cualquier plato del menú para abonar el 50% en dinero + canjear tus puntos acumulados.');
-    window.scrollTo({ top: 350, behavior: 'smooth' });
   }
 }

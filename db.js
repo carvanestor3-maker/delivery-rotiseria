@@ -114,9 +114,30 @@ function loadStore() {
       if (!store.stock_entries) store.stock_entries = [];
       if (!store.stock_adjustments) store.stock_adjustments = [];
       if (!store.cash_shifts) store.cash_shifts = initialData.cash_shifts;
-      if (!store.settings) store.settings = initialData.settings;
       if (!store.settings.admin_pin) store.settings.admin_pin = '9999';
       if (!store.settings.encargado_pin) store.settings.encargado_pin = '2222';
+      if (!store.club_customers) store.club_customers = [];
+      if (!store.points_history) store.points_history = [];
+      if (!store.coupons) store.coupons = [
+        {
+          id: 1,
+          code: 'PROMO-BIENVENIDA',
+          title: '20% OFF en tu Primera Compra',
+          description: 'Válido para cualquier combo o minuta del menú.',
+          discount_percent: 20,
+          status: 'available', // available, used, expired
+          valid_until: '2026-12-31'
+        },
+        {
+          id: 2,
+          code: 'PROMO-PIZZA',
+          title: '$1.500 Descuento en Pizzas Especiales',
+          description: 'Aplica en Pizzas Muzzarella o Napolitana.',
+          discount_fixed: 1500,
+          status: 'available',
+          valid_until: '2026-12-31'
+        }
+      ];
     } else {
       saveStore();
     }

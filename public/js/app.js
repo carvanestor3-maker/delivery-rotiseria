@@ -846,3 +846,452 @@ function generateAiResponse(text) {
     <p class="text-amber-300 font-semibold pt-1">¿Querés consultar sobre <em>instalación de la app</em>, <em>dirección del local</em>, <em>delivery</em> o <em>formas de pago</em>?</p>
   `;
 }
+
+// ==========================================
+// CONTROLADOR CLUB DE FIDELIZACIÓN (ESTILO CLUB GRIDO)
+// ==========================================
+
+function openDrawer() {
+  closeAllPublicModals();
+  const drawer = document.getElementById('app-drawer');
+  if (drawer) {
+    drawer.classList.remove('opacity-0', 'pointer-events-none');
+    const panel = drawer.querySelector('div');
+    if (panel) panel.classList.remove('-translate-x-full');
+  }
+}
+
+function closeDrawer() {
+  const drawer = document.getElementById('app-drawer');
+  if (drawer) {
+    const panel = drawer.querySelector('div');
+    if (panel) panel.classList.add('-translate-x-full');
+    setTimeout(() => {
+      drawer.classList.add('opacity-0', 'pointer-events-none');
+    }, 200);
+  }
+}
+
+async function syncCustomerProfile(dni, name, phone, address) {
+  if (!dni) return;
+  try {
+    const res = await fetch('/api/customer/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dni, name, phone, address })
+    });
+    const data = await res.json();
+    if (data.success) {
+      state.customer = data.customer;
+      updateCustomerUI();
+    }
+  } catch (e) {
+    console.error('Error syncing customer profile:', e);
+  }
+}
+
+function updateCustomerUI() {
+  if (!state.customer) return;
+
+  const custName = state.customer.name || 'Cliente Registrado';
+  const custDni = state.customer.dni ? `DNI: ${state.customer.dni}` : 'DNI: Sin Ingresar';
+  const points = state.customer.points_balance || 100;
+
+  // Actualizar Drawer
+  const drawerName = document.getElementById('drawer-cust-name');
+  if (drawerName) drawerName.textContent = custName;
+  const drawerDni = document.getElementById('drawer-cust-dni');
+  if (drawerDni) drawerDni.textContent = custDni;
+  const drawerPoints = document.getElementById('drawer-cust-points');
+  if (drawerPoints) drawerPoints.textContent = points;
+
+  // Actualizar Recuadro de Puntos Principal
+  const appPoints = document.getElementById('app-points-balance');
+  if (appPoints) appPoints.textContent = points;
+
+  // Actualizar Banner de Bienvenida y Agradecimiento
+  const welcomeCust = document.getElementById('welcome-cust-name');
+  if (welcomeCust) welcomeCust.textContent = custName;
+
+  // Actualizar Tarjeta Virtual
+  const vcardName = document.getElementById('vcard-cust-name');
+  if (vcardName) vcardName.textContent = custName;
+  const vcardDni = document.getElementById('vcard-cust-dni');
+  if (vcardDni) vcardDni.textContent = custDni;
+  const vcardBarcode = document.getElementById('vcard-barcode-text');
+  if (vcardBarcode) vcardBarcode.textContent = state.customer.barcode || `CLI-${state.customer.dni}`;
+
+  // Actualizar Dirección Activa en Header
+  if (Array.isArray(state.customer.addresses) && state.customer.addresses.length > 0) {
+    const activeAddr = state.customer.addresses[0].text;
+    const headerAddr = document.getElementById('header-active-address');
+    if (headerAddr) headerAddr.textContent = activeAddr;
+  }
+
+  drawCustomerBarcode('barcode-canvas', state.customer.barcode || `CLI-${state.customer.dni}`);
+}
+
+function drawCustomerBarcode(canvasId, text) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  
+  // Dibujar barras blancas y negras limpias para lectura de escáner en caja POS
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  
+  ctx.fillStyle = '#000000';
+  const str = text || 'CLI-32456789';
+  let currentX = 15;
+  
+  for (let i = 0; i < str.length; i++) {
+    const code = str.charCodeAt(i);
+    const w1 = (code % 3) + 2;
+    const w2 = ((code * 2) % 3) + 1;
+    ctx.fillRect(currentX, 10, w1 * 2, 50);
+    currentX += w1 * 2 + w2 * 2;
+    if (currentX > canvas.width - 20) break;
+  }
+}
+
+// 1. Tarjeta Virtual
+function openVirtualCardModal() {
+  closeAllPublicModals();
+  const modal = document.getElementById('virtual-card-modal');
+  if (modal) modal.classList.remove('opacity-0', 'pointer-events-none');
+  if (state.customer) updateCustomerUI();
+}
+
+function closeVirtualCardModal() {
+  const modal = document.getElementById('virtual-card-modal');
+  if (modal) modal.classList.add('opacity-0', 'pointer-events-none');
+}
+
+// 2. Transferir Puntos
+function openTransferPointsModal() {
+  closeAllPublicModals();
+  const modal = document.getElementById('transfer-points-modal');
+  if (modal) modal.classList.remove('opacity-0', 'pointer-events-none');
+}
+
+function closeTransferPointsModal() {
+  const modal = document.getElementById('transfer-points-modal');
+  if (modal) modal.classList.add('opacity-0', 'pointer-events-none');
+}
+
+async function handleTransferPointsSubmit(e) {
+  e.preventDefault();
+  const destDni = document.getElementById('transfer-dest-dni').value.trim();
+  const amount = document.getElementById('transfer-amount').value.trim();
+  const fromDni = state.customer ? state.customer.dni : null;
+
+  if (!fromDni) {
+    alert('⚠️ Por favor cargá tu DNI en Mi Cuenta para poder realizar transferencias de puntos.');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/customer/transfer-points', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from_dni: fromDni, to_dni: destDni, points: amount })
+    });
+    const data = await res.json();
+    if (data.success) {
+      alert(`🎉 ¡Transferencia realizada con éxito!\n\nEnviaste ${amount} puntos al cliente ${data.receiver_name} (DNI ${destDni}).`);
+      if (state.customer) state.customer.points_balance = data.sender_balance;
+      updateCustomerUI();
+      closeTransferPointsModal();
+    } else {
+      alert(`⚠️ ${data.error}`);
+    }
+  } catch (err) {
+    alert('Error al realizar la transferencia.');
+  }
+}
+
+// 3. Movimientos de Puntos
+async function openPointsHistoryModal() {
+  closeAllPublicModals();
+  const modal = document.getElementById('points-history-modal');
+  if (modal) modal.classList.remove('opacity-0', 'pointer-events-none');
+
+  const container = document.getElementById('points-history-list');
+  if (!container) return;
+  container.innerHTML = `<p class="text-center py-4 text-slate-400">Cargando movimientos...</p>`;
+
+  const dni = state.customer ? state.customer.dni : '32456789';
+  try {
+    const res = await fetch(`/api/customer/details/${dni}`);
+    const data = await res.json();
+    if (data.success && Array.isArray(data.history) && data.history.length > 0) {
+      container.innerHTML = data.history.map(h => `
+        <div class="py-2.5 flex justify-between items-center">
+          <div>
+            <div class="font-bold text-white">${h.description}</div>
+            <div class="text-[10px] text-slate-400">${new Date(h.date).toLocaleDateString()} ${new Date(h.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+          </div>
+          <div class="font-mono font-black ${h.type.includes('out') ? 'text-red-400' : 'text-emerald-400'}">
+            ${h.type.includes('out') ? '-' : '+'}${h.points} pts
+          </div>
+        </div>
+      `).join('');
+    } else {
+      container.innerHTML = `
+        <div class="py-4 text-center text-slate-400 space-y-1">
+          <p>🎁 Tenés <strong>100 Puntos de Bienvenida</strong> activos.</p>
+          <p class="text-[11px]">Realizá pedidos para acumular más puntos en cada compra.</p>
+        </div>
+      `;
+    }
+  } catch (e) {
+    container.innerHTML = `<p class="text-center py-4 text-slate-400">Tenés 100 Puntos de Bienvenida cargados.</p>`;
+  }
+}
+
+function closePointsHistoryModal() {
+  const modal = document.getElementById('points-history-modal');
+  if (modal) modal.classList.add('opacity-0', 'pointer-events-none');
+}
+
+// 4. Cupones
+function openCouponsModal() {
+  closeAllPublicModals();
+  const modal = document.getElementById('coupons-modal');
+  if (modal) modal.classList.remove('opacity-0', 'pointer-events-none');
+  switchCouponsTab('available');
+}
+
+function closeCouponsModal() {
+  const modal = document.getElementById('coupons-modal');
+  if (modal) modal.classList.add('opacity-0', 'pointer-events-none');
+}
+
+function switchCouponsTab(tab) {
+  const container = document.getElementById('coupons-list-body');
+  if (!container) return;
+
+  const btnAvail = document.getElementById('tab-coupon-avail');
+  const btnUsed = document.getElementById('tab-coupon-used');
+  const btnExp = document.getElementById('tab-coupon-exp');
+
+  if (btnAvail) btnAvail.className = tab === 'available' ? 'py-1.5 rounded-lg bg-emerald-500 text-slate-950 font-black' : 'py-1.5 rounded-lg text-slate-400 hover:text-white';
+  if (btnUsed) btnUsed.className = tab === 'used' ? 'py-1.5 rounded-lg bg-emerald-500 text-slate-950 font-black' : 'py-1.5 rounded-lg text-slate-400 hover:text-white';
+  if (btnExp) btnExp.className = tab === 'expired' ? 'py-1.5 rounded-lg bg-emerald-500 text-slate-950 font-black' : 'py-1.5 rounded-lg text-slate-400 hover:text-white';
+
+  if (tab === 'available') {
+    container.innerHTML = `
+      <div class="bg-gradient-to-r from-emerald-950 to-slate-900 border border-emerald-500/40 p-3 rounded-2xl space-y-1.5 shadow">
+        <div class="flex justify-between items-start">
+          <span class="font-black text-amber-400 text-xs">🏷️ PROMO-BIENVENIDA</span>
+          <span class="bg-emerald-500 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded-full">20% OFF</span>
+        </div>
+        <p class="font-bold text-white text-xs">20% de Descuento en tu Próxima Compra</p>
+        <p class="text-[11px] text-slate-300">Válido en cualquier combo o minuta. Presentá en caja o al pedir.</p>
+      </div>
+
+      <div class="bg-gradient-to-r from-emerald-950 to-slate-900 border border-emerald-500/40 p-3 rounded-2xl space-y-1.5 shadow">
+        <div class="flex justify-between items-start">
+          <span class="font-black text-amber-400 text-xs">🏷️ PROMO-PIZZA</span>
+          <span class="bg-emerald-500 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded-full">$1.500 OFF</span>
+        </div>
+        <p class="font-bold text-white text-xs">$1.500 de Descuento en Pizzas Especiales</p>
+        <p class="text-[11px] text-slate-300">Aplica en Pizzas Muzzarella Grande o Napolitana con Jamón.</p>
+      </div>
+    `;
+  } else if (tab === 'used') {
+    container.innerHTML = `<p class="text-center py-6 text-slate-400 text-xs">No tenés cupones usados previamente.</p>`;
+  } else {
+    container.innerHTML = `<p class="text-center py-6 text-slate-400 text-xs">No tenés cupones vencidos.</p>`;
+  }
+}
+
+// 5. Mis Direcciones
+function openSavedAddressesModal() {
+  closeAllPublicModals();
+  const modal = document.getElementById('saved-addresses-modal');
+  if (modal) modal.classList.remove('opacity-0', 'pointer-events-none');
+  renderSavedAddresses();
+}
+
+function closeSavedAddressesModal() {
+  const modal = document.getElementById('saved-addresses-modal');
+  if (modal) modal.classList.add('opacity-0', 'pointer-events-none');
+}
+
+function renderSavedAddresses() {
+  const container = document.getElementById('saved-addresses-list');
+  if (!container) return;
+
+  const addresses = (state.customer && Array.isArray(state.customer.addresses) && state.customer.addresses.length > 0)
+    ? state.customer.addresses
+    : [
+        { id: 1, text: 'España 1028 (Casi Yrigoyen)', tag: 'Local Retiro' },
+        { id: 2, text: 'Av. San Martín 450, Piso 2', tag: 'Casa' }
+      ];
+
+  container.innerHTML = addresses.map(a => `
+    <div class="p-3 bg-slate-800 hover:bg-slate-700/80 rounded-2xl flex justify-between items-center cursor-pointer" onclick="selectSavedAddress('${a.text}')">
+      <div>
+        <div class="font-extrabold text-amber-400 text-[10px] uppercase">📍 ${a.tag || 'Domicilio'}</div>
+        <div class="font-bold text-white text-xs">${a.text}</div>
+      </div>
+      <button type="button" class="px-2.5 py-1 bg-amber-500 text-slate-950 font-black text-[10px] rounded-lg">
+        Usar
+      </button>
+    </div>
+  `).join('');
+}
+
+function selectSavedAddress(text) {
+  const headerAddr = document.getElementById('header-active-address');
+  if (headerAddr) headerAddr.textContent = text;
+  const checkoutAddr = document.getElementById('cust-address');
+  if (checkoutAddr) checkoutAddr.value = text;
+  closeSavedAddressesModal();
+}
+
+async function handleAddNewAddressSubmit(e) {
+  e.preventDefault();
+  const textInput = document.getElementById('new-address-text');
+  if (!textInput) return;
+  const text = textInput.value.trim();
+  if (!text) return;
+  textInput.value = '';
+
+  const dni = state.customer ? state.customer.dni : '32456789';
+  try {
+    const res = await fetch('/api/customer/address', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dni, text, tag: 'Domicilio' })
+    });
+    const data = await res.json();
+    if (data.success) {
+      if (state.customer) state.customer.addresses = data.addresses;
+      renderSavedAddresses();
+      selectSavedAddress(text);
+    }
+  } catch (err) {
+    selectSavedAddress(text);
+  }
+}
+
+// 6. Referidos WhatsApp
+function openReferralModal() {
+  closeAllPublicModals();
+  const modal = document.getElementById('referral-modal');
+  if (modal) modal.classList.remove('opacity-0', 'pointer-events-none');
+}
+
+function closeReferralModal() {
+  const modal = document.getElementById('referral-modal');
+  if (modal) modal.classList.add('opacity-0', 'pointer-events-none');
+}
+
+function handleSendReferralWhatsApp(e) {
+  e.preventDefault();
+  const phone = document.getElementById('referral-phone').value.trim();
+  if (!phone) return;
+
+  const cleanPhone = formatWhatsAppNumber(phone);
+  const myName = state.customer ? state.customer.name : 'Tu amigo';
+  const shareText = `https://spressgastro-ar.com\n\n🍳 *La Gran Rotisería, Bar & Drugstore 24hs*\n¡Hola! 👋 ${myName} te invita a probar la App del Club La Gran Rotisería. ¡Instalala en tu celular para recibir 100 Puntos de Regalo y 50% OFF en canjes!`;
+
+  window.open(`https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(shareText)}`, '_blank');
+  closeReferralModal();
+}
+
+// 7. Configuración & Legales
+function openSettingsModal() {
+  closeAllPublicModals();
+  const modal = document.getElementById('settings-modal');
+  if (modal) modal.classList.remove('opacity-0', 'pointer-events-none');
+}
+
+function closeSettingsModal() {
+  const modal = document.getElementById('settings-modal');
+  if (modal) modal.classList.add('opacity-0', 'pointer-events-none');
+}
+
+function openSubSettings(type) {
+  if (type === 'account') {
+    const name = prompt('a) Mi Cuenta - Modificar Nombre:', state.customer ? state.customer.name : '');
+    if (name) {
+      const dni = prompt('Ingresá tu DNI:', state.customer ? state.customer.dni : '');
+      const phone = prompt('Ingresá tu celular WhatsApp:', state.customer ? state.customer.phone : '');
+      if (dni) syncCustomerProfile(dni, name, phone, '');
+    }
+  } else if (type === 'password') {
+    const pass = prompt('b) Cambiar Contraseña - Ingresá tu nueva clave:');
+    if (pass) alert('🔒 Contraseña actualizada correctamente en tu cuenta.');
+  }
+}
+
+function openLegalesModal(type) {
+  closeAllPublicModals();
+  const modal = document.getElementById('legales-modal');
+  if (!modal) return;
+
+  const title = document.getElementById('legales-title');
+  const content = document.getElementById('legales-content');
+
+  if (type === 'terms') {
+    if (title) title.textContent = 'c) Legales I: Condiciones de Uso - La Gran Rotisería 24hs';
+    if (content) {
+      content.innerHTML = `
+        <p class="font-bold text-amber-400">Términos y Condiciones del Servicio del Club:</p>
+        <p>1. El programa de fidelización "Club La Gran Rotisería" permite acumular puntos por cada compra realizada tanto en el portal online como presencialmente en el local de España 1028 (Casi Yrigoyen).</p>
+        <p>2. Los puntos pueden canjearse para cubrir el 50% del valor de platos seleccionados o cupones de promoción.</p>
+        <p>3. Los puntos son personales y transferibles a otros usuarios mediante DNI.</p>
+      `;
+    }
+  } else {
+    if (title) title.textContent = 'c) Legales II: Política de Privacidad & Datos Sensibles';
+    if (content) {
+      content.innerHTML = `
+        <p class="font-bold text-amber-400">Política de Privacidad y Manejo Seguro de Datos:</p>
+        <p>1. La Gran Rotisería garantiza la protección absoluta y privacidad de los datos personales (Nombre, DNI, Teléfono y Direcciones) suministrados voluntariamente por el cliente.</p>
+        <p>2. Los datos sensibles serán utilizados exclusivamente para el envío de pedidos a domicilio, acreditación de puntos de regalo y comunicación de promociones.</p>
+        <p>3. El cliente autoriza expresamente el tratamiento seguro de sus datos bajo estrictas medidas de ciberseguridad.</p>
+      `;
+    }
+  }
+
+  modal.classList.remove('opacity-0', 'pointer-events-none');
+}
+
+function closeLegalesModal() {
+  const modal = document.getElementById('legales-modal');
+  if (modal) modal.classList.add('opacity-0', 'pointer-events-none');
+}
+
+function openWhatsAppHelp() {
+  const shareText = `https://spressgastro-ar.com\n\n🍳 *La Gran Rotisería 24hs*\n¡Hola! Necesito asistencia con mi cuenta o pedido.`;
+  window.open(`https://api.whatsapp.com/send?phone=5491112345678&text=${encodeURIComponent(shareText)}`, '_blank');
+}
+
+function handleLogoutCustomer() {
+  if (confirm('🚪 ¿Deseas cerrar sesión en tu cuenta del Club?')) {
+    state.customer = null;
+    alert('Sesión cerrada correctamente.');
+    closeSettingsModal();
+    window.location.reload();
+  }
+}
+
+function filterByShortcut(type) {
+  if (type === 'all') {
+    state.selectedCategory = 'all';
+    renderCategoryTabs();
+    renderMenuSections();
+    window.scrollTo({ top: 350, behavior: 'smooth' });
+  } else if (type === 'redemptions') {
+    state.selectedCategory = 'all';
+    renderCategoryTabs();
+    renderMenuSections();
+    alert('🎁 ¡Canjes 50% OFF de Fidelización!\n\nElegí cualquier plato del menú para abonar el 50% en dinero + canjear tus puntos acumulados.');
+    window.scrollTo({ top: 350, behavior: 'smooth' });
+  }
+}

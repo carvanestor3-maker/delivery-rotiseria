@@ -2094,6 +2094,154 @@ app.post('/api/attendance/clock-out', (req, res) => {
   }
 });
 
+// ==========================================
+// API CLUB DE PUNTOS Y CLIENTES (ESTILO CLUB GRIDO)
+// ==========================================
+
+app.post('/api/customer/sync', (req, res) => {
+  try {
+    const { dni, name, phone, address } = req.body;
+    if (!dni) return res.status(400).json({ success: false, error: 'El DNI es obligatorio' });
+
+    const store = db.getStore();
+    if (!store.club_customers) store.club_customers = [];
+
+    const strDni = String(dni).trim();
+    let cust = store.club_customers.find(c => String(c.dni).trim() === strDni);
+
+    if (!cust) {
+      const nextId = store.club_customers.length > 0 ? Math.max(...store.club_customers.map(c => c.id)) + 1 : 1;
+      cust = {
+        id: nextId,
+        dni: strDni,
+        name: name || 'Cliente Club',
+        phone: phone || '',
+        addresses: address ? [{ id: 1, text: address, tag: 'Casa' }] : [{ id: 1, text: 'España 1028 (Casi Yrigoyen)', tag: 'Local Retiro' }],
+        points_balance: 100, // Bono de bienvenida
+        barcode: `CLI-${strDni}`,
+        created_at: new Date().toISOString()
+      };
+      store.club_customers.push(cust);
+
+      if (!store.points_history) store.points_history = [];
+      store.points_history.unshift({
+        id: Date.now(),
+        customer_dni: strDni,
+        type: 'earn',
+        points: 100,
+        description: '🎁 Regalo de Bienvenida al Club La Gran Rotisería',
+        date: new Date().toISOString()
+      });
+
+      db.saveStore();
+    } else {
+      if (name) cust.name = name;
+      if (phone) cust.phone = phone;
+      if (address && Array.isArray(cust.addresses)) {
+        if (!cust.addresses.some(a => a.text === address)) {
+          cust.addresses.push({ id: Date.now(), text: address, tag: 'Domicilio' });
+        }
+      }
+      db.saveStore();
+    }
+
+    res.json({ success: true, customer: cust });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/customer/details/:dni', (req, res) => {
+  try {
+    const { dni } = req.params;
+    const store = db.getStore();
+    const strDni = String(dni).trim();
+    const cust = (store.club_customers || []).find(c => String(c.dni).trim() === strDni);
+    if (!cust) {
+      return res.status(404).json({ success: false, error: 'Cliente no encontrado' });
+    }
+
+    const history = (store.points_history || []).filter(h => String(h.customer_dni).trim() === strDni);
+    const coupons = store.coupons || [];
+
+    res.json({ success: true, customer: cust, history, coupons });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/customer/transfer-points', (req, res) => {
+  try {
+    const { from_dni, to_dni, points } = req.body;
+    const numPoints = parseInt(points || 0);
+    if (numPoints <= 0) return res.status(400).json({ success: false, error: 'La cantidad de puntos debe ser mayor a 0' });
+
+    const store = db.getStore();
+    const strFrom = String(from_dni).trim();
+    const strTo = String(to_dni).trim();
+
+    if (strFrom === strTo) return res.status(400).json({ success: false, error: 'No podés transferirte puntos a vos mismo' });
+
+    const sender = (store.club_customers || []).find(c => String(c.dni).trim() === strFrom);
+    const receiver = (store.club_customers || []).find(c => String(c.dni).trim() === strTo);
+
+    if (!sender) return res.status(404).json({ success: false, error: 'Tu usuario emisor no existe en el sistema' });
+    if (!receiver) return res.status(404).json({ success: false, error: `No se encontró ningún cliente registrado con DNI ${strTo}` });
+
+    if ((sender.points_balance || 0) < numPoints) {
+      return res.status(400).json({ success: false, error: `Saldo insuficiente. Tenés ${sender.points_balance || 0} puntos disponibles.` });
+    }
+
+    sender.points_balance -= numPoints;
+    receiver.points_balance = (receiver.points_balance || 0) + numPoints;
+
+    if (!store.points_history) store.points_history = [];
+    const now = new Date().toISOString();
+    store.points_history.unshift({
+      id: Date.now(),
+      customer_dni: strFrom,
+      type: 'transfer_out',
+      points: numPoints,
+      description: `🔄 Transferencia enviada a DNI ${strTo} (${receiver.name})`,
+      date: now
+    });
+    store.points_history.unshift({
+      id: Date.now() + 1,
+      customer_dni: strTo,
+      type: 'transfer_in',
+      points: numPoints,
+      description: `🎁 Transferencia recibida de DNI ${strFrom} (${sender.name})`,
+      date: now
+    });
+
+    db.saveStore();
+    res.json({ success: true, sender_balance: sender.points_balance, receiver_name: receiver.name });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/customer/address', (req, res) => {
+  try {
+    const { dni, text, tag } = req.body;
+    if (!dni || !text) return res.status(400).json({ success: false, error: 'DNI y Dirección son obligatorios' });
+
+    const store = db.getStore();
+    const strDni = String(dni).trim();
+    const cust = (store.club_customers || []).find(c => String(c.dni).trim() === strDni);
+    if (!cust) return res.status(404).json({ success: false, error: 'Cliente no encontrado' });
+
+    if (!cust.addresses) cust.addresses = [];
+    const newAddr = { id: Date.now(), text: text.trim(), tag: tag || 'Domicilio' };
+    cust.addresses.push(newAddr);
+    db.saveStore();
+
+    res.json({ success: true, addresses: cust.addresses });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.get('/api/settings', (req, res) => {
   try {
     res.json({ success: true, settings: getSettingsMap() });

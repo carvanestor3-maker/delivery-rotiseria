@@ -214,7 +214,7 @@ function renderMenuSections() {
 }
 
 function renderProductCard(prod) {
-  const cartItem = state.cart.find(item => item.id === prod.id);
+  const cartItem = state.cart.find(item => String(item.id) === String(prod.id));
   const qty = cartItem ? cartItem.qty : 0;
   const rawImage = prod.image_url ? prod.image_url.trim() : '';
   const fallbackUrl = '/logo_preview.jpg';
@@ -225,7 +225,7 @@ function renderProductCard(prod) {
     <div class="bg-white rounded-2xl p-2.5 sm:p-3 shadow-xs border border-slate-200/80 flex flex-col justify-between hover:shadow-md transition group">
       <div>
         <!-- Foto HD y Video Badge -->
-        <div class="relative w-full aspect-4/3 rounded-xl overflow-hidden bg-slate-100 cursor-pointer group flex-shrink-0 border border-slate-200/60 shadow-xs mb-2" onclick="openPhotoLightboxByProductId(${prod.id})" title="Toca para ampliar foto en pantalla completa HD">
+        <div class="relative w-full aspect-4/3 rounded-xl overflow-hidden bg-slate-100 cursor-pointer group flex-shrink-0 border border-slate-200/60 shadow-xs mb-2" onclick="openPhotoLightboxByProductId('${prod.id}')" title="Toca para ampliar foto en pantalla completa HD">
           <img src="${imageUrl}" alt="${prod.name}" onerror="this.onerror=null; this.src='/logo_preview.jpg';" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
           
           <span class="absolute top-1.5 left-1.5 bg-slate-900/80 text-white px-1.5 py-0.5 rounded-md text-[9px] font-black backdrop-blur-xs flex items-center gap-0.5 shadow">
@@ -233,7 +233,7 @@ function renderProductCard(prod) {
           </span>
 
           ${hasVideo ? `
-            <button type="button" onclick="event.stopPropagation(); openVideoPlayerByProductId(${prod.id})" class="absolute bottom-1.5 right-1.5 px-2 py-1 bg-red-600 hover:bg-red-700 active:scale-95 text-white font-black rounded-lg text-[9px] transition flex items-center gap-1 shadow-md leading-none">
+            <button type="button" onclick="event.stopPropagation(); openVideoPlayerByProductId('${prod.id}')" class="absolute bottom-1.5 right-1.5 px-2 py-1 bg-red-600 hover:bg-red-700 active:scale-95 text-white font-black rounded-lg text-[9px] transition flex items-center gap-1 shadow-md leading-none">
               🎬 Video
             </button>
           ` : ''}
@@ -241,7 +241,7 @@ function renderProductCard(prod) {
 
         <!-- Título y Descripción -->
         <div class="space-y-1">
-          <h3 class="font-extrabold text-slate-900 text-xs sm:text-sm leading-tight cursor-pointer hover:text-orange-600 transition line-clamp-2" onclick="openPhotoLightboxByProductId(${prod.id})">${prod.name}</h3>
+          <h3 class="font-extrabold text-slate-900 text-xs sm:text-sm leading-tight cursor-pointer hover:text-orange-600 transition line-clamp-2" onclick="openPhotoLightboxByProductId('${prod.id}')">${prod.name}</h3>
           ${prod.description ? `<p class="text-slate-500 text-[10px] sm:text-[11px] leading-snug line-clamp-2 font-normal">${prod.description}</p>` : ''}
         </div>
       </div>
@@ -252,14 +252,14 @@ function renderProductCard(prod) {
         
         <div>
           ${qty === 0 ? `
-            <button onclick="addToCart(${prod.id})" class="bg-orange-500 hover:bg-orange-600 active:scale-95 text-white font-extrabold text-[11px] sm:text-xs px-2.5 sm:px-3 py-1.5 rounded-xl shadow-xs transition flex items-center gap-0.5">
+            <button onclick="addToCart('${prod.id}')" class="bg-orange-500 hover:bg-orange-600 active:scale-95 text-white font-extrabold text-[11px] sm:text-xs px-2.5 sm:px-3 py-1.5 rounded-xl shadow-xs transition flex items-center gap-0.5">
               <span>+</span> Agregar
             </button>
           ` : `
             <div class="flex items-center bg-slate-900 text-white rounded-xl overflow-hidden shadow-xs">
-              <button onclick="updateItemQty(${prod.id}, -1)" class="px-2 py-1 hover:bg-slate-800 font-bold text-xs">-</button>
+              <button onclick="updateItemQty('${prod.id}', -1)" class="px-2 py-1 hover:bg-slate-800 font-bold text-xs">-</button>
               <span class="px-1.5 font-black text-xs font-mono text-orange-400">${qty}</span>
-              <button onclick="addToCart(${prod.id})" class="px-2 py-1 hover:bg-slate-800 font-bold text-xs">+</button>
+              <button onclick="addToCart('${prod.id}')" class="px-2 py-1 hover:bg-slate-800 font-bold text-xs">+</button>
             </div>
           `}
         </div>
@@ -269,10 +269,10 @@ function renderProductCard(prod) {
 }
 
 function addToCart(productId) {
-  const prod = state.products.find(p => p.id === productId);
+  const prod = state.products.find(p => String(p.id) === String(productId));
   if (!prod) return;
 
-  const existingItem = state.cart.find(item => item.id === productId);
+  const existingItem = state.cart.find(item => String(item.id) === String(productId));
   if (existingItem) {
     existingItem.qty += 1;
   } else {
@@ -286,10 +286,11 @@ function addToCart(productId) {
 
   saveCartToStorage();
   updateCartUI();
+  renderMenuSections();
 }
 
 function updateItemQty(productId, delta) {
-  const itemIndex = state.cart.findIndex(i => i.id === productId);
+  const itemIndex = state.cart.findIndex(i => String(i.id) === String(productId));
   if (itemIndex > -1) {
     state.cart[itemIndex].qty += delta;
     if (state.cart[itemIndex].qty <= 0) {
@@ -298,6 +299,7 @@ function updateItemQty(productId, delta) {
   }
   saveCartToStorage();
   updateCartUI();
+  renderMenuSections();
 }
 
 function setDeliveryType(type) {

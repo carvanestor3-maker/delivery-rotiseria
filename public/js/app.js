@@ -177,12 +177,6 @@ function selectCategory(catId) {
   state.selectedCategory = String(catId);
   renderCategoryTabs();
   renderMenuSections();
-  const menuEl = document.getElementById('menu-container');
-  if (menuEl) {
-    const yOffset = -80; 
-    const y = menuEl.getBoundingClientRect().top + window.pageYOffset + yOffset;
-    window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
-  }
 }
 
 function renderMenuSections() {
@@ -297,6 +291,26 @@ function addToCart(productId) {
   saveCartToStorage();
   updateCartUI();
   updateProductCardQtyInDOM(prod.id);
+  showCartToastNotification(`✅ ${prod.name} agregado al carrito`);
+}
+
+function showCartToastNotification(msg) {
+  let toast = document.getElementById('cart-toast-notification');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'cart-toast-notification';
+    toast.className = 'fixed bottom-20 left-1/2 transform -translate-x-1/2 bg-slate-900 text-amber-400 font-extrabold text-xs px-4 py-2 rounded-2xl shadow-2xl z-50 border border-amber-500/40 transition-all duration-300 pointer-events-none opacity-0';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = msg;
+  toast.classList.remove('opacity-0', 'translate-y-4');
+  toast.classList.add('opacity-100', 'translate-y-0');
+  
+  if (window.cartToastTimer) clearTimeout(window.cartToastTimer);
+  window.cartToastTimer = setTimeout(() => {
+    toast.classList.remove('opacity-100', 'translate-y-0');
+    toast.classList.add('opacity-0', 'translate-y-4');
+  }, 1800);
 }
 
 function updateItemQty(productId, delta) {

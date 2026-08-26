@@ -260,16 +260,16 @@ function renderProductCard(prod) {
       <div class="pt-2 mt-2 border-t border-slate-100 flex items-center justify-between gap-1">
         <div class="font-black text-slate-950 text-xs sm:text-sm font-mono tracking-tight">${formatCurrency(prod.price)}</div>
         
-        <div>
+        <div id="prod-btn-container-${prod.id}">
           ${qty === 0 ? `
-            <button onclick="addToCart('${prod.id}')" class="bg-orange-500 hover:bg-orange-600 active:scale-95 text-white font-extrabold text-[11px] sm:text-xs px-2.5 sm:px-3 py-1.5 rounded-xl shadow-xs transition flex items-center gap-0.5">
+            <button type="button" onclick="addToCart('${prod.id}')" class="bg-orange-500 hover:bg-orange-600 active:scale-95 text-white font-extrabold text-[11px] sm:text-xs px-2.5 sm:px-3 py-1.5 rounded-xl shadow-xs transition flex items-center gap-0.5 cursor-pointer">
               <span>+</span> Agregar
             </button>
           ` : `
             <div class="flex items-center bg-slate-900 text-white rounded-xl overflow-hidden shadow-xs">
-              <button onclick="updateItemQty('${prod.id}', -1)" class="px-2 py-1 hover:bg-slate-800 font-bold text-xs">-</button>
+              <button type="button" onclick="updateItemQty('${prod.id}', -1)" class="px-2 py-1 hover:bg-slate-800 font-bold text-xs cursor-pointer">-</button>
               <span class="px-1.5 font-black text-xs font-mono text-orange-400">${qty}</span>
-              <button onclick="addToCart('${prod.id}')" class="px-2 py-1 hover:bg-slate-800 font-bold text-xs">+</button>
+              <button type="button" onclick="addToCart('${prod.id}')" class="px-2 py-1 hover:bg-slate-800 font-bold text-xs cursor-pointer">+</button>
             </div>
           `}
         </div>
@@ -296,7 +296,7 @@ function addToCart(productId) {
 
   saveCartToStorage();
   updateCartUI();
-  renderMenuSections();
+  updateProductCardQtyInDOM(prod.id);
 }
 
 function updateItemQty(productId, delta) {
@@ -309,7 +309,31 @@ function updateItemQty(productId, delta) {
   }
   saveCartToStorage();
   updateCartUI();
-  renderMenuSections();
+  updateProductCardQtyInDOM(productId);
+}
+
+function updateProductCardQtyInDOM(productId) {
+  const cartItem = state.cart.find(item => String(item.id) === String(productId));
+  const qty = cartItem ? cartItem.qty : 0;
+  
+  const container = document.getElementById(`prod-btn-container-${productId}`);
+  if (container) {
+    if (qty === 0) {
+      container.innerHTML = `
+        <button type="button" onclick="addToCart('${productId}')" class="bg-orange-500 hover:bg-orange-600 active:scale-95 text-white font-extrabold text-[11px] sm:text-xs px-2.5 sm:px-3 py-1.5 rounded-xl shadow-xs transition flex items-center gap-0.5 cursor-pointer">
+          <span>+</span> Agregar
+        </button>
+      `;
+    } else {
+      container.innerHTML = `
+        <div class="flex items-center bg-slate-900 text-white rounded-xl overflow-hidden shadow-xs">
+          <button type="button" onclick="updateItemQty('${productId}', -1)" class="px-2 py-1 hover:bg-slate-800 font-bold text-xs cursor-pointer">-</button>
+          <span class="px-1.5 font-black text-xs font-mono text-orange-400">${qty}</span>
+          <button type="button" onclick="addToCart('${productId}')" class="px-2 py-1 hover:bg-slate-800 font-bold text-xs cursor-pointer">+</button>
+        </div>
+      `;
+    }
+  }
 }
 
 function setDeliveryType(type) {

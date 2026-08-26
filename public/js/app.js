@@ -147,30 +147,23 @@ function renderCategoryTabs() {
   const container = document.getElementById('category-tabs');
   if (!container) return;
 
-  container.innerHTML = '';
+  const isAll = state.selectedCategory === 'all';
+  let html = `
+    <button type="button" onclick="selectCategory('all')" class="category-tab px-3.5 py-2 rounded-xl text-xs font-black transition-all shadow-xs cursor-pointer ${isAll ? 'bg-orange-500 text-white shadow-md scale-105' : 'bg-white text-slate-700 hover:bg-slate-200 border border-slate-200'}">
+      🔥 Todo el Menú
+    </button>
+  `;
 
-  // 1. Botón Todo el Menú
-  const allBtn = document.createElement('button');
-  allBtn.className = `category-tab px-3.5 py-2 rounded-xl text-xs font-black transition-all shadow-xs cursor-pointer ${state.selectedCategory === 'all' ? 'bg-orange-500 text-white shadow-md scale-105' : 'bg-white text-slate-700 hover:bg-slate-200 border border-slate-200'}`;
-  allBtn.textContent = '🔥 Todo el Menú';
-  allBtn.addEventListener('click', (e) => {
-    e.preventDefault();
-    selectCategory('all');
-  });
-  container.appendChild(allBtn);
-
-  // 2. Botones de Categoría (Minutas, Empanadas, Pizzas, Hamburguesas, Promos, Bebidas)
   (state.categories || []).forEach(cat => {
     const isActive = String(state.selectedCategory) === String(cat.id);
-    const btn = document.createElement('button');
-    btn.className = `category-tab px-3.5 py-2 rounded-xl text-xs font-black transition-all shadow-xs cursor-pointer ${isActive ? 'bg-orange-500 text-white shadow-md scale-105' : 'bg-white text-slate-700 hover:bg-slate-200 border border-slate-200'}`;
-    btn.textContent = `${cat.icon || '🍽️'} ${cat.name}`;
-    btn.addEventListener('click', (e) => {
-      e.preventDefault();
-      selectCategory(cat.id);
-    });
-    container.appendChild(btn);
+    html += `
+      <button type="button" onclick="selectCategory('${cat.id}')" class="category-tab px-3.5 py-2 rounded-xl text-xs font-black transition-all shadow-xs cursor-pointer ${isActive ? 'bg-orange-500 text-white shadow-md scale-105' : 'bg-white text-slate-700 hover:bg-slate-200 border border-slate-200'}">
+        ${cat.icon || '🍽️'} ${cat.name}
+      </button>
+    `;
   });
+
+  container.innerHTML = html;
 }
 
 function selectCategory(catId) {
@@ -191,13 +184,17 @@ function renderMenuSections() {
   }
 
   if (filteredCategories.length === 0) {
-    container.innerHTML = `<p class="text-center py-8 text-slate-400 text-sm font-bold">No hay productos disponibles en esta categoría.</p>`;
+    container.innerHTML = `<p class="text-center py-8 text-slate-400 text-sm font-bold">No hay categorías registradas.</p>`;
     return;
   }
 
+  let totalSectionsRendered = 0;
+
   filteredCategories.forEach(cat => {
-    const catProducts = (state.products || []).filter(p => String(p.category_id) === String(cat.id) && (String(p.available) === '1' || p.available === 1 || p.available === true || p.available === undefined));
+    const catProducts = (state.products || []).filter(p => String(p.category_id) === String(cat.id));
     if (catProducts.length === 0) return;
+
+    totalSectionsRendered++;
 
     const section = document.createElement('div');
     section.className = 'space-y-3';
@@ -215,6 +212,10 @@ function renderMenuSections() {
 
     container.appendChild(section);
   });
+
+  if (totalSectionsRendered === 0) {
+    container.innerHTML = `<p class="text-center py-8 text-slate-400 text-sm font-bold">No hay platos registrados en esta categoría aún.</p>`;
+  }
 }
 
 function renderProductCard(prod) {
@@ -1521,6 +1522,9 @@ function redeemProductWithPoints(productId) {
 }
 
 // Exportar globalmente a window para asegurar invocación garantizada desde botones redondos
+window.selectCategory = selectCategory;
+window.addToCart = addToCart;
+window.updateItemQty = updateItemQty;
 window.openDrawer = openDrawer;
 window.closeDrawer = closeDrawer;
 window.openVirtualCardModal = openVirtualCardModal;

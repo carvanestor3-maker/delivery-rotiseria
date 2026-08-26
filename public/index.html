@@ -32,18 +32,13 @@
   <link rel="stylesheet" href="/css/styles.css">
   <script src="https://unpkg.com/lucide@latest"></script>
   <script>
-    // Purga obligatoria de memoria de Service Workers viejos v6.0
+    // Desactivación y des-registro de Service Workers para asegurar que siempre cargue la última versión sin colgarse en celulares
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then(registrations => {
         for (let reg of registrations) {
-          if (!reg.active || !reg.active.scriptURL.includes('v=6.0')) {
-            reg.unregister();
-          }
+          reg.unregister();
         }
       });
-      navigator.serviceWorker.register('/sw.js?v=6.0').then(reg => {
-        reg.update();
-      }).catch(err => console.log('SW error:', err));
     }
 
     window.deferredInstallPrompt = window.deferredInstallPrompt || null;
@@ -805,7 +800,7 @@
     </div>
   </div>
 
-  <script src="/js/app.js?v=11.0"></script>
+  <script src="/js/app.js?v=12.0"></script>
   <script>
     lucide.createIcons();
   </script>

@@ -148,25 +148,31 @@ function renderCategoryTabs() {
   if (!container) return;
 
   container.innerHTML = `
-    <button onclick="selectCategory('all')" class="category-tab px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs ${state.selectedCategory === 'all' ? 'bg-orange-500 text-white shadow-md' : 'bg-white text-slate-700 hover:bg-slate-200'}">
+    <button onclick="selectCategory('all')" class="category-tab px-3.5 py-2 rounded-xl text-xs font-black transition-all shadow-xs ${state.selectedCategory === 'all' ? 'bg-orange-500 text-white shadow-md scale-105' : 'bg-white text-slate-700 hover:bg-slate-200 border border-slate-200'}">
       🔥 Todo el Menú
     </button>
   `;
 
-  state.categories.forEach(cat => {
-    const isActive = state.selectedCategory === String(cat.id);
+  (state.categories || []).forEach(cat => {
+    const isActive = String(state.selectedCategory) === String(cat.id);
     const btn = document.createElement('button');
-    btn.onclick = () => selectCategory(String(cat.id));
-    btn.className = `category-tab px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs ${isActive ? 'bg-orange-500 text-white shadow-md' : 'bg-white text-slate-700 hover:bg-slate-200'}`;
+    btn.setAttribute('onclick', `selectCategory('${cat.id}')`);
+    btn.className = `category-tab px-3.5 py-2 rounded-xl text-xs font-black transition-all shadow-xs ${isActive ? 'bg-orange-500 text-white shadow-md scale-105' : 'bg-white text-slate-700 hover:bg-slate-200 border border-slate-200'}`;
     btn.textContent = `${cat.icon || '🍽️'} ${cat.name}`;
     container.appendChild(btn);
   });
 }
 
 function selectCategory(catId) {
-  state.selectedCategory = catId;
+  state.selectedCategory = String(catId);
   renderCategoryTabs();
   renderMenuSections();
+  const menuEl = document.getElementById('menu-container');
+  if (menuEl) {
+    const yOffset = -80; 
+    const y = menuEl.getBoundingClientRect().top + window.pageYOffset + yOffset;
+    window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+  }
 }
 
 function renderMenuSections() {
@@ -175,18 +181,18 @@ function renderMenuSections() {
 
   container.innerHTML = '';
 
-  let filteredCategories = state.categories;
+  let filteredCategories = state.categories || [];
   if (state.selectedCategory !== 'all') {
-    filteredCategories = state.categories.filter(c => String(c.id) === String(state.selectedCategory));
+    filteredCategories = (state.categories || []).filter(c => String(c.id) === String(state.selectedCategory));
   }
 
   if (filteredCategories.length === 0) {
-    container.innerHTML = `<p class="text-center py-8 text-slate-400 text-sm">No hay productos en esta categoría.</p>`;
+    container.innerHTML = `<p class="text-center py-8 text-slate-400 text-sm font-bold">No hay productos disponibles en esta categoría.</p>`;
     return;
   }
 
   filteredCategories.forEach(cat => {
-    const catProducts = state.products.filter(p => String(p.category_id) === String(cat.id) && (String(p.available) === '1' || p.available === 1 || p.available === true || p.available === undefined));
+    const catProducts = (state.products || []).filter(p => String(p.category_id) === String(cat.id) && (String(p.available) === '1' || p.available === 1 || p.available === true || p.available === undefined));
     if (catProducts.length === 0) return;
 
     const section = document.createElement('div');
@@ -196,6 +202,7 @@ function renderMenuSections() {
       <h2 class="font-black text-slate-900 text-base flex items-center gap-2 border-b border-slate-200 pb-2">
         <span class="text-xl">${cat.icon || '🍽️'}</span>
         <span>${cat.name}</span>
+        <span class="text-xs font-bold text-slate-400 font-mono ml-auto">(${catProducts.length})</span>
       </h2>
       <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
         ${catProducts.map(p => renderProductCard(p)).join('')}

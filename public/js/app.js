@@ -147,18 +147,28 @@ function renderCategoryTabs() {
   const container = document.getElementById('category-tabs');
   if (!container) return;
 
-  container.innerHTML = `
-    <button onclick="selectCategory('all')" class="category-tab px-3.5 py-2 rounded-xl text-xs font-black transition-all shadow-xs ${state.selectedCategory === 'all' ? 'bg-orange-500 text-white shadow-md scale-105' : 'bg-white text-slate-700 hover:bg-slate-200 border border-slate-200'}">
-      🔥 Todo el Menú
-    </button>
-  `;
+  container.innerHTML = '';
 
+  // 1. Botón Todo el Menú
+  const allBtn = document.createElement('button');
+  allBtn.className = `category-tab px-3.5 py-2 rounded-xl text-xs font-black transition-all shadow-xs cursor-pointer ${state.selectedCategory === 'all' ? 'bg-orange-500 text-white shadow-md scale-105' : 'bg-white text-slate-700 hover:bg-slate-200 border border-slate-200'}`;
+  allBtn.textContent = '🔥 Todo el Menú';
+  allBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    selectCategory('all');
+  });
+  container.appendChild(allBtn);
+
+  // 2. Botones de Categoría (Minutas, Empanadas, Pizzas, Hamburguesas, Promos, Bebidas)
   (state.categories || []).forEach(cat => {
     const isActive = String(state.selectedCategory) === String(cat.id);
     const btn = document.createElement('button');
-    btn.setAttribute('onclick', `selectCategory('${cat.id}')`);
-    btn.className = `category-tab px-3.5 py-2 rounded-xl text-xs font-black transition-all shadow-xs ${isActive ? 'bg-orange-500 text-white shadow-md scale-105' : 'bg-white text-slate-700 hover:bg-slate-200 border border-slate-200'}`;
+    btn.className = `category-tab px-3.5 py-2 rounded-xl text-xs font-black transition-all shadow-xs cursor-pointer ${isActive ? 'bg-orange-500 text-white shadow-md scale-105' : 'bg-white text-slate-700 hover:bg-slate-200 border border-slate-200'}`;
     btn.textContent = `${cat.icon || '🍽️'} ${cat.name}`;
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      selectCategory(cat.id);
+    });
     container.appendChild(btn);
   });
 }

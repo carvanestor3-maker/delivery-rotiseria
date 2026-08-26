@@ -436,6 +436,7 @@ function closeAllPublicModals() {
   closeTransferPointsModal();
   closePointsHistoryModal();
   closeCouponsModal();
+  closeRedemptionsModal();
   closeSavedAddressesModal();
   closeReferralModal();
   closeSettingsModal();
@@ -1342,6 +1343,97 @@ function filterByShortcut(type) {
   }
 }
 
+// ==========================================
+// CATÁLOGO DEDICADO DE CANJES 50% OFF POR PUNTOS
+// ==========================================
+
+function openRedemptionsModal() {
+  closeAllPublicModals();
+  const modal = document.getElementById('redemptions-modal');
+  if (!modal) return;
+
+  const pointsBal = document.getElementById('redemptions-points-balance');
+  const points = (state.customer && state.customer.points_balance) ? state.customer.points_balance : 100;
+  if (pointsBal) pointsBal.textContent = `⭐ ${points} pts`;
+
+  renderRedemptionsList();
+  modal.classList.remove('opacity-0', 'pointer-events-none');
+}
+
+function closeRedemptionsModal() {
+  const modal = document.getElementById('redemptions-modal');
+  if (modal) modal.classList.add('opacity-0', 'pointer-events-none');
+}
+
+function renderRedemptionsList() {
+  const container = document.getElementById('redemptions-list-container');
+  if (!container) return;
+
+  const customerPoints = (state.customer && state.customer.points_balance) ? state.customer.points_balance : 100;
+  const products = state.products || [];
+
+  if (products.length === 0) {
+    container.innerHTML = `<p class="text-center py-6 text-slate-400 text-xs">Cargando catálogo de canjes...</p>`;
+    return;
+  }
+
+  container.innerHTML = products.map(prod => {
+    const normalPrice = prod.price;
+    const halfPrice = Math.round(prod.price * 0.5);
+    const pointsCost = Math.max(10, Math.round(prod.price / 100));
+    const canAfford = customerPoints >= pointsCost;
+    const rawImage = prod.image_url ? prod.image_url.trim() : '';
+    const imageUrl = rawImage.length > 0 ? rawImage : '/logo_preview.jpg';
+
+    return `
+      <div class="p-3 bg-slate-800/90 border border-slate-700 rounded-2xl flex items-center justify-between gap-3 hover:border-amber-500/50 transition">
+        <div class="flex items-center gap-3 flex-1 min-w-0">
+          <img src="${imageUrl}" onerror="this.onerror=null; this.src='/logo_preview.jpg';" class="w-14 h-14 rounded-xl object-cover border border-slate-700 flex-shrink-0">
+          <div class="min-w-0 flex-1">
+            <h4 class="font-black text-xs text-white truncate">${prod.name}</h4>
+            <div class="flex items-center gap-2 mt-0.5">
+              <span class="line-through text-slate-400 text-[11px] font-mono">${formatCurrency(normalPrice)}</span>
+              <span class="text-emerald-400 font-extrabold text-xs font-mono">${formatCurrency(halfPrice)}</span>
+              <span class="bg-amber-400/20 text-amber-300 border border-amber-400/40 text-[9px] font-black px-1.5 py-0.5 rounded-md">⭐ ${pointsCost} pts</span>
+            </div>
+          </div>
+        </div>
+
+        <button type="button" onclick="redeemProductWithPoints('${prod.id}')" ${canAfford ? '' : 'disabled'} class="px-3 py-2 rounded-xl text-xs font-black transition flex-shrink-0 ${canAfford ? 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 shadow-md active:scale-95 cursor-pointer' : 'bg-slate-700 text-slate-500 cursor-not-allowed'}">
+          ${canAfford ? '🎁 Canjear 50%' : '🔒 Faltan Pts'}
+        </button>
+      </div>
+    `;
+  }).join('');
+}
+
+function redeemProductWithPoints(productId) {
+  const prod = state.products.find(p => String(p.id) === String(productId));
+  if (!prod) return;
+
+  const pointsCost = Math.max(10, Math.round(prod.price / 100));
+  const halfPrice = Math.round(prod.price * 0.5);
+
+  const existingItem = state.cart.find(item => String(item.id) === `redeem-${prod.id}`);
+  if (existingItem) {
+    existingItem.qty += 1;
+  } else {
+    state.cart.push({
+      id: `redeem-${prod.id}`,
+      name: `🎁 [CANJE 50% OFF] ${prod.name} (-${pointsCost} pts)`,
+      price: halfPrice,
+      qty: 1,
+      points_cost: pointsCost
+    });
+  }
+
+  saveCartToStorage();
+  updateCartUI();
+  closeRedemptionsModal();
+  openCartModal();
+  alert(`🎉 ¡Canje Agregado al Carrito!\n\n${prod.name}\n💰 Precio Canje 50%: ${formatCurrency(halfPrice)}\n⭐ Puntos a utilizar: ${pointsCost} pts.`);
+}
+
 // Exportar globalmente a window para asegurar invocación garantizada desde botones redondos
 window.openDrawer = openDrawer;
 window.closeDrawer = closeDrawer;
@@ -1361,5 +1453,8 @@ window.openSettingsModal = openSettingsModal;
 window.closeSettingsModal = closeSettingsModal;
 window.openLegalesModal = openLegalesModal;
 window.closeLegalesModal = closeLegalesModal;
+window.openRedemptionsModal = openRedemptionsModal;
+window.closeRedemptionsModal = closeRedemptionsModal;
+window.redeemProductWithPoints = redeemProductWithPoints;
 window.filterByShortcut = filterByShortcut;
 window.switchCouponsTab = switchCouponsTab;

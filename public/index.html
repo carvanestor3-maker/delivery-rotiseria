@@ -294,7 +294,7 @@
       </button>
 
       <!-- 3. Canjes 50% Off -->
-      <button onclick="filterByShortcut('redemptions')" class="flex flex-col items-center text-center group active:scale-95 transition">
+      <button onclick="openRedemptionsModal()" class="flex flex-col items-center text-center group active:scale-95 transition">
         <div class="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-gradient-to-tr from-orange-600 to-red-600 text-white text-2xl font-black flex items-center justify-center shadow-md group-hover:scale-105 transition border-2 border-orange-300">
           🎁
         </div>
@@ -779,7 +779,36 @@
     </div>
   </div>
 
-  <script src="/js/app.js?v=9.7"></script>
+  <!-- 9. MODAL CATÁLOGO DE CANJES DE PUNTOS (50% OFF + PUNTOS ACUMULADOS) -->
+  <div id="redemptions-modal" onclick="if (event.target === this) closeRedemptionsModal()" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 opacity-0 pointer-events-none transition-opacity duration-200">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full max-h-[88vh] flex flex-col shadow-2xl text-white p-5 space-y-3 relative">
+      <button onclick="closeRedemptionsModal()" class="absolute top-3 right-3 w-8 h-8 rounded-full bg-slate-800 text-slate-300 font-bold flex items-center justify-center hover:bg-slate-700">✕</button>
+
+      <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+        <div class="flex items-center gap-2">
+          <span class="text-2xl">🎁</span>
+          <div>
+            <h3 class="font-extrabold text-sm text-white">Canjes 50% OFF con Puntos</h3>
+            <p class="text-[11px] text-amber-400">Pagá la mitad en $ canjeando tus puntos</p>
+          </div>
+        </div>
+        <div class="bg-slate-950 border border-amber-500/40 px-3 py-1 rounded-xl text-right">
+          <div class="text-[9px] text-slate-400 font-bold uppercase">Tus Puntos</div>
+          <div id="redemptions-points-balance" class="text-amber-400 font-mono font-black text-xs">⭐ 100 pts</div>
+        </div>
+      </div>
+
+      <p class="text-[11px] text-slate-300">
+        💡 Elegí cualquier plato para canjearlo al <strong>50% de descuento abonando el saldo con tus puntos acumulados</strong>:
+      </p>
+
+      <div id="redemptions-list-container" class="flex-1 overflow-y-auto space-y-3 pr-1">
+        <!-- Cargado dinámicamente -->
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/app.js?v=9.8"></script>
   <script>
     lucide.createIcons();
   </script>

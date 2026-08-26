@@ -110,7 +110,7 @@
 
   <!-- MENÚ LATERAL DESPLEGABLE (DRAWER 6 SECCIONES - ESTILO CLUB GRIDO) -->
   <div id="app-drawer" onclick="if(event.target === this) closeDrawer()" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 transition-opacity duration-300 opacity-0 pointer-events-none">
-    <div class="bg-slate-900 text-white w-80 max-w-[85vw] h-full shadow-2xl flex flex-col justify-between overflow-y-auto transform -translate-x-full transition-transform duration-300 pointer-events-auto border-r border-slate-800">
+    <div class="bg-slate-900 text-white w-80 max-w-[85vw] h-full shadow-2xl flex flex-col justify-between overflow-y-auto transform -translate-x-full transition-transform duration-300 border-r border-slate-800">
       
       <!-- Drawer Header con Logo HD y Perfil -->
       <div>
@@ -165,7 +165,7 @@
 
   <!-- MODAL ASISTENTE DE AYUDA IA 24HS PARA EL CLIENTE -->
   <div id="ai-help-modal" onclick="if (event.target === this) closeAiHelpModal()" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 opacity-0 pointer-events-none transition-opacity duration-200">
-    <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden text-white pointer-events-auto">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden text-white">
       
       <!-- Modal Header -->
       <div class="p-4 bg-slate-950 border-b border-slate-800 flex justify-between items-center">
@@ -355,7 +355,7 @@
 
   <!-- Modal Checkout / Finalizar Pedido -->
   <div id="cart-modal" onclick="if (event.target === this) closeCartModal()" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 opacity-0 pointer-events-none transition-opacity duration-200">
-    <div class="bg-white rounded-t-3xl sm:rounded-2xl max-w-lg w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden pointer-events-auto">
+    <div class="bg-white rounded-t-3xl sm:rounded-2xl max-w-lg w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
       
       <!-- Modal Header -->
       <div class="p-4 bg-slate-900 text-white flex justify-between items-center">
@@ -797,7 +797,7 @@
     </div>
   </div>
 
-  <script src="/js/app.js?v=14.0"></script>
+  <script src="/js/app.js?v=15.0"></script>
   <script>
     lucide.createIcons();
   </script>

@@ -274,25 +274,29 @@ function renderProductCard(prod) {
 }
 
 function addToCart(productId) {
-  const prod = state.products.find(p => String(p.id) === String(productId));
-  if (!prod) return;
+  try {
+    const prod = (state.products || []).find(p => String(p.id) === String(productId));
+    if (!prod) return;
 
-  const existingItem = state.cart.find(item => String(item.id) === String(productId));
-  if (existingItem) {
-    existingItem.qty += 1;
-  } else {
-    state.cart.push({
-      id: prod.id,
-      name: prod.name,
-      price: prod.price,
-      qty: 1
-    });
+    const existingItem = state.cart.find(item => String(item.id) === String(productId));
+    if (existingItem) {
+      existingItem.qty += 1;
+    } else {
+      state.cart.push({
+        id: prod.id,
+        name: prod.name,
+        price: prod.price,
+        qty: 1
+      });
+    }
+
+    saveCartToStorage();
+    updateCartUI();
+    updateProductCardQtyInDOM(prod.id);
+    showCartToastNotification(`✅ ${prod.name} agregado al carrito`);
+  } catch (err) {
+    console.error('Error en addToCart:', err);
   }
-
-  saveCartToStorage();
-  updateCartUI();
-  updateProductCardQtyInDOM(prod.id);
-  showCartToastNotification(`✅ ${prod.name} agregado al carrito`);
 }
 
 function showCartToastNotification(msg) {
@@ -404,7 +408,7 @@ function handlePaymentMethodChange() {
 function updateCartUI() {
   const totalItems = state.cart.reduce((sum, item) => sum + item.qty, 0);
   const subtotal = state.cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
-  const deliveryCost = state.deliveryType === 'delivery' ? parseFloat(state.settings.delivery_cost || 1200) : 0;
+  const deliveryCost = state.deliveryType === 'delivery' ? parseFloat((state.settings && state.settings.delivery_cost) || 1200) : 0;
   const grandTotal = subtotal > 0 ? subtotal + deliveryCost : 0;
 
   const cartBar = document.getElementById('cart-bar');
@@ -417,12 +421,29 @@ function updateCartUI() {
     }
   }
 
-  document.getElementById('cart-badge-count').textContent = totalItems;
-  document.getElementById('cart-bar-total').textContent = formatCurrency(grandTotal);
+  const headerBadge = document.getElementById('header-cart-badge');
+  if (headerBadge) headerBadge.textContent = totalItems;
 
-  document.getElementById('summary-subtotal').textContent = formatCurrency(subtotal);
-  document.getElementById('summary-delivery-cost').textContent = formatCurrency(deliveryCost);
-  document.getElementById('summary-total').textContent = formatCurrency(grandTotal);
+  const bottomBadge = document.getElementById('bottom-cart-badge');
+  if (bottomBadge) bottomBadge.textContent = totalItems;
+
+  const cartBarCount = document.getElementById('cart-bar-count');
+  if (cartBarCount) cartBarCount.textContent = totalItems;
+
+  const cartBadgeCount = document.getElementById('cart-badge-count');
+  if (cartBadgeCount) cartBadgeCount.textContent = totalItems;
+
+  const cartBarTotal = document.getElementById('cart-bar-total');
+  if (cartBarTotal) cartBarTotal.textContent = formatCurrency(grandTotal);
+
+  const subtotalEl = document.getElementById('summary-subtotal');
+  if (subtotalEl) subtotalEl.textContent = formatCurrency(subtotal);
+
+  const delCostEl = document.getElementById('summary-delivery-cost');
+  if (delCostEl) delCostEl.textContent = formatCurrency(deliveryCost);
+
+  const totalEl = document.getElementById('summary-total');
+  if (totalEl) totalEl.textContent = formatCurrency(grandTotal);
 
   const itemsContainer = document.getElementById('cart-items-list');
   if (!itemsContainer) return;

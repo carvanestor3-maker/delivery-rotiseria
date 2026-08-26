@@ -857,16 +857,22 @@ function openDrawer() {
   const drawer = document.getElementById('app-drawer');
   if (drawer) {
     drawer.classList.remove('opacity-0', 'pointer-events-none');
-    const panel = drawer.querySelector('div');
-    if (panel) panel.classList.remove('-translate-x-full');
+    const panel = drawer.children[0];
+    if (panel) {
+      panel.classList.remove('-translate-x-full');
+      panel.classList.add('translate-x-0');
+    }
   }
 }
 
 function closeDrawer() {
   const drawer = document.getElementById('app-drawer');
   if (drawer) {
-    const panel = drawer.querySelector('div');
-    if (panel) panel.classList.add('-translate-x-full');
+    const panel = drawer.children[0];
+    if (panel) {
+      panel.classList.remove('translate-x-0');
+      panel.classList.add('-translate-x-full');
+    }
     setTimeout(() => {
       drawer.classList.add('opacity-0', 'pointer-events-none');
     }, 200);

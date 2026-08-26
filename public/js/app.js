@@ -420,6 +420,14 @@ function closeAllPublicModals() {
   closeVideoPlayer();
   closeCartModal();
   closeAiHelpModal();
+  closeVirtualCardModal();
+  closeTransferPointsModal();
+  closePointsHistoryModal();
+  closeCouponsModal();
+  closeSavedAddressesModal();
+  closeReferralModal();
+  closeSettingsModal();
+  closeLegalesModal();
   const successModal = document.getElementById('order-success-modal');
   if (successModal && !successModal.classList.contains('opacity-0')) {
     closeOrderSuccessModal();
@@ -1300,18 +1308,46 @@ function filterByShortcut(type) {
     state.selectedCategory = 'all';
     renderCategoryTabs();
     renderMenuSections();
-    const menuEl = document.getElementById('category-tabs') || document.getElementById('menu-container');
+    const menuEl = document.getElementById('menu-container') || document.getElementById('category-tabs');
     if (menuEl) {
-      menuEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const yOffset = -90; 
+      const y = menuEl.getBoundingClientRect().top + window.pageYOffset + yOffset;
+      window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
     }
   } else if (type === 'redemptions') {
     state.selectedCategory = 'all';
     renderCategoryTabs();
     renderMenuSections();
-    const menuEl = document.getElementById('category-tabs') || document.getElementById('menu-container');
+    const menuEl = document.getElementById('menu-container') || document.getElementById('category-tabs');
     if (menuEl) {
-      menuEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const yOffset = -90; 
+      const y = menuEl.getBoundingClientRect().top + window.pageYOffset + yOffset;
+      window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
     }
-    alert('🎁 ¡Canjes 50% OFF de Fidelización!\n\nElegí cualquier plato del menú para abonar el 50% en dinero + canjear tus puntos acumulados.');
+    setTimeout(() => {
+      alert('🎁 ¡Canjes 50% OFF de Fidelización!\n\nElegí cualquier plato del menú para abonar el 50% en dinero + canjear tus puntos acumulados.');
+    }, 300);
   }
 }
+
+// Exportar globalmente a window para asegurar invocación garantizada desde botones redondos
+window.openDrawer = openDrawer;
+window.closeDrawer = closeDrawer;
+window.openVirtualCardModal = openVirtualCardModal;
+window.closeVirtualCardModal = closeVirtualCardModal;
+window.openCouponsModal = openCouponsModal;
+window.closeCouponsModal = closeCouponsModal;
+window.openTransferPointsModal = openTransferPointsModal;
+window.closeTransferPointsModal = closeTransferPointsModal;
+window.openPointsHistoryModal = openPointsHistoryModal;
+window.closePointsHistoryModal = closePointsHistoryModal;
+window.openSavedAddressesModal = openSavedAddressesModal;
+window.closeSavedAddressesModal = closeSavedAddressesModal;
+window.openReferralModal = openReferralModal;
+window.closeReferralModal = closeReferralModal;
+window.openSettingsModal = openSettingsModal;
+window.closeSettingsModal = closeSettingsModal;
+window.openLegalesModal = openLegalesModal;
+window.closeLegalesModal = closeLegalesModal;
+window.filterByShortcut = filterByShortcut;
+window.switchCouponsTab = switchCouponsTab;

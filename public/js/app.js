@@ -466,42 +466,64 @@ document.addEventListener('keydown', (e) => {
 });
 
 function closeAllPublicModals() {
-  closePhotoLightbox();
-  closeVideoPlayer();
-  closeCartModal();
-  closeAiHelpModal();
-  closeVirtualCardModal();
-  closeTransferPointsModal();
-  closePointsHistoryModal();
-  closeCouponsModal();
-  closeRedemptionsModal();
-  closeSavedAddressesModal();
-  closeReferralModal();
-  closeSettingsModal();
-  closeLegalesModal();
-  const successModal = document.getElementById('order-success-modal');
-  if (successModal && !successModal.classList.contains('opacity-0')) {
-    closeOrderSuccessModal();
-  }
+  const modalIds = [
+    'cart-modal',
+    'ai-help-modal',
+    'photo-lightbox-modal',
+    'video-modal',
+    'virtual-card-modal',
+    'transfer-points-modal',
+    'points-history-modal',
+    'coupons-modal',
+    'redemptions-modal',
+    'saved-addresses-modal',
+    'referral-modal',
+    'settings-modal',
+    'legales-modal',
+    'order-success-modal'
+  ];
+
+  modalIds.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.classList.add('opacity-0', 'pointer-events-none');
+      el.classList.remove('pointer-events-auto');
+    }
+  });
+
+  closeDrawer();
 }
 
 function openCartModal() {
+  closeAllPublicModals();
   const modal = document.getElementById('cart-modal');
-  if (modal) modal.classList.remove('opacity-0', 'pointer-events-none');
+  if (modal) {
+    modal.classList.remove('opacity-0', 'pointer-events-none');
+    modal.classList.add('pointer-events-auto');
+  }
 }
 
 function closeCartModal() {
   const modal = document.getElementById('cart-modal');
-  if (modal) modal.classList.add('opacity-0', 'pointer-events-none');
+  if (modal) {
+    modal.classList.add('opacity-0', 'pointer-events-none');
+    modal.classList.remove('pointer-events-auto');
+  }
 }
 
 function closeOrderSuccessModal() {
   const modal = document.getElementById('order-success-modal');
-  if (modal) modal.classList.add('opacity-0', 'pointer-events-none');
+  if (modal) {
+    modal.classList.add('opacity-0', 'pointer-events-none');
+    modal.classList.remove('pointer-events-auto');
+  }
+}
+
+function clearCart() {
+  closeCartModal();
   state.cart = [];
   saveCartToStorage();
   updateCartUI();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function saveCartToStorage() {

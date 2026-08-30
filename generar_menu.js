@@ -875,20 +875,21 @@ const productos = [
 
 // ─── CONSTRUIR FILAS DEL EXCEL ────────────────────────────────────────────────
 const filas = productos.map((p) => {
-  const precio_promo = p.descuento_pct > 0
+  const precio_original = p.precio;
+  const precio_final = p.descuento_pct > 0
     ? Math.round(p.precio * (1 - p.descuento_pct / 100))
     : p.precio;
 
   return {
-    'Fecha Creación':     FECHA_CREACION,
-    'Rubro / Categoría':  p.rubro,
-    'Nombre del Plato':   p.nombre,
-    'Descripción':        p.descripcion,
-    'Precio ($ARS)':      p.precio,
-    'Descuento (%)':      p.descuento_pct,
-    'Precio Promocional': precio_promo,
-    'Foto del Plato (URL)': p.foto,
-    'Video de Preparación (URL)': p.video,
+    'Fecha Creación':            FECHA_CREACION,
+    'Rubro / Categoría':         p.rubro,
+    'Nombre del Plato':          p.nombre,
+    'Descripción':               p.descripcion,
+    '★ PRECIO FINAL ($ARS)':     precio_final,   // ← precio que se muestra en el portal
+    'Descuento Aplicado (%)':    p.descuento_pct,
+    'Precio Lista Orig.':        precio_original, // referencia
+    'Foto del Plato (URL)':      p.foto,
+    'Video de Preparación (URL)':p.video,
   };
 });
 

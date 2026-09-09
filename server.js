@@ -29,6 +29,18 @@ app.use(express.static(path.join(__dirname, 'public'), {
   }
 }));
 
+// Ruta limpia /menu → sirve menu.html (para linkear desde Google Maps)
+app.get('/menu', (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.sendFile(path.join(__dirname, 'public', 'menu.html'));
+});
+
+// Ruta /pedidos → sirve index.html (para Google Ads)
+app.get('/pedidos', (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 // Socket.io conexiones
 io.on('connection', (socket) => {
   console.log('⚡ Nuevo cliente conectado:', socket.id);
@@ -1088,6 +1100,89 @@ app.get('/api/menu', (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 });
+
+// DESCARGAR EXCEL DEL MENÚ ACTUALIZADO (desde el admin, sin PIN requerido)
+app.get('/api/admin/export-excel', (req, res) => {
+  try {
+    const XLSX = require('xlsx');
+    const store = db.getStore();
+    const productos  = store.products   || [];
+    const categorias = store.categories || [];
+    const settings   = getSettingsMap();
+    const NOMBRE_LOCAL = settings.restaurant_name || 'La Gran Rotisería';
+    const FECHA = new Date().toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+    // Mapa categoría ID → nombre con ícono
+    const catMap = {};
+    categorias.forEach(c => { catMap[c.id] = `${c.icon || ''} ${c.name}`.trim(); });
+
+    // Ordenar por sort_order de categoría
+    const sorted = [...productos].sort((a, b) => {
+      const catA = categorias.find(c => c.id === a.category_id);
+      const catB = categorias.find(c => c.id === b.category_id);
+      return ((catA?.sort_order || 0) - (catB?.sort_order || 0)) || (a.id - b.id);
+    });
+
+    const disponibles    = sorted.filter(p => p.available !== 0);
+    const noDisponibles  = sorted.filter(p => p.available === 0);
+
+    const buildRow = p => ({
+      'Código':            p.code        || '',
+      'Categoría':         catMap[p.category_id] || `ID ${p.category_id}`,
+      'Nombre del Plato':  p.name,
+      'Descripción':       p.description || '',
+      '★ PRECIO ($ARS)':   p.price,
+      'Disponible':        p.available !== 0 ? 'Sí' : 'No',
+      'Tipo de Unidad':    p.unit_type   || 'unidad',
+      'Foto (URL)':        p.image_url   || '',
+      'Video (URL)':       p.video_url   || '',
+      'ID Interno':        p.id,
+    });
+
+    const colWidths = [{ wch:14 },{ wch:30 },{ wch:52 },{ wch:68 },{ wch:14 },{ wch:12 },{ wch:14 },{ wch:72 },{ wch:72 },{ wch:10 }];
+
+    const wb = XLSX.utils.book_new();
+
+    // Hoja 1: Menú Completo
+    const ws1 = XLSX.utils.json_to_sheet([...disponibles, ...noDisponibles].map(buildRow));
+    ws1['!cols'] = colWidths;
+    XLSX.utils.book_append_sheet(wb, ws1, 'Menú Completo');
+
+    // Hoja 2: Solo Disponibles
+    const ws2 = XLSX.utils.json_to_sheet(disponibles.map(buildRow));
+    ws2['!cols'] = colWidths;
+    XLSX.utils.book_append_sheet(wb, ws2, 'Solo Disponibles');
+
+    // Hoja 3: Resumen por categoría
+    const resumenMap = {};
+    disponibles.forEach(p => {
+      const cat = catMap[p.category_id] || 'Sin Categoría';
+      if (!resumenMap[cat]) resumenMap[cat] = { cantidad: 0, precio_min: Infinity, precio_max: 0 };
+      resumenMap[cat].cantidad++;
+      if (p.price < resumenMap[cat].precio_min) resumenMap[cat].precio_min = p.price;
+      if (p.price > resumenMap[cat].precio_max) resumenMap[cat].precio_max = p.price;
+    });
+    const filasResumen = Object.entries(resumenMap).map(([cat, d]) => ({
+      'Categoría': cat, 'Cantidad Platos': d.cantidad,
+      'Precio Mínimo': d.precio_min === Infinity ? '-' : d.precio_min,
+      'Precio Máximo': d.precio_max,
+    }));
+    const ws3 = XLSX.utils.json_to_sheet(filasResumen);
+    ws3['!cols'] = [{ wch:35 },{ wch:16 },{ wch:16 },{ wch:16 }];
+    XLSX.utils.book_append_sheet(wb, ws3, 'Resumen por Categoría');
+
+    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    const fileName = `menu_${NOMBRE_LOCAL.replace(/\s+/g,'_')}_${FECHA.replace(/\//g,'-')}.xlsx`;
+
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.send(buf);
+  } catch (err) {
+    console.error('Error generando Excel:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 
 // REGISTRO DE NUEVO SOCIO DEL CLUB / EDICIÓN DE PERFIL
 app.post('/api/club/register', (req, res) => {

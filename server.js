@@ -1956,7 +1956,7 @@ app.get('/api/admin/products', (req, res) => {
 
 app.post('/api/admin/products', (req, res) => {
   try {
-    const { id, code, category_id, name, description, price, image_url, video_url, points_cost, available, barcode, plu_code, unit_type, is_weighed, pin } = req.body;
+    const { id, code, category_id, name, description, price, image_url, video_url, points_cost, available, barcode, plu_code, unit_type, is_weighed, descuento_pct, pin } = req.body;
 
     const auth = verifyUserPin(pin, 3);
     if (!auth.isValid) {
@@ -2004,6 +2004,9 @@ app.post('/api/admin/products', (req, res) => {
         prod.name = name;
         prod.description = description;
         prod.price = parseFloat(price);
+        const dPct = Math.min(99, Math.max(0, parseInt(descuento_pct) || 0));
+        prod.descuento_pct = dPct;
+        prod.precio_promo = dPct > 0 ? Math.round(prod.price * (1 - dPct / 100)) : prod.price;
         prod.image_url = image_url;
         prod.video_url = video_url || '';
         prod.points_cost = points_cost ? parseInt(points_cost) : null;
@@ -2016,13 +2019,17 @@ app.post('/api/admin/products', (req, res) => {
     } else {
       const nextId = store.products.length > 0 ? Math.max(...store.products.map(p => p.id)) + 1 : 1;
       const finalCode = strCode || `PROD-${String(nextId).padStart(3, '0')}`;
+      const newDPct = Math.min(99, Math.max(0, parseInt(descuento_pct) || 0));
+      const newPrice = parseFloat(price);
       store.products.push({
         id: nextId,
         code: finalCode,
         category_id: parseInt(category_id),
         name,
         description,
-        price: parseFloat(price),
+        price: newPrice,
+        descuento_pct: newDPct,
+        precio_promo: newDPct > 0 ? Math.round(newPrice * (1 - newDPct / 100)) : newPrice,
         image_url,
         video_url: video_url || '',
         points_cost: points_cost ? parseInt(points_cost) : null,
@@ -2035,7 +2042,6 @@ app.post('/api/admin/products', (req, res) => {
     }
     db.saveStore();
     io.emit('menu_updated');
-    res.json({ success: true, user_name: auth.user.name });
     res.json({ success: true, user_name: auth.user.name });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });

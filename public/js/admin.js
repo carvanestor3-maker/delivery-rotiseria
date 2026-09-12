@@ -1462,15 +1462,18 @@ function openProductModal(prod = null) {
     document.getElementById('prod-image').value = prod.image_url || '';
     if (document.getElementById('prod-video-url')) document.getElementById('prod-video-url').value = prod.video_url || '';
     if (document.getElementById('prod-points-cost')) document.getElementById('prod-points-cost').value = prod.points_cost || '';
+    if (document.getElementById('prod-descuento-pct')) document.getElementById('prod-descuento-pct').value = prod.descuento_pct || 0;
     showImagePreview(prod.image_url || '');
     showVideoPreview(prod.video_url || '');
     document.getElementById('prod-available').checked = prod.available === 1;
+    recalcPromo();
   } else {
     if (title) title.textContent = 'Nuevo Producto / Plato (Exclusivo Nivel 3)';
     document.getElementById('prod-id').value = '';
     document.getElementById('prod-code').value = '';
     document.getElementById('prod-name').value = '';
     document.getElementById('prod-price').value = '';
+    if (document.getElementById('prod-descuento-pct')) document.getElementById('prod-descuento-pct').value = 0;
     document.getElementById('prod-desc').value = '';
     document.getElementById('prod-image').value = '';
     if (document.getElementById('prod-video-url')) document.getElementById('prod-video-url').value = '';
@@ -1479,6 +1482,7 @@ function openProductModal(prod = null) {
     showVideoPreview('');
     document.getElementById('prod-unit-type').value = 'unidad';
     document.getElementById('prod-available').checked = true;
+    recalcPromo();
   }
 
   modal.classList.remove('opacity-0', 'pointer-events-none');
@@ -1585,6 +1589,7 @@ async function saveProduct(e) {
   const points_cost_val = document.getElementById('prod-points-cost') ? document.getElementById('prod-points-cost').value.trim() : '';
   const available = document.getElementById('prod-available').checked;
   const pin = document.getElementById('prod-pin').value.trim();
+  const descuento_pct_val = document.getElementById('prod-descuento-pct') ? parseInt(document.getElementById('prod-descuento-pct').value) || 0 : 0;
 
   if (!code) {
     alert('⚠️ EL CÓDIGO / SKU DEL PRODUCTO ES OBLIGATORIO:\n\nPor favor presiona el botón ⚡ Auto para generarlo.');
@@ -1620,13 +1625,17 @@ async function saveProduct(e) {
         id: id ? parseInt(id) : null,
         code, name, category_id, price, unit_type, description, image_url, video_url, 
         points_cost: points_cost_val ? parseInt(points_cost_val) : null,
+        descuento_pct: descuento_pct_val,
         available, pin
       })
     });
     const data = await res.json();
     if (data.success) {
       closeProductModal();
-      alert(`🍕 Producto "${name}" guardado con éxito por ${data.user_name}!`);
+      const promoMsg = descuento_pct_val > 0
+        ? ` | Descuento: ${descuento_pct_val}% → Precio promo: $${Math.round(parseFloat(price) * (1 - descuento_pct_val / 100)).toLocaleString('es-AR')}`
+        : '';
+      alert(`🍕 Producto "${name}" guardado con éxito por ${data.user_name}!${promoMsg}`);
       await loadProducts();
     } else {
       alert(`⚠️ ${data.error}`);
@@ -1634,6 +1643,32 @@ async function saveProduct(e) {
   } catch (err) {
     console.error('Error al guardar producto:', err);
     alert(`⚠️ Error al guardar producto: ${err.message}`);
+  }
+}
+
+// RECALCULA EL PRECIO PROMO EN TIEMPO REAL EN EL FORMULARIO
+function recalcPromo() {
+  const priceInput = document.getElementById('prod-price');
+  const discountInput = document.getElementById('prod-descuento-pct');
+  const preview = document.getElementById('prod-precio-promo-preview');
+  if (!priceInput || !discountInput || !preview) return;
+
+  const price = parseFloat(priceInput.value) || 0;
+  const pct   = Math.min(99, Math.max(0, parseInt(discountInput.value) || 0));
+
+  if (price <= 0) {
+    preview.textContent = '—';
+    preview.style.color = '#059669';
+    return;
+  }
+
+  if (pct === 0) {
+    preview.textContent = 'Sin descuento';
+    preview.style.color = '#64748b';
+  } else {
+    const promo = Math.round(price * (1 - pct / 100));
+    preview.textContent = `$${promo.toLocaleString('es-AR')} (-${pct}%)`;
+    preview.style.color = '#059669';
   }
 }
 

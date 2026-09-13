@@ -1127,16 +1127,18 @@ app.get('/api/admin/export-excel', (req, res) => {
     const noDisponibles  = sorted.filter(p => p.available === 0);
 
     const buildRow = p => ({
+      'ID Interno':        p.id,
       'Código':            p.code        || '',
       'Categoría':         catMap[p.category_id] || `ID ${p.category_id}`,
       'Nombre del Plato':  p.name,
       'Descripción':       p.description || '',
       '★ PRECIO ($ARS)':   p.price,
+      '% Descuento':       p.descuento_pct || 0,
+      'Precio Promo ($ARS)': p.precio_promo || p.price,
       'Disponible':        p.available !== 0 ? 'Sí' : 'No',
       'Tipo de Unidad':    p.unit_type   || 'unidad',
       'Foto (URL)':        p.image_url   || '',
       'Video (URL)':       p.video_url   || '',
-      'ID Interno':        p.id,
     });
 
     const colWidths = [{ wch:14 },{ wch:30 },{ wch:52 },{ wch:68 },{ wch:14 },{ wch:12 },{ wch:14 },{ wch:72 },{ wch:72 },{ wch:10 }];
@@ -1179,6 +1181,77 @@ app.get('/api/admin/export-excel', (req, res) => {
     res.send(buf);
   } catch (err) {
     console.error('Error generando Excel:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// IMPORTACIÓN MASIVA DE PRECIOS DESDE EXCEL (REQUERIDO NIVEL 3)
+app.post('/api/admin/import-excel', (req, res) => {
+  try {
+    const XLSX = require('xlsx');
+    const { fileBase64, pin } = req.body;
+
+    const auth = verifyUserPin(pin, 3);
+    if (!auth.isValid) {
+      return res.status(401).json({ success: false, error: 'Acceso Denegado: La importación masiva requiere PIN Nivel 3.' });
+    }
+    if (!fileBase64) {
+      return res.status(400).json({ success: false, error: 'No se recibió ningún archivo Excel.' });
+    }
+
+    // Decodificar base64 → buffer → workbook
+    const buf = Buffer.from(fileBase64, 'base64');
+    const wb  = XLSX.read(buf, { type: 'buffer' });
+
+    // Leer la primera hoja
+    const sheetName = wb.SheetNames[0];
+    const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName]);
+
+    if (!rows || rows.length === 0) {
+      return res.status(400).json({ success: false, error: 'El archivo Excel está vacío o no tiene datos en la primera hoja.' });
+    }
+
+    const store = db.getStore();
+    let actualizados = 0;
+    let errores = [];
+
+    rows.forEach((row, idx) => {
+      // Columnas aceptadas (con variantes de nombre)
+      const id        = parseInt(row['ID Interno'] || row['ID'] || row['id'] || 0);
+      const newPrice  = parseFloat(row['★ PRECIO ($ARS)'] || row['PRECIO'] || row['precio'] || row['price'] || 0);
+      const newDescPct = Math.min(99, Math.max(0, parseInt(row['% Descuento'] || row['descuento_pct'] || 0)));
+
+      if (!id || isNaN(id)) return; // saltar filas sin ID
+      if (isNaN(newPrice) || newPrice <= 0) {
+        errores.push(`Fila ${idx + 2}: ID ${id} → precio inválido (${row['★ PRECIO ($ARS)']})`);
+        return;
+      }
+
+      const prod = store.products.find(p => p.id === id);
+      if (!prod) {
+        errores.push(`Fila ${idx + 2}: ID ${id} no encontrado en el sistema`);
+        return;
+      }
+
+      prod.price       = newPrice;
+      prod.descuento_pct = newDescPct;
+      prod.precio_promo  = newDescPct > 0 ? Math.round(newPrice * (1 - newDescPct / 100)) : newPrice;
+      actualizados++;
+    });
+
+    db.saveStore();
+    io.emit('menu_updated');
+
+    res.json({
+      success: true,
+      actualizados,
+      errores,
+      user_name: auth.user.name,
+      message: `✅ ${actualizados} producto(s) actualizados por ${auth.user.name}.${errores.length > 0 ? ` ⚠️ ${errores.length} fila(s) con errores.` : ''}`
+    });
+
+  } catch (err) {
+    console.error('Error importando Excel:', err);
     res.status(500).json({ success: false, error: err.message });
   }
 });

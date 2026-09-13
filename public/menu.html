@@ -381,7 +381,13 @@
             ${prod.description ? `<div class="text-xs text-slate-500 mt-0.5 leading-relaxed line-clamp-2">${prod.description}</div>` : ''}
           </div>
           <div class="flex items-center justify-between mt-1">
-            <div class="font-black text-base text-amber-600">${formatPrice(prod.price)}</div>
+            ${prod.descuento_pct > 0
+              ? `<div class="flex flex-col leading-tight">
+                   <span class="text-xs text-slate-400 line-through font-semibold">${formatPrice(prod.price)}</span>
+                   <span class="font-black text-base text-emerald-600">${formatPrice(prod.precio_promo)} <span class="text-[10px] bg-orange-500 text-white font-black px-1.5 py-0.5 rounded-md align-middle">-${prod.descuento_pct}%</span></span>
+                 </div>`
+              : `<div class="font-black text-base text-amber-600">${formatPrice(prod.price)}</div>`
+            }
             <a href="/" class="bg-slate-900 hover:bg-amber-500 text-white hover:text-slate-950 text-[10px] font-black px-2.5 py-1 rounded-lg transition active:scale-95 whitespace-nowrap">
               + Pedir
             </a>

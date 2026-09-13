@@ -40,6 +40,9 @@
       <a href="/api/admin/export-excel" class="px-3 py-1.5 bg-green-700 hover:bg-green-600 text-xs font-black rounded-lg text-white flex items-center gap-1 shadow transition" title="Descargar Excel con todos los productos y precios actualizados" download>
         📊 Descargar Excel
       </a>
+      <button onclick="openImportExcelModal()" class="px-3 py-1.5 bg-teal-700 hover:bg-teal-600 text-xs font-black rounded-lg text-white flex items-center gap-1 shadow transition" title="Importar precios masivamente desde un archivo Excel">
+        📥 Importar Excel
+      </button>
       <a href="/menu" target="_blank" onclick="setTimeout(()=>window.open('/menu?print=1'),200)" class="px-3 py-1.5 bg-sky-700 hover:bg-sky-600 text-xs font-black rounded-lg text-white flex items-center gap-1 shadow transition" title="Ver e imprimir el menú actualizado">
         🖨️ Imprimir Menú
       </a>
@@ -1706,9 +1709,133 @@
     </div>
   </div>
 
-  <script src="/js/admin.js?v=13.0.0"></script>
+  <!-- MODAL IMPORTACIÓN MASIVA DE PRECIOS DESDE EXCEL (NIVEL 3) -->
+  <div id="import-excel-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+      <div class="flex justify-between items-center border-b pb-3 border-slate-200">
+        <div>
+          <h3 class="font-extrabold text-teal-900 text-base flex items-center gap-2">📥 Importar Precios desde Excel</h3>
+          <p class="text-xs text-slate-500">Actualización masiva de precios y descuentos (Nivel 3)</p>
+        </div>
+        <button onclick="closeImportExcelModal()" class="text-slate-400 hover:text-slate-700">✕</button>
+      </div>
+
+      <!-- Instrucciones -->
+      <div class="bg-teal-50 border border-teal-200 p-3 rounded-xl text-xs text-teal-900 space-y-1">
+        <div class="font-extrabold text-sm">&#x2139;&#xfe0f; Cómo usar:</div>
+        <ol class="list-decimal pl-4 space-y-0.5 font-medium">
+          <li>Descargá el Excel actual con el botón <strong>📊 Descargar Excel</strong></li>
+          <li>Editá las columnas <strong>★ PRECIO ($ARS)</strong> y <strong>% Descuento</strong></li>
+          <li>Guardá el archivo y selecciónálo abajo</li>
+          <li>El sistema actualiza todos los precios automáticamente</li>
+        </ol>
+        <div class="text-[10px] text-teal-700 font-bold pt-1">⚠️ No borres la columna <strong>ID Interno</strong> &mdash; es la que identifica cada plato.</div>
+      </div>
+
+      <!-- Selector de archivo -->
+      <div>
+        <label class="block text-xs font-bold text-slate-700 mb-1">📂 Archivo Excel (.xlsx) *</label>
+        <input type="file" id="import-excel-file" accept=".xlsx,.xls" onchange="handleImportFileSelect(event)" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium text-slate-700 bg-white cursor-pointer file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-bold file:bg-teal-100 file:text-teal-800 hover:file:bg-teal-200">
+        <div id="import-file-info" class="mt-1 text-[11px] text-slate-400 font-medium">Ningún archivo seleccionado</div>
+      </div>
+
+      <!-- PIN -->
+      <div class="bg-purple-50 border border-purple-200 p-3 rounded-xl">
+        <label class="block text-xs font-bold text-purple-900 mb-1">🔑 PIN de Gerente / Dueño (Nivel 3) *</label>
+        <input type="password" id="import-excel-pin" placeholder="Tu PIN personal (ej: 9999)" class="w-full px-3.5 py-2 bg-white border border-purple-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-purple-500 font-mono">
+      </div>
+
+      <!-- Resultado -->
+      <div id="import-excel-result" class="hidden text-xs p-3 rounded-xl font-medium"></div>
+
+      <!-- Botones -->
+      <div class="pt-2 flex justify-end gap-2 border-t border-slate-200">
+        <button type="button" onclick="closeImportExcelModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 font-bold rounded-xl text-xs text-slate-700">Cancelar</button>
+        <button type="button" onclick="submitImportExcel()" id="import-excel-btn" class="px-5 py-2 bg-teal-700 hover:bg-teal-800 font-extrabold rounded-xl text-xs text-white shadow">🚀 Importar y Actualizar Precios</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/admin.js?v=13.1.0"></script>
   <script>
     lucide.createIcons();
+
+    // ── IMPORTACIÓN MASIVA EXCEL ──────────────────────────────────────
+    let importFileBase64 = null;
+
+    function openImportExcelModal() {
+      document.getElementById('import-excel-modal').classList.remove('opacity-0', 'pointer-events-none');
+      document.getElementById('import-excel-file').value = '';
+      document.getElementById('import-excel-pin').value = '';
+      document.getElementById('import-file-info').textContent = 'Ningún archivo seleccionado';
+      document.getElementById('import-excel-result').classList.add('hidden');
+      importFileBase64 = null;
+    }
+
+    function closeImportExcelModal() {
+      document.getElementById('import-excel-modal').classList.add('opacity-0', 'pointer-events-none');
+    }
+
+    function handleImportFileSelect(event) {
+      const file = event.target.files[0];
+      if (!file) { importFileBase64 = null; return; }
+      document.getElementById('import-file-info').textContent = `✅ ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        // FileReader da base64 con prefijo data:...;base64, — lo sacamos
+        importFileBase64 = e.target.result.split(',')[1];
+      };
+      reader.readAsDataURL(file);
+    }
+
+    async function submitImportExcel() {
+      const pin = document.getElementById('import-excel-pin').value.trim();
+      const resultDiv = document.getElementById('import-excel-result');
+      const btn = document.getElementById('import-excel-btn');
+
+      if (!importFileBase64) {
+        alert('⚠️ Por favor seleccioná un archivo Excel primero.');
+        return;
+      }
+      if (!pin) {
+        alert('⚠️ El PIN de Nivel 3 es obligatorio.');
+        document.getElementById('import-excel-pin').focus();
+        return;
+      }
+
+      btn.textContent = '⏳ Importando...';
+      btn.disabled = true;
+      resultDiv.classList.add('hidden');
+
+      try {
+        const res = await fetch('/api/admin/import-excel', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fileBase64: importFileBase64, pin })
+        });
+        const data = await res.json();
+
+        resultDiv.classList.remove('hidden');
+        if (data.success) {
+          resultDiv.className = 'text-xs p-3 rounded-xl font-medium bg-emerald-50 border border-emerald-200 text-emerald-900';
+          resultDiv.innerHTML = `<div class="font-extrabold text-sm mb-1">✅ ${data.message}</div>`
+            + (data.errores && data.errores.length > 0
+              ? `<div class="text-orange-700 font-bold mt-1">Errores:<br>${data.errores.join('<br>')}</div>`
+              : '');
+          if (typeof loadProducts === 'function') await loadProducts();
+        } else {
+          resultDiv.className = 'text-xs p-3 rounded-xl font-medium bg-red-50 border border-red-200 text-red-900';
+          resultDiv.textContent = '❌ ' + data.error;
+        }
+      } catch (err) {
+        resultDiv.classList.remove('hidden');
+        resultDiv.className = 'text-xs p-3 rounded-xl font-medium bg-red-50 border border-red-200 text-red-900';
+        resultDiv.textContent = '❌ Error: ' + err.message;
+      } finally {
+        btn.textContent = '🚀 Importar y Actualizar Precios';
+        btn.disabled = false;
+      }
+    }
   </script>
 </body>
 </html>

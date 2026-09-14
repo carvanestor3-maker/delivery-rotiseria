@@ -115,6 +115,24 @@ app.get('/api/admin/backup/download', (req, res) => {
   }
 });
 
+// EXPORTACIÓN SEGURA DE DATOS EN JSON (funciona en cualquier plataforma, incluida la nube/Render,
+// a diferencia del backup ZIP de arriba que depende de PowerShell y solo funciona en Windows)
+app.get('/api/admin/raw-export', (req, res) => {
+  try {
+    const pin = req.query.pin;
+    const auth = verifyUserPin(pin, 3);
+    if (!auth.isValid) {
+      return res.status(401).json({ success: false, error: 'Acceso Denegado: Se requiere PIN Nivel 3.' });
+    }
+    const store = db.getStore();
+    const fileName = `respaldo_datos_${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}.json`;
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.json(store);
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // RUTA API DE VERIFICACIÓN DE PIN (PÚBLICA CON RETORNO DE NOMBRE DE USUARIO)
 app.post('/api/verify-pin', (req, res) => {
   try {
@@ -2671,9 +2689,21 @@ app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'adm
 app.get('/admin.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`
+
+// Esperamos a que la base de datos (Postgres en la nube, o el archivo local)
+// termine de cargar antes de aceptar pedidos, para no arrancar con datos a medio cargar.
+db.ready
+  .then(() => {
+    server.listen(PORT, '0.0.0.0', () => {
+      console.log(`
 🚀 Servidor Delivery, Descarga de Backup ZIP & Auditoría en ejecución:
 👉 Local: http://localhost:${PORT}/admin.html
-  `);
-});
+      `);
+    });
+  })
+  .catch((err) => {
+    console.error('⚠️ Error al inicializar la base de datos, arrancando de todos modos:', err);
+    server.listen(PORT, '0.0.0.0', () => {
+      console.log(`🚀 Servidor Delivery arrancado (con errores de base de datos) en el puerto ${PORT}`);
+    });
+  });

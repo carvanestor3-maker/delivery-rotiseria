@@ -3,6 +3,20 @@ const path = require('path');
 
 const dbPath = path.join(__dirname, 'delivery_store.json');
 
+// Si existe DATABASE_URL (Render la agrega al conectar una base Postgres),
+// usamos Postgres como almacenamiento durable. Si no existe (por ejemplo,
+// corriendo en esta PC local sin internet), seguimos usando el archivo JSON
+// como siempre - así el modo "servidor de última instancia" local no se rompe.
+const USE_POSTGRES = !!process.env.DATABASE_URL;
+let pool = null;
+if (USE_POSTGRES) {
+  const { Pool } = require('pg');
+  pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false }
+  });
+}
+
 // Datos iniciales por defecto
 const initialData = {
   settings: {
@@ -198,11 +212,9 @@ const initialData = {
 
 let store = { ...initialData };
 
-function loadStore() {
-  try {
-    if (fs.existsSync(dbPath)) {
-      const content = fs.readFileSync(dbPath, 'utf8');
-      store = JSON.parse(content);
+// Completa con valores por defecto cualquier campo que falte en datos viejos
+// (tanto si vienen del archivo JSON como de Postgres)
+function applyDefaults() {
       if (!store.users) store.users = initialData.users;
       if (!store.categories) store.categories = initialData.categories;
       if (!store.products) store.products = initialData.products;
@@ -239,8 +251,17 @@ function loadStore() {
           valid_until: '2026-12-31'
         }
       ];
+}
+
+// ----- Modo archivo local (delivery_store.json) -----
+function loadStoreFile() {
+  try {
+    if (fs.existsSync(dbPath)) {
+      const content = fs.readFileSync(dbPath, 'utf8');
+      store = JSON.parse(content);
+      applyDefaults();
     } else {
-      saveStore();
+      saveStoreFile();
     }
   } catch (e) {
     console.error('Error al cargar store JSON:', e);
@@ -248,7 +269,7 @@ function loadStore() {
   }
 }
 
-function saveStore() {
+function saveStoreFile() {
   try {
     fs.writeFileSync(dbPath, JSON.stringify(store, null, 2), 'utf8');
   } catch (e) {
@@ -256,10 +277,81 @@ function saveStore() {
   }
 }
 
-loadStore();
+// ----- Modo Postgres (almacenamiento durable en la nube) -----
+async function ensureTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS app_store (
+      id INTEGER PRIMARY KEY DEFAULT 1,
+      data JSONB NOT NULL,
+      updated_at TIMESTAMPTZ DEFAULT now()
+    );
+  `);
+}
+
+async function loadStorePostgres() {
+  await ensureTable();
+  const { rows } = await pool.query('SELECT data FROM app_store WHERE id = 1');
+  if (rows.length > 0 && rows[0].data) {
+    store = rows[0].data;
+    applyDefaults();
+    console.log('✅ Datos cargados desde Postgres.');
+  } else {
+    // Primera vez: sembramos Postgres con el archivo local si existe
+    // (por ejemplo, un respaldo reciente de producción), o si no, con los
+    // datos por defecto.
+    if (fs.existsSync(dbPath)) {
+      try {
+        store = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
+        applyDefaults();
+        console.log('📦 Postgres estaba vacío: se sembró con delivery_store.json.');
+      } catch (e) {
+        store = { ...initialData };
+      }
+    } else {
+      store = { ...initialData };
+    }
+    await pool.query(
+      'INSERT INTO app_store (id, data) VALUES (1, $1) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data',
+      [JSON.stringify(store)]
+    );
+  }
+}
+
+let saveInProgress = false;
+let savePending = false;
+async function saveStorePostgres() {
+  if (saveInProgress) { savePending = true; return; }
+  saveInProgress = true;
+  try {
+    await pool.query('UPDATE app_store SET data = $1, updated_at = now() WHERE id = 1', [JSON.stringify(store)]);
+  } catch (e) {
+    console.error('⚠️ Error al guardar en Postgres:', e.message);
+  } finally {
+    saveInProgress = false;
+    if (savePending) { savePending = false; saveStorePostgres(); }
+  }
+}
+
+function saveStore() {
+  if (USE_POSTGRES) {
+    saveStorePostgres(); // async, no bloquea la respuesta al cliente
+  } else {
+    saveStoreFile();
+  }
+}
+
+// Promesa que resuelve cuando los datos ya están cargados y listos para usar.
+// server.js espera esto antes de aceptar pedidos (ver server.listen).
+const ready = USE_POSTGRES
+  ? loadStorePostgres().catch(err => {
+      console.error('⚠️ No se pudo conectar a Postgres, uso el archivo local como respaldo:', err.message);
+      loadStoreFile();
+    })
+  : Promise.resolve(loadStoreFile());
 
 // Adaptador SQL y Gestión del Store
 const db = {
+  ready,
   getStore() {
     return store;
   },

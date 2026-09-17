@@ -1052,15 +1052,42 @@ function generateProductAutoEan() {
 }
 
 // Lector de fotos de la PC / Celular
+// IMPORTANTE: las fotos generadas por IA (o sacadas con el celu) suelen pesar
+// varios MB. Guardarlas tal cual como base64 hace que el guardado en la base
+// de datos falle silenciosamente a veces (algunas fotos se guardan y otras
+// no, según el tamaño). Por eso acá SIEMPRE se comprime/redimensiona la
+// imagen en el navegador antes de guardarla, igual que se hace con el resto
+// de las fotos del menú.
 function handleImageFileSelect(event) {
   const file = event.target.files[0];
   if (!file) return;
 
   const reader = new FileReader();
   reader.onload = function(e) {
-    const dataUrl = e.target.result;
-    document.getElementById('prod-image').value = dataUrl;
-    showImagePreview(dataUrl);
+    const img = new Image();
+    img.onload = function() {
+      const maxDim = 900;
+      let w = img.width, h = img.height;
+      if (w > maxDim || h > maxDim) {
+        if (w >= h) { h = Math.round(h * maxDim / w); w = maxDim; }
+        else { w = Math.round(w * maxDim / h); h = maxDim; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.72);
+      document.getElementById('prod-image').value = dataUrl;
+      showImagePreview(dataUrl);
+    };
+    img.onerror = function() {
+      // Si por algún motivo no se puede procesar como imagen, usamos el
+      // archivo original tal cual (mejor eso que no cargar nada).
+      document.getElementById('prod-image').value = e.target.result;
+      showImagePreview(e.target.result);
+    };
+    img.src = e.target.result;
   };
   reader.readAsDataURL(file);
 }
@@ -1439,13 +1466,16 @@ function handleProductNameInput() {
   }
 }
 
-function openProductModal(prod = null) {
+async function openProductModal(prod = null) {
   const modal = document.getElementById('product-modal');
   const title = document.getElementById('modal-title');
   const form = document.getElementById('product-form');
 
   if (form) form.reset();
   showImagePreview('');
+  if (!categories || categories.length === 0) {
+    await loadCategories();
+  }
   populateCategorySelect();
 
   if (prod) {
@@ -1570,9 +1600,9 @@ function closeProductModal() {
   modal.classList.add('opacity-0', 'pointer-events-none');
 }
 
-function editProduct(id) {
+async function editProduct(id) {
   const prod = products.find(p => p.id === id);
-  if (prod) openProductModal(prod);
+  if (prod) await openProductModal(prod);
 }
 
 async function saveProduct(e) {

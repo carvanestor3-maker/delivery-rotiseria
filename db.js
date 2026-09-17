@@ -340,6 +340,20 @@ function saveStore() {
   }
 }
 
+// Igual que saveStore(), pero DEVUELVE LA PROMESA para que el endpoint pueda
+// esperar la confirmación real de Postgres antes de responder "guardado con
+// éxito" al navegador. Se usa en los guardados donde es crítico detectar un
+// fallo real (por ejemplo, al guardar la foto de un producto), en vez de
+// avisar éxito y perder el cambio en silencio si la escritura falla o tarda
+// demasiado (ej: fotos muy pesadas subidas sin comprimir).
+async function saveStoreAndConfirm() {
+  if (!USE_POSTGRES) {
+    saveStoreFile();
+    return;
+  }
+  await pool.query('UPDATE app_store SET data = $1, updated_at = now() WHERE id = 1', [JSON.stringify(store)]);
+}
+
 // Promesa que resuelve cuando los datos ya están cargados y listos para usar.
 // server.js espera esto antes de aceptar pedidos (ver server.listen).
 const ready = USE_POSTGRES
@@ -357,6 +371,9 @@ const db = {
   },
   saveStore() {
     saveStore();
+  },
+  saveStoreAndConfirm() {
+    return saveStoreAndConfirm();
   },
   prepare(sql) {
     return {

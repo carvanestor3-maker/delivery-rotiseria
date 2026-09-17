@@ -2045,7 +2045,7 @@ app.get('/api/admin/products', (req, res) => {
   }
 });
 
-app.post('/api/admin/products', (req, res) => {
+app.post('/api/admin/products', async (req, res) => {
   try {
     const { id, code, category_id, name, description, price, image_url, video_url, points_cost, available, barcode, plu_code, unit_type, is_weighed, descuento_pct, pin } = req.body;
 
@@ -2131,11 +2131,12 @@ app.post('/api/admin/products', (req, res) => {
         is_weighed: is_weighed ? 1 : 0
       });
     }
-    db.saveStore();
+    await db.saveStoreAndConfirm();
     io.emit('menu_updated');
     res.json({ success: true, user_name: auth.user.name });
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    console.error('⚠️ Error al guardar producto:', err.message);
+    res.status(500).json({ success: false, error: 'No se pudo guardar en la base de datos: ' + err.message });
   }
 });
 

@@ -63,6 +63,11 @@
         color-adjust: exact !important;
       }
 
+      /* Anula la regla global de styles.css (pensada para tickets térmicos)
+         que oculta todo el body salvo #print-area — este menú no usa ese id,
+         así que sin esto la hoja impresa queda en blanco. */
+      body * { visibility: visible !important; }
+
       header, #cat-nav, footer, .no-print { display: none !important; }
       body { background: white !important; font-size: 11px; }
       #menu-sections { padding: 0 !important; }

@@ -54,6 +54,15 @@
 
     /* ── ESTILOS DE IMPRESIÓN ─────────────────────────────── */
     @media print {
+      /* Forzar que Chrome/Edge impriman colores de fondo (badges, precios)
+         aunque la persona no tenga tildado "Gráficos de fondo" en el
+         diálogo de impresión — si no, el descuento se ve invisible/blanco. */
+      * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color-adjust: exact !important;
+      }
+
       header, #cat-nav, footer, .no-print { display: none !important; }
       body { background: white !important; font-size: 11px; }
       #menu-sections { padding: 0 !important; }
@@ -91,6 +100,15 @@
 
     #print-header { display: none; }
 
+    /* Categorías descartadas al imprimir (elegidas en el panel de impresión) */
+    @media print {
+      .print-hide { display: none !important; }
+    }
+
+  </style>
+  <!-- Tamaño de página dinámico (A4 u Oficio), lo actualiza el panel de impresión -->
+  <style id="page-size-style">
+    @page { size: A4; margin: 10mm; }
   </style>
 </head>
 
@@ -101,6 +119,47 @@
     <h1 id="print-local-name" class="text-2xl font-black">La Gran Rotisería 24hs</h1>
     <p id="print-local-address" class="text-sm text-slate-600">📍 España 1028 (Casi Yrigoyen) — Corrientes Capital</p>
     <p class="text-xs text-slate-400 mt-1">Carta actualizada al <span id="print-fecha"></span> • spressgastro-ar.com</p>
+  </div>
+
+  <!-- PANEL DE IMPRESIÓN (solo aparece viniendo del botón "Imprimir Menú" del panel) -->
+  <div id="print-controls" class="no-print hidden bg-slate-900 text-white shadow-lg border-b-2 border-amber-500">
+    <div class="max-w-4xl mx-auto px-4 py-3 space-y-3">
+      <div class="flex items-center justify-between gap-2">
+        <div class="font-black text-sm flex items-center gap-2">🖨️ Imprimir Menú</div>
+        <button onclick="document.getElementById('print-controls').classList.add('hidden')" class="text-slate-400 hover:text-white text-xs font-bold" title="Cerrar panel">✕</button>
+      </div>
+
+      <!-- Tamaño de papel -->
+      <div class="flex items-center gap-3 text-xs">
+        <span class="font-bold text-amber-400">Tamaño de papel:</span>
+        <label class="flex items-center gap-1 cursor-pointer bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700">
+          <input type="radio" name="paper-size" value="a4" checked onchange="setPaperSize('a4')"> A4
+        </label>
+        <label class="flex items-center gap-1 cursor-pointer bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700">
+          <input type="radio" name="paper-size" value="oficio" onchange="setPaperSize('oficio')"> Oficio
+        </label>
+      </div>
+
+      <!-- Categorías a incluir -->
+      <div class="space-y-1.5">
+        <div class="flex items-center justify-between">
+          <span class="font-bold text-amber-400 text-xs">Categorías a imprimir:</span>
+          <div class="flex gap-2 text-[10px]">
+            <button onclick="toggleAllPrintCats(true)" class="underline hover:text-amber-400">Marcar todas</button>
+            <button onclick="toggleAllPrintCats(false)" class="underline hover:text-amber-400">Desmarcar todas</button>
+          </div>
+        </div>
+        <div id="print-cat-checks" class="flex flex-wrap gap-1.5 text-[11px]">
+          <!-- Se llena dinámicamente con las categorías del menú -->
+        </div>
+      </div>
+
+      <!-- Botón imprimir -->
+      <button onclick="startPrint()" class="w-full bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-black py-2.5 rounded-xl shadow flex items-center justify-center gap-2 text-sm hover:from-amber-400 hover:to-orange-400 active:scale-95 transition">
+        🖨️ Abrir vista previa de impresión
+      </button>
+      <p class="text-[10px] text-slate-400 text-center">Se abre el diálogo de impresión del navegador: ahí podés ver la vista previa, elegir tu impresora física o "Guardar como PDF".</p>
+    </div>
   </div>
 
   <!-- ══════════════════════════════════════
@@ -420,13 +479,68 @@
     // ── Arrancar ─────────────────────────────────────────────
     loadMenu();
 
-    // Auto-imprimir si viene de admin con ?print=1
-    if (new URLSearchParams(window.location.search).get('print') === '1') {
-      // Esperar a que cargue el menú completo antes de imprimir
+    // ── Panel de impresión (categorías + tamaño de papel) ─────
+    const isPrintMode = new URLSearchParams(window.location.search).get('print') === '1';
+
+    // Tamaños de papel disponibles (ancho x alto en mm)
+    const PAPER_SIZES = {
+      a4:     '210mm 297mm',
+      oficio: '216mm 330mm' // Oficio Argentina
+    };
+
+    function setPaperSize(size) {
+      const styleTag = document.getElementById('page-size-style');
+      const dims = PAPER_SIZES[size] || PAPER_SIZES.a4;
+      styleTag.textContent = `@page { size: ${dims}; margin: 10mm; }`;
+    }
+
+    function buildPrintCategoryChecks() {
+      const box = document.getElementById('print-cat-checks');
+      if (!box) return;
+      const activeCats = allCategories.filter(cat =>
+        allProducts.some(p => p.category_id === cat.id)
+      );
+      box.innerHTML = activeCats.map(cat => `
+        <label class="flex items-center gap-1 cursor-pointer bg-slate-800 px-2 py-1 rounded-lg border border-slate-700">
+          <input type="checkbox" class="print-cat-check" value="${cat.id}" checked onchange="updatePrintSelection()">
+          <span>${cat.icon || ''} ${cat.name}</span>
+        </label>
+      `).join('');
+    }
+
+    function toggleAllPrintCats(checked) {
+      document.querySelectorAll('.print-cat-check').forEach(chk => { chk.checked = checked; });
+      updatePrintSelection();
+    }
+
+    // Marca con .print-hide (solo afecta la impresión, no la pantalla)
+    // las secciones de categorías que el usuario desmarcó en el panel.
+    function updatePrintSelection() {
+      const checked = new Set(
+        Array.from(document.querySelectorAll('.print-cat-check:checked')).map(chk => chk.value)
+      );
+      document.querySelectorAll('.menu-section').forEach(section => {
+        const catId = section.id.replace('section-', '');
+        section.classList.toggle('print-hide', !checked.has(catId));
+      });
+    }
+
+    function startPrint() {
+      updatePrintSelection();
+      window.print();
+    }
+
+    if (isPrintMode) {
+      // Mostrar el panel de impresión y armar sus categorías una vez
+      // que el menú terminó de cargar (en vez de imprimir a ciegas
+      // con un setTimeout, ahora el usuario elige categorías y papel
+      // y recién ahí abre la vista previa de impresión del navegador).
       const origBuild = buildAllSections;
       window.buildAllSections = function() {
         origBuild();
-        setTimeout(() => window.print(), 1200);
+        document.getElementById('print-controls').classList.remove('hidden');
+        buildPrintCategoryChecks();
+        updatePrintSelection();
       };
       window.buildAllSections = buildAllSections;
     }

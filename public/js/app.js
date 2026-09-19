@@ -113,7 +113,11 @@ async function loadMenuData() {
 
     if (data.success) {
       state.categories = data.categories || [];
-      state.products = data.products || [];
+      // Antes acá se cargaban TODOS los productos, incluidos los que el
+      // panel de administración marca como "Pausado (Agotado)": el botón
+      // de pausar/activar nunca se reflejaba en el portal de pedidos, un
+      // plato pausado seguía apareciendo y se podía seguir pidiendo igual.
+      state.products = (data.products || []).filter(p => p.available !== 0);
       state.settings = data.settings || {};
 
       const restTitleEl = document.getElementById('restaurant-title');
@@ -219,6 +223,18 @@ function renderMenuSections() {
   }
 }
 
+// Devuelve el precio final a cobrar por un producto, aplicando el
+// descuento_pct cargado desde el panel de administración (si tiene).
+// Antes este descuento se guardaba en la base pero el portal de pedidos
+// nunca lo usaba: siempre cobraba el precio de lista sin el descuento.
+function getEffectivePrice(prod) {
+  if (prod && prod.descuento_pct > 0) {
+    if (prod.precio_promo != null) return prod.precio_promo;
+    return Math.round(prod.price * (1 - prod.descuento_pct / 100));
+  }
+  return prod ? prod.price : 0;
+}
+
 function renderProductCard(prod) {
   const cartItem = state.cart.find(item => String(item.id) === String(prod.id));
   const qty = cartItem ? cartItem.qty : 0;
@@ -254,8 +270,18 @@ function renderProductCard(prod) {
 
       <!-- Precio y Botón Agregar -->
       <div class="pt-2 mt-2 border-t border-slate-100 flex items-center justify-between gap-1">
-        <div class="font-black text-slate-950 text-xs sm:text-sm font-mono tracking-tight">${formatCurrency(prod.price)}</div>
-        
+        <div class="flex flex-col leading-none">
+          ${prod.descuento_pct > 0 ? `
+            <span class="text-slate-400 text-[10px] font-mono line-through">${formatCurrency(prod.price)}</span>
+            <div class="flex items-center gap-1">
+              <div class="font-black text-emerald-600 text-xs sm:text-sm font-mono tracking-tight">${formatCurrency(getEffectivePrice(prod))}</div>
+              <span class="bg-emerald-100 text-emerald-700 text-[9px] font-black px-1 py-0.5 rounded-md">-${prod.descuento_pct}%</span>
+            </div>
+          ` : `
+            <div class="font-black text-slate-950 text-xs sm:text-sm font-mono tracking-tight">${formatCurrency(prod.price)}</div>
+          `}
+        </div>
+
         <div id="prod-btn-container-${prod.id}">
           ${qty === 0 ? `
             <button type="button" onclick="addToCart('${prod.id}')" class="bg-orange-500 hover:bg-orange-600 active:scale-95 text-white font-extrabold text-[11px] sm:text-xs px-2.5 sm:px-3 py-1.5 rounded-xl shadow-xs transition flex items-center gap-0.5 cursor-pointer">
@@ -286,7 +312,7 @@ function addToCart(productId) {
       state.cart.push({
         id: prod.id,
         name: prod.name,
-        price: prod.price,
+        price: getEffectivePrice(prod),
         qty: 1
       });
     }

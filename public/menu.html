@@ -234,7 +234,6 @@
       #print-header #print-menu-slogan { font-size: 13px !important; letter-spacing: 1px !important; margin-bottom: 14px !important; }
       #print-header #print-address-block { margin-top: 4px !important; }
       #print-header #print-local-address { font-size: 20px !important; }
-      #print-header #print-address-block .text-xs.text-slate-400 { font-size: 15px !important; margin-top: 6px !important; }
       #print-header #print-qr-row {
         gap: 48px !important;
       }
@@ -313,7 +312,6 @@
     <p id="print-menu-slogan" class="font-bold text-slate-500 uppercase">Gastronomía Premium &nbsp;•&nbsp; Preparados Caseros &nbsp;•&nbsp; Comidas Nutricionales y Viandas Saludables</p>
     <div id="print-address-block">
       <p id="print-local-address" class="text-sm text-slate-600">📍 España 1028 (Casi Yrigoyen) — Corrientes Capital</p>
-      <p class="text-xs text-slate-400 mt-1">Carta actualizada al <span id="print-fecha"></span> • spressgastro-ar.com</p>
     </div>
   </div>
 
@@ -789,9 +787,6 @@
       window.buildAllSections = buildAllSections;
     }
 
-    // Actualizar fecha en print header
-    document.getElementById('print-fecha').textContent =
-      new Date().toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit', year:'numeric' });
   </script>
 
 </body>

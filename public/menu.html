@@ -81,21 +81,21 @@
          anterior casi en blanco (solo con el encabezado). Ahora sólo se
          evita partir una tarjeta individual al medio; la categoría sí
          puede repartirse en varias hojas, sin dejar huecos en blanco. */
-      .menu-section { margin-bottom: 16px; }
+      .menu-section { margin-bottom: 10px; }
       .card-enter { break-inside: avoid; page-break-inside: avoid; }
 
       /* Título de categoría en impresión (que no quede solo al final de
          una hoja, separado de sus platos) */
       .menu-section > div:first-child {
         border-bottom: 2px solid #f59e0b;
-        padding-bottom: 4px;
-        margin-bottom: 8px;
+        padding-bottom: 3px;
+        margin-bottom: 6px;
         break-after: avoid-page;
         page-break-after: avoid;
       }
 
       /* Grid de 2 columnas para imprimir */
-      .menu-section .grid { grid-template-columns: 1fr 1fr !important; gap: 6px !important; }
+      .menu-section .grid { grid-template-columns: 1fr 1fr !important; gap: 5px !important; }
 
       /* Cards más compactas */
       .card-enter {
@@ -115,7 +115,7 @@
       .card-enter:has(> .w-24) {
         display: block !important;
         position: relative !important;
-        height: 240px !important;
+        height: 205px !important;
         overflow: hidden !important;
         padding: 0 !important;
       }
@@ -143,11 +143,11 @@
         flex-direction: column !important;
         justify-content: flex-start !important;
         align-items: stretch !important;
-        padding: 6px 8px !important;
+        padding: 5px 7px !important;
       }
       .card-enter:has(> .w-24) .flex-1 > div:last-child {
         justify-content: flex-start !important;
-        margin-top: 2px !important;
+        margin-top: 1px !important;
       }
 
       /* Nombre y descripción comparten una sola caja blanca compacta, arriba
@@ -156,27 +156,27 @@
       .card-enter:has(> .w-24) .flex-1 > div:first-child {
         background: linear-gradient(to bottom, rgba(255,255,255,0.97) 0%, rgba(255,255,255,0.9) 40%, rgba(255,255,255,0.35) 75%, rgba(255,255,255,0) 100%) !important;
         border-radius: 8px !important;
-        padding: 6px 8px 10px 8px !important;
+        padding: 5px 7px 8px 7px !important;
         box-shadow: none !important;
         display: inline-block !important;
         max-width: 100% !important;
       }
       /* Nombre del plato: letras doradas */
       .card-enter:has(> .w-24) .font-black.text-sm {
-        font-size: 15px !important;
-        line-height: 1.3 !important;
+        font-size: 13.5px !important;
+        line-height: 1.25 !important;
         color: #b8860b !important;
         -webkit-text-stroke: 0 !important;
         text-shadow: none !important;
-        margin-bottom: 2px !important;
+        margin-bottom: 1px !important;
       }
       /* Descripción: negro con difuminado blanco en los bordes de la letra
          (la caja de fondo ya es transparente acá y se ve la foto) */
       .card-enter:has(> .w-24) .text-xs.text-slate-500 {
         font-family: 'Arial Black', Arial, sans-serif !important;
-        font-size: 12.5px !important;
-        line-height: 1.5 !important;
-        letter-spacing: 0.3px !important;
+        font-size: 11px !important;
+        line-height: 1.35 !important;
+        letter-spacing: 0.2px !important;
         color: #111827 !important;
         text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 6px #fff, 0 0 6px #fff !important;
         background: none !important;
@@ -193,13 +193,13 @@
         paint-order: stroke fill !important;
         text-shadow: 0 0 6px rgba(255,255,255,0.6) !important;
       }
-      .card-enter:has(> .w-24) .text-xs.text-slate-400 { font-size: 12px !important; }
+      .card-enter:has(> .w-24) .text-xs.text-slate-400 { font-size: 11px !important; }
       .card-enter:has(> .w-24) .text-base {
-        font-size: 17px !important;
+        font-size: 15px !important;
         color: #dc2626 !important;
-        -webkit-text-stroke: 4px white !important;
+        -webkit-text-stroke: 3.5px white !important;
       }
-      .card-enter:has(> .w-24) [class*="text-[10px]"] { font-size: 10px !important; -webkit-text-stroke: 1.5px white !important; }
+      .card-enter:has(> .w-24) [class*="text-[10px]"] { font-size: 9px !important; -webkit-text-stroke: 1.5px white !important; }
 
       /* Header de impresión personalizado: ahora es una portada propia
          (primera hoja), con el logo y los QR grandes, y recién en la

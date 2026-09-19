@@ -2140,6 +2140,47 @@ app.post('/api/admin/products', async (req, res) => {
   }
 });
 
+// Pausar / reactivar un plato (botón "🟢 Activo / 🔴 Pausado" del panel de
+// productos). Faltaba esta ruta en el servidor: el botón del panel ya
+// llamaba a PUT /api/admin/products/:id/toggle pero como no existía,
+// el pedido fallaba (404) sin avisar nada visible en pantalla.
+app.put('/api/admin/products/:id/toggle', (req, res) => {
+  try {
+    const store = db.getStore();
+    const prod = store.products.find(p => p.id === parseInt(req.params.id));
+    if (!prod) {
+      return res.status(404).json({ success: false, error: 'Producto no encontrado.' });
+    }
+    const isAvail = prod.available === 1 || prod.available === true || prod.available === '1';
+    prod.available = isAvail ? 0 : 1;
+    db.saveStore();
+    io.emit('menu_updated');
+    res.json({ success: true, available: prod.available });
+  } catch (err) {
+    console.error('⚠️ Error al pausar/activar producto:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Eliminar un plato (botón 🗑️ del panel de productos). Tampoco existía esta
+// ruta: el botón llamaba a DELETE /api/admin/products/:id sin resultado.
+app.delete('/api/admin/products/:id', (req, res) => {
+  try {
+    const store = db.getStore();
+    const idx = store.products.findIndex(p => p.id === parseInt(req.params.id));
+    if (idx === -1) {
+      return res.status(404).json({ success: false, error: 'Producto no encontrado.' });
+    }
+    store.products.splice(idx, 1);
+    db.saveStore();
+    io.emit('menu_updated');
+    res.json({ success: true });
+  } catch (err) {
+    console.error('⚠️ Error al eliminar producto:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // RUTAS API GESTIÓN MODULAR DE CATEGORÍAS (REQUERIDO NIVEL 3 - GERENTE / DUEÑO)
 app.post('/api/admin/categories', (req, res) => {
   try {

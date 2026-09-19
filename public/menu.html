@@ -97,57 +97,98 @@
       /* Ocultar botón "Pedir" en impresión */
       .card-enter a { display: none !important; }
 
-      /* Layout de card: el nombre arriba (ancho completo), abajo la foto
-         grande a la izquierda con la descripción a la derecha, y el precio
-         debajo de la foto. */
+      /* Layout "foto de fondo": la foto ocupa todo el recuadro y el texto
+         (nombre, descripción, precio) va superpuesto arriba de la imagen,
+         más grande y con borde blanco en las letras para que se lea sobre
+         cualquier foto. */
       .card-enter:has(> .w-24) {
-        display: grid !important;
-        grid-template-columns: 200px 1fr !important;
-        grid-template-areas: "name  name" "img   desc" "price desc" !important;
-        column-gap: 10px !important;
-        row-gap: 4px !important;
-        padding: 8px !important;
+        display: block !important;
+        position: relative !important;
+        height: 240px !important;
+        overflow: hidden !important;
+        padding: 0 !important;
       }
       .card-enter:has(> .w-24) > .w-24 {
-        grid-area: img !important;
+        position: absolute !important;
+        inset: 0 !important;
         width: 100% !important;
-        height: 200px !important;
+        height: 100% !important;
         min-height: 0 !important;
       }
-      /* La foto en sí también tenía su propio ancho fijo (w-24 = 96px) de
-         Tailwind: hay que agrandarla para que llene el recuadro grande. */
       .card-enter:has(> .w-24) > .w-24 .product-img {
         width: 100% !important;
         height: 100% !important;
       }
-      .card-enter .product-img { object-fit: contain !important; background: #fff; }
+      /* Ahora la foto llena todo el recuadro: se permite recortar (cover)
+         en vez de mostrarla completa (contain) */
+      .card-enter .product-img { object-fit: cover !important; }
 
-      /* El div de texto original y su sub-div (nombre+descripción) pasan a
-         "contents" para que nombre, descripción y precio entren cada uno
-         directo en su propio casillero de la grilla de la card */
-      .card-enter:has(> .w-24) .flex-1 { display: contents !important; }
-      .card-enter:has(> .w-24) .flex-1 > div:first-child { display: contents !important; }
-      .card-enter:has(> .w-24) .font-black.text-sm {
-        grid-area: name !important;
-        margin-bottom: 2px !important;
-      }
-      .card-enter:has(> .w-24) .text-xs.text-slate-500 {
-        grid-area: desc !important;
-        align-self: start !important;
+      /* El texto se superpone arriba de la foto */
+      .card-enter:has(> .w-24) .flex-1 {
+        position: absolute !important;
+        inset: 0 !important;
+        z-index: 10 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: flex-start !important;
+        align-items: stretch !important;
+        padding: 6px 8px !important;
       }
       .card-enter:has(> .w-24) .flex-1 > div:last-child {
-        grid-area: price !important;
-        align-self: end !important;
-        justify-content: center !important;
-        padding-bottom: 2px !important;
+        justify-content: flex-start !important;
+        margin-top: 2px !important;
       }
 
-      /* Nombre y descripción: más renglones, sin cortar el texto */
+      /* Nombre y descripción comparten una sola caja blanca compacta, arriba
+         del todo, para tapar lo menos posible de la foto */
       .card-enter .line-clamp-2 { display: block !important; overflow: visible !important; -webkit-line-clamp: unset !important; }
-      .card-enter .font-black.text-sm { font-size: 12.5px !important; line-height: 1.3 !important; }
-      .card-enter .text-xs.text-slate-500 { font-size: 9.5px !important; line-height: 1.35 !important; }
-      .card-enter .text-base { font-size: 13px !important; }
-      .card-enter [class*="text-[10px]"] { font-size: 8px !important; padding: 1px 4px !important; }
+      .card-enter:has(> .w-24) .flex-1 > div:first-child {
+        background: linear-gradient(to bottom, rgba(255,255,255,0.97) 0%, rgba(255,255,255,0.9) 40%, rgba(255,255,255,0.35) 75%, rgba(255,255,255,0) 100%) !important;
+        border-radius: 8px !important;
+        padding: 6px 8px 10px 8px !important;
+        box-shadow: none !important;
+        display: inline-block !important;
+        max-width: 100% !important;
+      }
+      /* Nombre del plato: letras doradas */
+      .card-enter:has(> .w-24) .font-black.text-sm {
+        font-size: 15px !important;
+        line-height: 1.3 !important;
+        color: #b8860b !important;
+        -webkit-text-stroke: 0 !important;
+        text-shadow: none !important;
+        margin-bottom: 2px !important;
+      }
+      /* Descripción: negro con difuminado blanco en los bordes de la letra
+         (la caja de fondo ya es transparente acá y se ve la foto) */
+      .card-enter:has(> .w-24) .text-xs.text-slate-500 {
+        font-family: 'Arial Black', Arial, sans-serif !important;
+        font-size: 12.5px !important;
+        line-height: 1.5 !important;
+        letter-spacing: 0.3px !important;
+        color: #111827 !important;
+        text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 6px #fff, 0 0 6px #fff !important;
+        background: none !important;
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        -webkit-text-stroke: 0 !important;
+      }
+      /* Precio: rojo fuerte con borde blanco más grueso, directo sobre la foto */
+      .card-enter:has(> .w-24) .text-xs.text-slate-400,
+      .card-enter:has(> .w-24) .text-base,
+      .card-enter:has(> .w-24) [class*="text-[10px]"] {
+        -webkit-text-stroke: 3px white !important;
+        paint-order: stroke fill !important;
+        text-shadow: 0 0 6px rgba(255,255,255,0.6) !important;
+      }
+      .card-enter:has(> .w-24) .text-xs.text-slate-400 { font-size: 12px !important; }
+      .card-enter:has(> .w-24) .text-base {
+        font-size: 17px !important;
+        color: #dc2626 !important;
+        -webkit-text-stroke: 4px white !important;
+      }
+      .card-enter:has(> .w-24) [class*="text-[10px]"] { font-size: 10px !important; -webkit-text-stroke: 1.5px white !important; }
 
       /* Header de impresión personalizado */
       #print-header { display: block !important; }
@@ -230,11 +271,17 @@
         </div>
       </div>
 
+      <!-- Un archivo por categoría -->
+      <label class="flex items-center gap-2 cursor-pointer bg-slate-800 px-2.5 py-1.5 rounded-lg border border-slate-700 text-xs w-fit">
+        <input type="checkbox" id="print-separate-check" checked>
+        <span>📄 Un archivo por categoría (abre el diálogo de impresión una vez por cada categoría elegida)</span>
+      </label>
+
       <!-- Botón imprimir -->
       <button onclick="startPrint()" class="w-full bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-black py-2.5 rounded-xl shadow flex items-center justify-center gap-2 text-sm hover:from-amber-400 hover:to-orange-400 active:scale-95 transition">
         🖨️ Abrir vista previa de impresión
       </button>
-      <p class="text-[10px] text-slate-400 text-center">Se abre el diálogo de impresión del navegador: ahí podés ver la vista previa, elegir tu impresora física o "Guardar como PDF".</p>
+      <p class="text-[10px] text-slate-400 text-center">Se abre el diálogo de impresión del navegador: ahí podés ver la vista previa, elegir tu impresora física o "Guardar como PDF" (buena calidad, con las fotos originales del sitio). Si marcaste varias categorías y dejás tildado "un archivo por categoría", el diálogo se va a abrir una vez por cada una para que guardes cada PDF por separado.</p>
     </div>
   </div>
 
@@ -607,9 +654,42 @@
       });
     }
 
-    function startPrint() {
+    // Imprime (o "Guarda como PDF") una sola categoría a la vez: oculta
+    // todas las demás secciones, abre el diálogo de impresión, y espera
+    // a que el usuario lo cierre (evento 'afterprint') antes de pasar a
+    // la siguiente categoría marcada.
+    function printOneCategory(catId) {
+      document.querySelectorAll('.menu-section').forEach(section => {
+        const secCatId = section.id.replace('section-', '');
+        section.classList.toggle('print-hide', secCatId !== catId);
+      });
+      return new Promise(resolve => {
+        function handler() {
+          window.removeEventListener('afterprint', handler);
+          resolve();
+        }
+        window.addEventListener('afterprint', handler);
+        // pequeño delay para que el navegador termine de aplicar el
+        // print-hide antes de abrir el diálogo de impresión
+        setTimeout(() => window.print(), 60);
+      });
+    }
+
+    async function startPrint() {
       updatePrintSelection();
-      window.print();
+      const checkedIds = Array.from(document.querySelectorAll('.print-cat-check:checked')).map(chk => chk.value);
+      const separate = document.getElementById('print-separate-check')?.checked;
+
+      if (!separate || checkedIds.length <= 1) {
+        window.print();
+        return;
+      }
+
+      for (const catId of checkedIds) {
+        await printOneCategory(catId);
+      }
+      // Al terminar, volvemos a mostrar la selección original tildada
+      updatePrintSelection();
     }
 
     if (isPrintMode) {

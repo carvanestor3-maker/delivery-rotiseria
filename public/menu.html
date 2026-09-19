@@ -74,13 +74,24 @@
       #menu-sections { padding: 0 !important; }
       #skeleton-loader, #error-state { display: none !important; }
 
-      .menu-section { page-break-inside: avoid; margin-bottom: 16px; }
+      /* Antes esto estaba en .menu-section (toda la categoría junta), pero
+         con las tarjetas más altas (foto de fondo) una categoría entera ya
+         no entra en el espacio que queda de una hoja, y el navegador
+         mandaba TODA la sección a la página siguiente, dejando la hoja
+         anterior casi en blanco (solo con el encabezado). Ahora sólo se
+         evita partir una tarjeta individual al medio; la categoría sí
+         puede repartirse en varias hojas, sin dejar huecos en blanco. */
+      .menu-section { margin-bottom: 16px; }
+      .card-enter { break-inside: avoid; page-break-inside: avoid; }
 
-      /* Título de categoría en impresión */
+      /* Título de categoría en impresión (que no quede solo al final de
+         una hoja, separado de sus platos) */
       .menu-section > div:first-child {
         border-bottom: 2px solid #f59e0b;
         padding-bottom: 4px;
         margin-bottom: 8px;
+        break-after: avoid-page;
+        page-break-after: avoid;
       }
 
       /* Grid de 2 columnas para imprimir */
@@ -556,9 +567,13 @@
       card.style.opacity = '0';
 
       const hasImg = prod.image_url && prod.image_url.trim() !== '';
+      // En modo impresión (?print=1) las fotos se cargan todas de una
+      // (loading="eager"): como el usuario puede imprimir categorías que
+      // nunca llegó a scrollear en pantalla, con loading="lazy" esas fotos
+      // no se habían descargado todavía y salían en blanco en el PDF/impreso.
       const imgHTML = hasImg
         ? `<img src="${prod.image_url}" alt="${prod.name}" class="product-img w-24 h-full flex-shrink-0 min-h-[96px]"
-               loading="lazy" onerror="this.parentElement.classList.add('hidden')">`
+               loading="${isPrintMode ? 'eager' : 'lazy'}" onerror="this.parentElement.classList.add('hidden')">`
         : '';
 
       card.innerHTML = `

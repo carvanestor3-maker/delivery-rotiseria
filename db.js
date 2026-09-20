@@ -13,7 +13,26 @@ if (USE_POSTGRES) {
   const { Pool } = require('pg');
   pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false }
+    ssl: { rejectUnauthorized: false },
+    // El proveedor de Postgres corta las conexiones que quedan inactivas
+    // un rato (por eso el error "Connection terminated unexpectedly" al
+    // guardar después de tener el panel abierto sin usar). Con un
+    // idleTimeoutMillis más corto, el propio pool cierra y descarta esas
+    // conexiones ANTES de que el proveedor las mate de un hachazo, así la
+    // próxima consulta abre una conexión nueva en vez de toparse con una
+    // ya muerta.
+    max: 5,
+    idleTimeoutMillis: 20000,
+    connectionTimeoutMillis: 10000,
+    keepAlive: true
+  });
+
+  // Sin este listener, si una conexión inactiva del pool es cerrada por el
+  // proveedor, Node trata ese error como no manejado y TIRA ABAJO TODO EL
+  // SERVIDOR (no solo falla ese guardado). Con el listener, el pool
+  // simplemente descarta esa conexión rota y sigue funcionando normal.
+  pool.on('error', (err) => {
+    console.error('⚠️ Conexión inactiva del pool de Postgres cortada por el proveedor (recuperado sin caerse):', err.message);
   });
 }
 
@@ -325,7 +344,15 @@ async function saveStorePostgres() {
   try {
     await pool.query('UPDATE app_store SET data = $1, updated_at = now() WHERE id = 1', [JSON.stringify(store)]);
   } catch (e) {
-    console.error('⚠️ Error al guardar en Postgres:', e.message);
+    // Reintentamos una sola vez: si la conexión que usó el pool ya estaba
+    // muerta (cortada por el proveedor mientras estaba inactiva), pg la
+    // descarta sola y este segundo intento abre una conexión nueva.
+    console.warn('⚠️ Guardado en Postgres falló, reintentando una vez:', e.message);
+    try {
+      await pool.query('UPDATE app_store SET data = $1, updated_at = now() WHERE id = 1', [JSON.stringify(store)]);
+    } catch (e2) {
+      console.error('⚠️ Error al guardar en Postgres (tras reintento):', e2.message);
+    }
   } finally {
     saveInProgress = false;
     if (savePending) { savePending = false; saveStorePostgres(); }
@@ -351,7 +378,15 @@ async function saveStoreAndConfirm() {
     saveStoreFile();
     return;
   }
-  await pool.query('UPDATE app_store SET data = $1, updated_at = now() WHERE id = 1', [JSON.stringify(store)]);
+  try {
+    await pool.query('UPDATE app_store SET data = $1, updated_at = now() WHERE id = 1', [JSON.stringify(store)]);
+  } catch (e) {
+    // Mismo caso que en saveStorePostgres: reintentamos una vez antes de
+    // darnos por vencidos y mostrarle el error a quien está guardando
+    // (por ejemplo, al cambiar un plato de categoría desde el panel).
+    console.warn('⚠️ Guardado (con confirmación) en Postgres falló, reintentando una vez:', e.message);
+    await pool.query('UPDATE app_store SET data = $1, updated_at = now() WHERE id = 1', [JSON.stringify(store)]);
+  }
 }
 
 // Promesa que resuelve cuando los datos ya están cargados y listos para usar.

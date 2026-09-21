@@ -185,21 +185,29 @@
         padding: 0 !important;
         -webkit-text-stroke: 0 !important;
       }
-      /* Precio: rojo fuerte con borde blanco más grueso, directo sobre la foto */
+      /* Precio: antes iba directo sobre la foto con un contorno blanco
+         (-webkit-text-stroke) para que se lea, pero ese contorno quedaba
+         demasiado grueso para el tamaño de la letra y, si la foto de
+         fondo era clara, se leía mal igual (el precio viejo tachado
+         tenía el mismo problema). Ahora va en su propia cajita clara,
+         igual que el nombre del plato — se lee bien sea cual sea el
+         color de la foto de atrás. */
+      .card-enter:has(> .w-24) .flex.items-center.justify-between.mt-1 {
+        background: rgba(255,255,255,0.94) !important;
+        border-radius: 8px !important;
+        padding: 4px 8px !important;
+        width: fit-content !important;
+        box-shadow: none !important;
+      }
       .card-enter:has(> .w-24) .text-xs.text-slate-400,
       .card-enter:has(> .w-24) .text-base,
       .card-enter:has(> .w-24) [class*="text-[10px]"] {
-        -webkit-text-stroke: 3px white !important;
-        paint-order: stroke fill !important;
-        text-shadow: 0 0 6px rgba(255,255,255,0.6) !important;
+        -webkit-text-stroke: 0 !important;
+        text-shadow: none !important;
       }
-      .card-enter:has(> .w-24) .text-xs.text-slate-400 { font-size: 11px !important; }
-      .card-enter:has(> .w-24) .text-base {
-        font-size: 15px !important;
-        color: #dc2626 !important;
-        -webkit-text-stroke: 3.5px white !important;
-      }
-      .card-enter:has(> .w-24) [class*="text-[10px]"] { font-size: 9px !important; -webkit-text-stroke: 1.5px white !important; }
+      .card-enter:has(> .w-24) .text-xs.text-slate-400 { font-size: 11px !important; color: #64748b !important; }
+      .card-enter:has(> .w-24) .text-base { font-size: 15px !important; color: #dc2626 !important; }
+      .card-enter:has(> .w-24) [class*="text-[10px]"] { font-size: 9px !important; }
 
       /* Header de impresión personalizado: ahora es una portada propia
          (primera hoja), con el logo y los QR grandes, y recién en la
@@ -275,6 +283,103 @@
     /* Categorías descartadas al imprimir (elegidas en el panel de impresión) */
     @media print {
       .print-hide { display: none !important; }
+    }
+
+    /* ── IMPRESIÓN DE FOTOS SUELTAS EN A4 ──────────────────────────────
+       Esto es aparte de la impresión normal del menú por categorías.
+       Se arma dinámicamente (ver printSelectedPhotosA4() más abajo):
+       - "1 foto por hoja": hoja A4 APAISADA (horizontal), la foto sola
+         a pantalla completa.
+       - "2 fotos por hoja": hoja A4 VERTICAL (de pie, la normal), con
+         las dos fotos apiladas — una arriba y otra abajo — llenando
+         entre las dos toda la hoja.
+       En ambos casos la foto llena el espacio (recortada si hace falta,
+       object-fit: cover) y el nombre + precio quedan superpuestos abajo,
+       como un cartel. */
+    #photo-print-area { display: none; }
+    @media print {
+      /* Mientras se imprimen las fotos sueltas, se oculta TODO lo demás
+         (el menú, la portada, el pie de página, el panel de impresión) y
+         solo se muestra el área de fotos. body.photo-print-mode lo activa
+         justo antes de llamar a window.print() y lo saca al terminar. */
+      body.photo-print-mode #print-header,
+      body.photo-print-mode header,
+      body.photo-print-mode #cat-nav-wrapper,
+      body.photo-print-mode main,
+      body.photo-print-mode #print-footer,
+      body.photo-print-mode #site-footer,
+      body.photo-print-mode #print-controls {
+        display: none !important;
+      }
+      body.photo-print-mode #photo-print-area { display: block !important; }
+
+      /* El ancho/alto exacto de cada hoja (A4 apaisada para "1 por hoja",
+         A4 vertical para "2 por hoja") lo pone el JS en un style="" al
+         armar cada hoja, así una misma clase sirve para las dos hojas
+         "sueltas" (una foto sola, sea apaisada o la que queda impar en
+         modo "2 por hoja") sin duplicar reglas de tamaño acá. */
+      .photo-print-page {
+        position: relative;
+        overflow: hidden;
+        page-break-after: always;
+        break-after: page;
+      }
+      .photo-print-page:last-child { page-break-after: auto; break-after: auto; }
+
+      /* Modo "2 fotos por hoja": una foto arriba y otra abajo, cada una
+         ocupando la mitad de la altura de la hoja vertical */
+      .photo-print-page.double { display: flex; flex-direction: column; }
+      .photo-print-page.double .photo-print-half:first-child { border-bottom: 2px solid #fff; }
+      /* box-sizing: border-box es clave acá — si no, el borde de 2px se
+         suma AFUERA del 50% de alto y las dos mitades terminan pasándose
+         por unos pixeles del total de la hoja, lo que hace que el
+         navegador mande una hoja extra casi en blanco de "sobra". */
+      .photo-print-half { position: relative; overflow: hidden; box-sizing: border-box; width: 100%; height: 50%; flex-shrink: 0; }
+
+      .photo-print-page img {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover; /* llena todo el espacio, recortando bordes si hace falta */
+      }
+      .photo-print-overlay {
+        position: absolute;
+        left: 0; right: 0; bottom: 0;
+        z-index: 5;
+        background: linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.55) 45%, rgba(0,0,0,0) 100%);
+        color: #ffffff;
+        padding: 55px 45px 45px;
+      }
+      /* En modo "2 por hoja" cada foto ocupa media hoja, así que el
+         texto superpuesto también se achica */
+      .photo-print-half .photo-print-overlay { padding: 26px 24px 22px; }
+
+      .photo-print-overlay .pp-name {
+        font-size: 40px;
+        font-weight: 900;
+        line-height: 1.15;
+        text-shadow: 0 2px 10px rgba(0,0,0,0.7);
+      }
+      .photo-print-half .photo-print-overlay .pp-name { font-size: 24px; }
+
+      .photo-print-overlay .pp-price {
+        font-size: 34px;
+        font-weight: 900;
+        color: #fbbf24;
+        margin-top: 10px;
+        text-shadow: 0 2px 10px rgba(0,0,0,0.7);
+      }
+      .photo-print-half .photo-print-overlay .pp-price { font-size: 19px; margin-top: 5px; }
+
+      .photo-print-overlay .pp-old {
+        font-size: 20px;
+        color: #e2e8f0;
+        text-decoration: line-through;
+        font-weight: 700;
+        margin-right: 12px;
+      }
+      .photo-print-half .photo-print-overlay .pp-old { font-size: 12px; margin-right: 7px; }
     }
 
   </style>
@@ -359,6 +464,35 @@
         🖨️ Abrir vista previa de impresión
       </button>
       <p class="text-[10px] text-slate-400 text-center">Se abre el diálogo de impresión del navegador: ahí podés ver la vista previa, elegir tu impresora física o "Guardar como PDF" (buena calidad, con las fotos originales del sitio). Si marcaste varias categorías y dejás tildado "un archivo por categoría", el diálogo se va a abrir una vez por cada una para que guardes cada PDF por separado.</p>
+
+      <!-- Imprimir fotos sueltas en A4 (una por plato, elegidas a mano) -->
+      <div class="border-t border-slate-700 pt-3 mt-1 space-y-2">
+        <div class="flex items-center justify-between">
+          <span class="font-bold text-amber-400 text-xs">📸 Imprimir fotos sueltas en A4:</span>
+          <div class="flex gap-2 text-[10px]">
+            <button onclick="selectAllPhotos(true)" class="underline hover:text-amber-400">Marcar todas</button>
+            <button onclick="selectAllPhotos(false)" class="underline hover:text-amber-400">Desmarcar todas</button>
+          </div>
+        </div>
+        <p class="text-[10px] text-slate-400">Tildá la casilla que aparece sobre la foto de cada plato, ahí abajo en el menú, para elegir cuáles imprimir en hoja A4 completa, con nombre y precio.</p>
+
+        <div class="flex items-center gap-3 text-[11px]">
+          <span class="font-bold text-slate-300">Fotos por hoja:</span>
+          <label class="flex items-center gap-1 cursor-pointer bg-slate-800 px-2 py-1 rounded-lg border border-slate-700">
+            <input type="radio" name="photos-per-page" value="1" checked> 1 por hoja (horizontal)
+          </label>
+          <label class="flex items-center gap-1 cursor-pointer bg-slate-800 px-2 py-1 rounded-lg border border-slate-700">
+            <input type="radio" name="photos-per-page" value="2"> 2 por hoja (vertical, una arriba y otra abajo)
+          </label>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <span id="photo-select-count" class="text-[11px] font-bold text-slate-300 whitespace-nowrap">0 fotos seleccionadas</span>
+          <button onclick="printSelectedPhotosA4()" id="print-photos-btn" disabled class="flex-1 bg-slate-700 text-slate-400 font-black py-2 rounded-xl text-xs cursor-not-allowed transition">
+            🖨️ Imprimir fotos seleccionadas
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -391,7 +525,7 @@
   <!-- ══════════════════════════════════════
        NAV DE CATEGORÍAS (sticky)
   ══════════════════════════════════════ -->
-  <div class="sticky top-[68px] z-20 bg-white border-b border-slate-200 shadow-sm">
+  <div id="cat-nav-wrapper" class="sticky top-[68px] z-20 bg-white border-b border-slate-200 shadow-sm">
     <div id="cat-nav" class="max-w-4xl mx-auto px-3 py-2.5 flex gap-2 overflow-x-auto">
       <!-- Cargado dinámicamente -->
       <div class="skeleton h-8 w-24 rounded-full flex-shrink-0"></div>
@@ -441,6 +575,10 @@
   <div id="print-footer" class="text-center border-t-2 border-amber-500 pt-3 mt-6">
     <p class="text-sm font-black text-slate-700">📲 Pedidos y consultas por WhatsApp: <span class="font-bold text-slate-800">+54 9 379 559-1611 &nbsp;•&nbsp; +54 9 351 230-7121</span></p>
   </div>
+
+  <!-- Área especial (vacía en pantalla) donde se arman las hojas A4 de
+       fotos sueltas justo antes de imprimir — ver printSelectedPhotosA4() -->
+  <div id="photo-print-area"></div>
 
   <!-- ══════════════════════════════════════
        FOOTER
@@ -641,8 +779,18 @@
                loading="${isPrintMode ? 'eager' : 'lazy'}" onerror="this.parentElement.classList.add('hidden')">`
         : '';
 
+      // Casilla para elegir esta foto para el nuevo modo "imprimir fotos
+      // sueltas en A4" (ver printSelectedPhotosA4 más abajo). Solo se
+      // muestra en modo impresión (?print=1, el mismo desde donde se abre
+      // el panel de impresión) y nunca sale en el papel (clase no-print).
+      const photoCheckHTML = (isPrintMode && hasImg)
+        ? `<label class="no-print absolute top-1 left-1 z-20 bg-white/95 rounded-md p-1 shadow flex items-center justify-center cursor-pointer" title="Marcar para imprimir en A4" onclick="event.stopPropagation()">
+             <input type="checkbox" class="photo-select-check w-4 h-4 accent-amber-500" data-prod-id="${prod.id}" onchange="updatePhotoSelectionCount()">
+           </label>`
+        : '';
+
       card.innerHTML = `
-        ${hasImg ? `<div class="w-24 flex-shrink-0 bg-slate-100 overflow-hidden">${imgHTML}</div>` : ''}
+        ${hasImg ? `<div class="w-24 flex-shrink-0 bg-slate-100 overflow-hidden relative">${imgHTML}${photoCheckHTML}</div>` : ''}
         <div class="flex-1 p-3 flex flex-col justify-between gap-1 min-w-0">
           <div>
             <div class="font-black text-sm text-slate-900 leading-snug line-clamp-2">${prod.name}</div>
@@ -783,8 +931,109 @@
         document.getElementById('print-controls').classList.remove('hidden');
         buildPrintCategoryChecks();
         updatePrintSelection();
+        updatePhotoSelectionCount();
       };
       window.buildAllSections = buildAllSections;
+    }
+
+    // ── Imprimir fotos sueltas en A4 (elegidas a mano con casillas) ───
+    function selectAllPhotos(checked) {
+      document.querySelectorAll('.photo-select-check').forEach(chk => { chk.checked = checked; });
+      updatePhotoSelectionCount();
+    }
+
+    function updatePhotoSelectionCount() {
+      const n = document.querySelectorAll('.photo-select-check:checked').length;
+      const countEl = document.getElementById('photo-select-count');
+      const btn = document.getElementById('print-photos-btn');
+      if (countEl) countEl.textContent = n + (n === 1 ? ' foto seleccionada' : ' fotos seleccionadas');
+      if (btn) {
+        btn.disabled = n === 0;
+        btn.classList.toggle('bg-slate-700', n === 0);
+        btn.classList.toggle('text-slate-400', n === 0);
+        btn.classList.toggle('cursor-not-allowed', n === 0);
+        btn.classList.toggle('bg-gradient-to-r', n > 0);
+        btn.classList.toggle('from-amber-500', n > 0);
+        btn.classList.toggle('to-orange-500', n > 0);
+        btn.classList.toggle('text-slate-950', n > 0);
+        btn.classList.toggle('hover:from-amber-400', n > 0);
+        btn.classList.toggle('hover:to-orange-400', n > 0);
+      }
+    }
+
+    // Arma el HTML de una foto (imagen de fondo + nombre/precio superpuestos)
+    // que se reutiliza tanto para una hoja entera como para media hoja.
+    function buildPhotoBlockHTML(prod) {
+      const priceHTML = prod.descuento_pct > 0
+        ? `<span class="pp-old">${formatPrice(prod.price)}</span>${formatPrice(prod.precio_promo)}`
+        : formatPrice(prod.price);
+      return `
+        <img src="${prod.image_url}" alt="${prod.name}">
+        <div class="photo-print-overlay">
+          <div class="pp-name">${prod.name}</div>
+          <div class="pp-price">${priceHTML}</div>
+        </div>
+      `;
+    }
+
+    // Imprime una hoja A4 por cada foto tildada (o de a 2 por hoja, según
+    // la opción elegida). "1 por hoja" usa la hoja apaisada (horizontal);
+    // "2 por hoja" usa la hoja vertical con una foto arriba y otra abajo.
+    function printSelectedPhotosA4() {
+      const checks = Array.from(document.querySelectorAll('.photo-select-check:checked'));
+      if (!checks.length) return;
+
+      const perPage = document.querySelector('input[name="photos-per-page"]:checked')?.value || '1';
+      const prods = checks
+        .map(chk => allProducts.find(p => p.id === parseInt(chk.dataset.prodId)))
+        .filter(p => p && p.image_url);
+      if (!prods.length) return;
+
+      const area = document.getElementById('photo-print-area');
+      let html = '';
+
+      if (perPage === '2') {
+        for (let i = 0; i < prods.length; i += 2) {
+          const pair = prods.slice(i, i + 2);
+          if (pair.length === 2) {
+            html += `
+              <div class="photo-print-page double" style="width:210mm;height:297mm;">
+                <div class="photo-print-half">${buildPhotoBlockHTML(pair[0])}</div>
+                <div class="photo-print-half">${buildPhotoBlockHTML(pair[1])}</div>
+              </div>
+            `;
+          } else {
+            // Cantidad impar de fotos: la última queda sola, ocupando la
+            // hoja vertical entera (para no dejar la mitad en blanco).
+            html += `<div class="photo-print-page" style="width:210mm;height:297mm;">${buildPhotoBlockHTML(pair[0])}</div>`;
+          }
+        }
+      } else {
+        prods.forEach(prod => {
+          html += `<div class="photo-print-page" style="width:297mm;height:210mm;">${buildPhotoBlockHTML(prod)}</div>`;
+        });
+      }
+
+      area.innerHTML = html;
+
+      // Fuerza la orientación de hoja correcta para esta impresión puntual
+      // (sin márgenes, foto a sangre completa) y la restaura al terminar,
+      // para no afectar la impresión normal del menú por categorías.
+      const pageStyleTag = document.getElementById('page-size-style');
+      const prevPageStyle = pageStyleTag.textContent;
+      pageStyleTag.textContent = perPage === '2'
+        ? '@page { size: A4 portrait; margin: 0; }'
+        : '@page { size: A4 landscape; margin: 0; }';
+      document.body.classList.add('photo-print-mode');
+
+      function handler() {
+        window.removeEventListener('afterprint', handler);
+        document.body.classList.remove('photo-print-mode');
+        pageStyleTag.textContent = prevPageStyle;
+        area.innerHTML = '';
+      }
+      window.addEventListener('afterprint', handler);
+      setTimeout(() => window.print(), 60);
     }
 
   </script>

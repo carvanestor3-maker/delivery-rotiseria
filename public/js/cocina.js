@@ -232,6 +232,8 @@ function renderKanban() {
   const counts = { nuevo: 0, en_preparacion: 0, en_camino: 0, entregado: 0 };
 
   orders.forEach(order => {
+    if (order.status === 'cancelado') return; // los pedidos cancelados no se muestran en el tablero de cocina
+
     const statusKey = cols[order.status] ? order.status : 'nuevo';
     counts[statusKey] = (counts[statusKey] || 0) + 1;
 
@@ -336,6 +338,12 @@ function createOrderCard(order) {
 
     <!-- Controles de Caja e Impresión -->
     <div class="mt-2 pt-2 border-t border-slate-800 flex flex-col gap-2">
+      ${(!isPaid && order.status !== 'entregado') ? `
+        <button onclick="cancelOrderFromKitchen(${order.id})" class="w-full bg-red-950/40 hover:bg-red-900/60 border border-red-500/30 active:scale-95 text-red-300 font-bold py-1.5 rounded-lg text-[11px] flex items-center justify-center gap-1 transition">
+          ❌ Cancelar Pedido (Nivel 3)
+        </button>
+      ` : ''}
+
       <!-- Estado de Cobro en Caja -->
       <div class="flex items-center justify-between bg-slate-950/80 p-2 rounded-xl border border-slate-800">
         <span class="text-xs font-bold ${isPaid ? 'text-emerald-400' : 'text-amber-400'} flex items-center gap-1">
@@ -418,6 +426,43 @@ async function updateOrderStatus(orderId, newStatus) {
     }
   } catch (err) {
     console.error('Error al actualizar estado:', err);
+  }
+}
+
+async function cancelOrderFromKitchen(orderId) {
+  const order = orders.find(o => o.id === orderId);
+  if (!order) return;
+
+  if (order.paid === 1) {
+    alert(`⚠️ El pedido ${order.order_number} ya fue ingresado a Caja. No se puede cancelar desde Cocina.`);
+    return;
+  }
+
+  const reason = prompt(`❌ Cancelar pedido ${order.order_number} (${order.customer_name}):\n\nMotivo de la cancelación:`);
+  if (reason === null) return; // canceló el prompt, no hacemos nada
+
+  const pin = prompt('🔑 Ingrese el PIN de Gerente / Dueño (Nivel 3) para confirmar la cancelación:');
+  if (!pin) return;
+
+  try {
+    const res = await fetch(`/api/orders/${orderId}/cancel`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason, pin })
+    });
+    const data = await res.json();
+    if (!data.success) {
+      alert(`⚠️ ${data.error}`);
+      return;
+    }
+    const idx = orders.findIndex(o => o.id === orderId);
+    if (idx > -1) {
+      orders[idx] = data.order;
+      renderKanban();
+    }
+  } catch (err) {
+    console.error('Error al cancelar pedido:', err);
+    alert('⚠️ Ocurrió un error de conexión al intentar cancelar el pedido.');
   }
 }
 

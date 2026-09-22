@@ -1603,6 +1603,78 @@ app.put('/api/orders/:id/status', (req, res) => {
   }
 });
 
+// CANCELAR PEDIDO YA INGRESADO A COCINA (REQUERIDO NIVEL 3 - SOLO ANTES DE INGRESAR A CAJA, REVIERTE STOCK)
+app.post('/api/orders/:id/cancel', (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason, pin } = req.body;
+
+    const auth = verifyUserPin(pin, 3);
+    if (!auth.isValid) {
+      return res.status(401).json({ success: false, error: 'Acceso Denegado: Cancelar un pedido requiere PIN de Gerente / Dueño (Nivel 3).' });
+    }
+
+    const store = db.getStore();
+    const existingOrder = store.orders.find(o => o.id === parseInt(id));
+
+    if (!existingOrder) {
+      return res.status(404).json({ success: false, error: 'Pedido no encontrado' });
+    }
+
+    if (existingOrder.status === 'cancelado') {
+      return res.status(400).json({ success: false, error: `El pedido ${existingOrder.order_number} ya estaba cancelado.` });
+    }
+
+    if (existingOrder.status === 'entregado') {
+      return res.status(400).json({ success: false, error: `No se puede cancelar el pedido ${existingOrder.order_number} porque ya fue marcado como Entregado.` });
+    }
+
+    if (existingOrder.paid === 1) {
+      return res.status(400).json({
+        success: false,
+        error: `El pedido ${existingOrder.order_number} ya fue ingresado a Caja ($${existingOrder.total}). No puede cancelarse desde Cocina: primero hay que revertir el cobro en Caja / Admin.`
+      });
+    }
+
+    // Si la comanda ya había entrado a cocina (descontando insumos), se revierte el stock consumido
+    const statusesConDescuentoDeStock = ['en_preparacion', 'en_camino', 'ready', 'bar_despachado', 'en_proceso'];
+    if (statusesConDescuentoDeStock.includes(existingOrder.status)) {
+      const orderItems = typeof existingOrder.items === 'string' ? JSON.parse(existingOrder.items) : existingOrder.items;
+      if (Array.isArray(orderItems)) {
+        orderItems.forEach(item => {
+          const recipes = store.product_recipes.filter(r => r.product_id === item.id);
+          recipes.forEach(r => {
+            const rawMat = store.raw_materials.find(m => m.id === r.raw_material_id);
+            if (rawMat) {
+              const restoreQty = (r.qty_per_portion || 0) * (item.qty || 1);
+              rawMat.current_stock = (rawMat.current_stock || 0) + restoreQty;
+            }
+          });
+        });
+      }
+    }
+
+    existingOrder.status = 'cancelado';
+    existingOrder.cancelled_reason = (reason || '').trim() || 'Sin motivo especificado';
+    existingOrder.cancelled_by = `${auth.user.name} (Nivel ${auth.user.level})`;
+    existingOrder.cancelled_at = new Date().toISOString();
+    existingOrder.updated_at = new Date().toISOString();
+    db.saveStore();
+
+    const updatedOrder = {
+      ...existingOrder,
+      items: typeof existingOrder.items === 'string' ? JSON.parse(existingOrder.items) : existingOrder.items
+    };
+
+    io.emit('order_updated', updatedOrder);
+    io.emit('stock_updated');
+
+    res.json({ success: true, order: updatedOrder, user_name: auth.user.name });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // NOTIFICACIÓN DE INCIDENTE / FALTA DE INSUMO EN BARRA CON ALERTA A CAJA
 app.post('/api/bar/orders/:id/incident', (req, res) => {
   try {

@@ -2243,6 +2243,7 @@ async function openRecipeModal(selectedProductId = null) {
 function closeRecipeModal() {
   const modal = document.getElementById('recipe-modal');
   modal.classList.add('opacity-0', 'pointer-events-none');
+  hideInsumoDropdown();
 }
 
 function loadProductRecipeDetails() {
@@ -2264,6 +2265,154 @@ function loadProductRecipeDetails() {
   }
 }
 
+// ==========================================
+// BUSCADOR DE INSUMOS PARA LA FICHA TÉCNICA (combobox con lista flotante,
+// ordenada alfabéticamente y filtrable escribiendo nombre o código)
+// ==========================================
+let _insumoDropdownEl = null;
+let _insumoDropdownActiveRow = null;
+
+function getInsumoDropdownEl() {
+  if (!_insumoDropdownEl) {
+    _insumoDropdownEl = document.createElement('div');
+    _insumoDropdownEl.id = 'insumo-search-dropdown';
+    _insumoDropdownEl.className = 'fixed z-[999] max-h-56 overflow-y-auto bg-white border border-slate-300 rounded-lg shadow-2xl text-xs';
+    // Visibilidad controlada por estilo inline (no por clase de Tailwind): este elemento
+    // se crea 100% por JS y nunca aparece en el HTML inicial, así que no podemos depender
+    // de que Tailwind (cargado por CDN) detecte y genere la clase "hidden" a tiempo.
+    _insumoDropdownEl.style.display = 'none';
+    document.body.appendChild(_insumoDropdownEl);
+  }
+  return _insumoDropdownEl;
+}
+
+function insumoLabel(m) {
+  return `[${m.code || `INS-${String(m.id).padStart(3, '0')}`}] ${m.name} (${m.unit})`;
+}
+
+function sortedRawMaterialsList() {
+  return [...rawMaterials].sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }));
+}
+
+function hideInsumoDropdown() {
+  if (_insumoDropdownEl) _insumoDropdownEl.style.display = 'none';
+  _insumoDropdownActiveRow = null;
+}
+
+function repositionActiveInsumoDropdown() {
+  if (!_insumoDropdownActiveRow || !document.body.contains(_insumoDropdownActiveRow)) {
+    hideInsumoDropdown();
+    return;
+  }
+  const input = _insumoDropdownActiveRow.querySelector('.rec-insumo-search');
+  if (!input) { hideInsumoDropdown(); return; }
+  const rect = input.getBoundingClientRect();
+  const dropdown = getInsumoDropdownEl();
+  dropdown.style.left = `${rect.left}px`;
+  dropdown.style.top = `${rect.bottom + 4}px`;
+  dropdown.style.width = `${rect.width}px`;
+}
+
+window.addEventListener('resize', repositionActiveInsumoDropdown);
+document.addEventListener('scroll', repositionActiveInsumoDropdown, true);
+
+function setupInsumoCombobox(row, selectedId) {
+  const searchInput = row.querySelector('.rec-insumo-search');
+  const hiddenInput = row.querySelector('.rec-raw-material-id');
+  let highlightedIdx = -1;
+  let currentList = [];
+
+  function renderOptions(query) {
+    const dropdown = getInsumoDropdownEl();
+    const q = (query || '').trim().toLowerCase();
+    currentList = sortedRawMaterialsList().filter(m =>
+      !q || m.name.toLowerCase().includes(q) || (m.code || '').toLowerCase().includes(q)
+    );
+
+    if (currentList.length === 0) {
+      dropdown.innerHTML = `<div class="px-2.5 py-2 text-slate-400 italic">Sin resultados</div>`;
+    } else {
+      dropdown.innerHTML = currentList.map((m, i) => `
+        <div class="insumo-dd-option px-2.5 py-1.5 cursor-pointer hover:bg-indigo-50 ${i === highlightedIdx ? 'bg-indigo-100' : ''}" data-id="${m.id}">
+          ${insumoLabel(m)}
+        </div>
+      `).join('');
+      dropdown.querySelectorAll('.insumo-dd-option').forEach(opt => {
+        opt.addEventListener('mousedown', (e) => {
+          e.preventDefault(); // evita que el blur del input cierre la lista antes del click
+          selectMaterial(parseInt(opt.dataset.id));
+        });
+      });
+      const highlighted = dropdown.children[highlightedIdx];
+      if (highlighted) highlighted.scrollIntoView({ block: 'nearest' });
+    }
+  }
+
+  function openDropdown() {
+    _insumoDropdownActiveRow = row;
+    repositionActiveInsumoDropdown();
+    renderOptions(searchInput.value);
+    getInsumoDropdownEl().style.display = 'block';
+  }
+
+  function closeDropdown() {
+    if (_insumoDropdownActiveRow === row) hideInsumoDropdown();
+    highlightedIdx = -1;
+  }
+
+  function selectMaterial(id) {
+    const m = rawMaterials.find(x => x.id === id);
+    if (!m) return;
+    hiddenInput.value = m.id;
+    searchInput.value = insumoLabel(m);
+    const unitLabel = row.querySelector('.rec-qty-unit-label');
+    if (unitLabel) unitLabel.textContent = `por porción (${m.unit})`;
+    closeDropdown();
+  }
+
+  searchInput.addEventListener('focus', () => {
+    searchInput.select();
+    openDropdown();
+  });
+
+  searchInput.addEventListener('input', () => {
+    hiddenInput.value = '';
+    highlightedIdx = -1;
+    openDropdown();
+  });
+
+  searchInput.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (getInsumoDropdownEl().style.display === 'none') { openDropdown(); return; }
+      highlightedIdx = Math.min(highlightedIdx + 1, currentList.length - 1);
+      renderOptions(searchInput.value);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      highlightedIdx = Math.max(highlightedIdx - 1, 0);
+      renderOptions(searchInput.value);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      const target = currentList[highlightedIdx] || currentList[0];
+      if (target) selectMaterial(target.id);
+    } else if (e.key === 'Escape') {
+      closeDropdown();
+    }
+  });
+
+  searchInput.addEventListener('blur', () => {
+    setTimeout(() => {
+      closeDropdown();
+      if (!hiddenInput.value) searchInput.value = '';
+    }, 150);
+  });
+
+  if (selectedId !== null) {
+    const m = rawMaterials.find(x => x.id === selectedId);
+    if (m) searchInput.value = insumoLabel(m);
+  }
+}
+
 function addRecipeIngredientRow(rawMatId = null, qtyPerPortion = null) {
   const container = document.getElementById('recipe-ingredients-container');
   if (!container) return;
@@ -2271,19 +2420,17 @@ function addRecipeIngredientRow(rawMatId = null, qtyPerPortion = null) {
   const row = document.createElement('div');
   row.className = 'recipe-ingredient-row flex gap-2 items-center bg-white p-2 rounded-xl border border-slate-200 shadow-sm';
 
-  const matOptionsHtml = rawMaterials.map(m => `
-    <option value="${m.id}" ${rawMatId === m.id ? 'selected' : ''}>
-      [${m.code || `INS-${String(m.id).padStart(3, '0')}`}] ${m.name} (${m.unit})
-    </option>
-  `).join('');
+  const initialMat = rawMatId !== null ? rawMaterials.find(x => x.id === rawMatId) : null;
+  const initialUnitLabel = initialMat ? `por porción (${initialMat.unit})` : 'por porción';
 
   row.innerHTML = `
-    <select class="rec-raw-material-id flex-1 px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-bold bg-white text-slate-800">
-      ${matOptionsHtml}
-    </select>
+    <div class="relative flex-1">
+      <input type="text" class="rec-insumo-search w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-bold bg-white text-slate-800" placeholder="Escribí para buscar insumo (nombre o código)..." autocomplete="off">
+      <input type="hidden" class="rec-raw-material-id" value="${rawMatId !== null ? rawMatId : ''}">
+    </div>
     <div class="flex items-center gap-1">
-      <input type="number" step="0.001" class="rec-qty-per-portion w-24 px-2 py-1.5 border border-slate-300 rounded-lg text-xs font-mono font-bold text-slate-900" placeholder="Cant (ej 0.25)" value="${qtyPerPortion !== null ? qtyPerPortion : ''}">
-      <span class="text-[10px] text-slate-400 font-bold">por porción/kg</span>
+      <input type="number" step="0.001" class="rec-qty-per-portion w-24 px-2 py-1.5 border border-slate-300 rounded-lg text-xs font-mono font-bold text-slate-900" placeholder="Ej: 0.25 o 1" value="${qtyPerPortion !== null ? qtyPerPortion : ''}">
+      <span class="rec-qty-unit-label text-[10px] text-slate-400 font-bold whitespace-nowrap">${initialUnitLabel}</span>
     </div>
     <button type="button" onclick="this.parentElement.remove()" class="p-1 text-red-500 hover:bg-red-50 rounded-lg transition" title="Quitar ingrediente">
       <i data-lucide="trash-2" class="w-4 h-4"></i>
@@ -2291,6 +2438,7 @@ function addRecipeIngredientRow(rawMatId = null, qtyPerPortion = null) {
   `;
 
   container.appendChild(row);
+  setupInsumoCombobox(row, rawMatId);
   lucide.createIcons();
 }
 

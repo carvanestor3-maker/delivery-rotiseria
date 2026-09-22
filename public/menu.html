@@ -380,6 +380,23 @@
         margin-right: 12px;
       }
       .photo-print-half .photo-print-overlay .pp-old { font-size: 12px; margin-right: 7px; }
+
+      /* Cartelito naranja con el % de descuento — es lo primero que mira
+         la gente en una promo, así que va grande y bien visible al lado
+         del precio nuevo. */
+      .photo-print-overlay .pp-badge {
+        display: inline-block;
+        background: #f97316;
+        color: #ffffff;
+        font-weight: 900;
+        border-radius: 8px;
+        padding: 4px 14px;
+        margin-left: 14px;
+        font-size: 22px;
+        text-shadow: none;
+        vertical-align: middle;
+      }
+      .photo-print-half .photo-print-overlay .pp-badge { font-size: 13px; padding: 2px 9px; margin-left: 8px; border-radius: 6px; }
     }
 
   </style>
@@ -965,7 +982,7 @@
     // que se reutiliza tanto para una hoja entera como para media hoja.
     function buildPhotoBlockHTML(prod) {
       const priceHTML = prod.descuento_pct > 0
-        ? `<span class="pp-old">${formatPrice(prod.price)}</span>${formatPrice(prod.precio_promo)}`
+        ? `<span class="pp-old">${formatPrice(prod.price)}</span>${formatPrice(prod.precio_promo)} <span class="pp-badge">-${prod.descuento_pct}%</span>`
         : formatPrice(prod.price);
       return `
         <img src="${prod.image_url}" alt="${prod.name}">

@@ -1053,11 +1053,21 @@ function generateProductAutoEan() {
 
 // Lector de fotos de la PC / Celular
 // IMPORTANTE: las fotos generadas por IA (o sacadas con el celu) suelen pesar
-// varios MB. Guardarlas tal cual como base64 hace que el guardado en la base
-// de datos falle silenciosamente a veces (algunas fotos se guardan y otras
-// no, según el tamaño). Por eso acá SIEMPRE se comprime/redimensiona la
-// imagen en el navegador antes de guardarla, igual que se hace con el resto
-// de las fotos del menú.
+// varios MB, por eso SIEMPRE se comprime/redimensiona en el navegador antes
+// de hacer nada más con ella.
+//
+// Antes, esa foto ya comprimida se guardaba tal cual (como texto base64)
+// adentro del mismo bloque de datos gigante de la app. Cuantas más fotos se
+// cargaban, más pesado y lento se ponía CADA guardado del sistema, tuviera
+// o no que ver con esa foto. Ahora, en vez de eso, la foto comprimida se
+// sube a Supabase Storage (ver storage.js en el servidor) y acá solo se
+// guarda el link — así el bloque de datos se mantiene liviano sin importar
+// cuántas fotos se carguen.
+//
+// Si por algún motivo la subida falla (por ejemplo, Supabase Storage
+// todavía no está configurado), se cae de nuevo en el comportamiento
+// anterior — guardar la foto incrustada — para que el panel nunca se quede
+// sin poder cargar una foto.
 function handleImageFileSelect(event) {
   const file = event.target.files[0];
   if (!file) return;
@@ -1065,7 +1075,7 @@ function handleImageFileSelect(event) {
   const reader = new FileReader();
   reader.onload = function(e) {
     const img = new Image();
-    img.onload = function() {
+    img.onload = async function() {
       const maxDim = 900;
       let w = img.width, h = img.height;
       if (w > maxDim || h > maxDim) {
@@ -1077,9 +1087,34 @@ function handleImageFileSelect(event) {
       canvas.height = h;
       const ctx = canvas.getContext('2d');
       ctx.drawImage(img, 0, 0, w, h);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.72);
-      document.getElementById('prod-image').value = dataUrl;
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+
+      // Mostramos la vista previa al toque (con la foto comprimida local),
+      // mientras se sube en segundo plano.
       showImagePreview(dataUrl);
+      document.getElementById('prod-image').value = dataUrl;
+      setImageUploadStatus('⏳ Subiendo foto...');
+
+      try {
+        const res = await fetch('/api/admin/upload-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: dataUrl })
+        });
+        const data = await res.json();
+        if (data.success && data.url) {
+          document.getElementById('prod-image').value = data.url;
+          setImageUploadStatus('✅ Foto subida');
+        } else {
+          // Supabase Storage no configurado todavía (u otro error): seguimos
+          // con la foto incrustada, que es lo que ya había en el campo.
+          console.warn('No se pudo subir la foto a Supabase Storage, se guarda incrustada:', data.error);
+          setImageUploadStatus('⚠️ No se pudo subir a Supabase, se guardó la foto directamente (más pesada)');
+        }
+      } catch (err) {
+        console.warn('No se pudo subir la foto (sin conexión al servidor de subida), se guarda incrustada:', err.message);
+        setImageUploadStatus('⚠️ No se pudo subir a Supabase, se guardó la foto directamente (más pesada)');
+      }
     };
     img.onerror = function() {
       // Si por algún motivo no se puede procesar como imagen, usamos el
@@ -1090,6 +1125,14 @@ function handleImageFileSelect(event) {
     img.src = e.target.result;
   };
   reader.readAsDataURL(file);
+}
+
+// Cartelito chiquito de estado debajo de la vista previa de la foto (subiendo
+// / subida / error). Si no existe el elemento en el HTML del modal, no hace
+// nada — es solo informativo, no bloquea el guardado del producto.
+function setImageUploadStatus(text) {
+  const el = document.getElementById('image-upload-status');
+  if (el) el.textContent = text;
 }
 
 function showImagePreview(url) {

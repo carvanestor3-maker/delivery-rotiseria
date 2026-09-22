@@ -7,6 +7,7 @@ const net = require('net');
 const fs = require('fs');
 const { execSync } = require('child_process');
 const db = require('./db');
+const storage = require('./storage');
 
 const app = express();
 const server = http.createServer(app);
@@ -2137,6 +2138,25 @@ app.post('/api/admin/products', async (req, res) => {
   } catch (err) {
     console.error('⚠️ Error al guardar producto:', err.message);
     res.status(500).json({ success: false, error: 'No se pudo guardar en la base de datos: ' + err.message });
+  }
+});
+
+// Sube la foto de un producto a Supabase Storage y devuelve el link público,
+// para guardar SOLO el link en el producto en vez de la foto incrustada
+// (ver storage.js para el porqué). Si Supabase Storage no está configurado
+// todavía, devuelve un error claro y el panel sigue funcionando como antes
+// (guardando la foto incrustada).
+app.post('/api/admin/upload-image', async (req, res) => {
+  try {
+    const { image } = req.body;
+    if (!image) {
+      return res.status(400).json({ success: false, error: 'Falta la imagen.' });
+    }
+    const url = await storage.uploadProductImage(image);
+    res.json({ success: true, url });
+  } catch (err) {
+    console.error('⚠️ Error al subir imagen a Supabase Storage:', err.message);
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 

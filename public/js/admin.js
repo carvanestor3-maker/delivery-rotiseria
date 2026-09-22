@@ -2294,6 +2294,31 @@ function sortedRawMaterialsList() {
   return [...rawMaterials].sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }));
 }
 
+// Los insumos que se cargan "por Unidades" (ej: vasitos de salsa, cajas de
+// delivery, tapas, medialunas) no admiten fracciones: fuerza a número entero.
+function enforceIntegerQtyIfNeeded(row, unit) {
+  const qtyInput = row.querySelector('.rec-qty-per-portion');
+  if (!qtyInput) return;
+
+  if (unit === 'unidades') {
+    qtyInput.step = '1';
+    qtyInput.title = 'Este insumo se carga por Unidades: solo se permiten números enteros (1, 2, 3...)';
+    qtyInput.onblur = function () {
+      const val = parseFloat(qtyInput.value);
+      if (!isNaN(val) && !Number.isInteger(val)) {
+        const rounded = Math.max(0, Math.round(val));
+        const searchInput = row.querySelector('.rec-insumo-search');
+        alert(`⚠️ "${searchInput ? searchInput.value : 'Este insumo'}" se carga por Unidades: la cantidad debe ser un número entero.\n\nSe redondeó ${val} a ${rounded}.`);
+        qtyInput.value = rounded;
+      }
+    };
+  } else {
+    qtyInput.step = '0.001';
+    qtyInput.title = '';
+    qtyInput.onblur = null;
+  }
+}
+
 function hideInsumoDropdown() {
   if (_insumoDropdownEl) _insumoDropdownEl.style.display = 'none';
   _insumoDropdownActiveRow = null;
@@ -2367,6 +2392,7 @@ function setupInsumoCombobox(row, selectedId) {
     searchInput.value = insumoLabel(m);
     const unitLabel = row.querySelector('.rec-qty-unit-label');
     if (unitLabel) unitLabel.textContent = `por porción (${m.unit})`;
+    enforceIntegerQtyIfNeeded(row, m.unit);
     closeDropdown();
   }
 
@@ -2409,7 +2435,10 @@ function setupInsumoCombobox(row, selectedId) {
 
   if (selectedId !== null) {
     const m = rawMaterials.find(x => x.id === selectedId);
-    if (m) searchInput.value = insumoLabel(m);
+    if (m) {
+      searchInput.value = insumoLabel(m);
+      enforceIntegerQtyIfNeeded(row, m.unit);
+    }
   }
 }
 
@@ -2462,10 +2491,15 @@ function applyRecipePercentageScale() {
 
   rows.forEach(row => {
     const qtyInput = row.querySelector('.rec-qty-per-portion');
+    const hiddenInput = row.querySelector('.rec-raw-material-id');
     if (qtyInput && qtyInput.value) {
       const currentQty = parseFloat(qtyInput.value);
       if (!isNaN(currentQty) && currentQty > 0) {
-        const newQty = parseFloat((currentQty * multiplier).toFixed(4));
+        const matId = hiddenInput && hiddenInput.value ? parseInt(hiddenInput.value) : null;
+        const mat = matId ? rawMaterials.find(m => m.id === matId) : null;
+        const scaled = currentQty * multiplier;
+        // Los insumos por Unidades no admiten fracciones: se redondean al aplicar el %
+        const newQty = (mat && mat.unit === 'unidades') ? Math.max(0, Math.round(scaled)) : parseFloat(scaled.toFixed(4));
         qtyInput.value = newQty;
       }
     }

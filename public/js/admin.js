@@ -2229,15 +2229,60 @@ async function openRecipeModal(selectedProductId = null) {
 
   const genProducts = products || [];
   if (sel) {
-    sel.innerHTML = genProducts.map(p => `
+    sel.innerHTML = genProducts.map(p => {
+      const yaTieneReceta = activeRecipes.some(r => r.product_id === p.id);
+      return `
       <option value="${p.id}" ${selectedProductId === p.id ? 'selected' : ''}>
-        [${p.code || `PROD-${String(p.id).padStart(3, '0')}`}] ${p.name} (${p.unit_type === 'kg' ? 'x Kg' : 'x Unidad'})
+        ${yaTieneReceta ? '✅' : '⬜'} [${p.code || `PROD-${String(p.id).padStart(3, '0')}`}] ${p.name} (${p.unit_type === 'kg' ? 'x Kg' : 'x Unidad'})
       </option>
-    `).join('');
+    `;
+    }).join('');
   }
 
+  updateRecipeProgressSummary();
   loadProductRecipeDetails();
   modal.classList.remove('opacity-0', 'pointer-events-none');
+}
+
+// Cuenta cuántos platos ya tienen su ficha técnica (receta) cargada, para que
+// se pueda ver el progreso de un vistazo y no cargar el mismo plato dos veces.
+function updateRecipeProgressSummary() {
+  const summaryEl = document.getElementById('recipe-progress-summary');
+  if (!summaryEl) return;
+  const genProducts = products || [];
+  const productIdsConReceta = new Set(activeRecipes.map(r => r.product_id));
+  const cargados = genProducts.filter(p => productIdsConReceta.has(p.id)).length;
+  const total = genProducts.length;
+  summaryEl.textContent = `✅ ${cargados} de ${total} platos con ficha técnica cargada (${total - cargados} pendientes)`;
+}
+
+// Salta directo al próximo plato que todavía NO tiene ficha técnica cargada,
+// empezando después del que está seleccionado actualmente (y dando la vuelta
+// si hace falta), para poder ir cargando todos sin repetir ni saltear ninguno.
+function goToNextProductWithoutRecipe() {
+  const sel = document.getElementById('rec-product-id');
+  if (!sel) return;
+  const genProducts = products || [];
+  if (genProducts.length === 0) return;
+
+  const productIdsConReceta = new Set(activeRecipes.map(r => r.product_id));
+  const currentId = parseInt(sel.value);
+  const currentIdx = genProducts.findIndex(p => p.id === currentId);
+
+  const startIdx = currentIdx >= 0 ? currentIdx + 1 : 0;
+  let nextProduct = null;
+  for (let i = 0; i < genProducts.length; i++) {
+    const p = genProducts[(startIdx + i) % genProducts.length];
+    if (!productIdsConReceta.has(p.id)) { nextProduct = p; break; }
+  }
+
+  if (!nextProduct) {
+    alert('🎉 ¡Ya cargaste la ficha técnica de todos los platos!');
+    return;
+  }
+
+  sel.value = nextProduct.id;
+  loadProductRecipeDetails();
 }
 
 function closeRecipeModal() {

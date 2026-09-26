@@ -573,448 +573,6 @@ function populateAdjustStockSelect() {
   sel.innerHTML = rawMaterials.map(m => `<option value="${m.id}">[${m.code || `INS-${String(m.id).padStart(3, '0')}`}] ${m.name} (Stock Virtual Actual: ${m.current_stock} ${m.unit})</option>`).join('');
 }
 
-// ==========================================================================
-// PROVEEDORES, PRECIOS & COMPRAS
-// (los datos viven en una base de datos separada - db_suppliers.js - por
-// eso siempre se piden/guardan contra sus propios endpoints /api/admin/suppliers*,
-// nunca se mezclan con el resto del "store" general de la app)
-// ==========================================================================
-let supplierProducts = [];
-let supplierPurchases = [];
-
-async function loadSuppliersData() {
-  try {
-    const res = await fetch('/api/admin/stock');
-    const data = await res.json();
-    if (data.success) {
-      suppliers = data.suppliers || [];
-      supplierProducts = data.supplier_products || [];
-      supplierPurchases = data.supplier_purchases || [];
-      renderSuppliersTable();
-      populateSupplierSelects();
-      populateSupplierMaterialFilter();
-      renderSupplierProductsTable();
-      renderSupplierPurchasesTable();
-    }
-  } catch (err) {
-    console.error('Error al cargar proveedores:', err);
-  }
-}
-
-function renderSuppliersTable() {
-  const tbody = document.getElementById('suppliers-table-body');
-  if (!tbody) return;
-  if (suppliers.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-400">No hay proveedores cargados todavía.</td></tr>`;
-    return;
-  }
-  tbody.innerHTML = suppliers.map(s => `
-    <tr class="hover:bg-slate-50 transition">
-      <td class="p-3 font-extrabold text-slate-900">🚚 ${s.name}</td>
-      <td class="p-3 font-mono text-slate-600">${s.cuit || '-'}</td>
-      <td class="p-3 font-mono text-slate-600">${s.phone || '-'}</td>
-      <td class="p-3 text-slate-600">${s.email || '-'}</td>
-      <td class="p-3 text-slate-600">${s.address || '-'}</td>
-      <td class="p-3 text-slate-600">${s.payment_terms || '-'}</td>
-      <td class="p-3 text-center space-x-1 whitespace-nowrap">
-        <button onclick="openSupplierModal(${s.id})" class="p-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-700 transition" title="Editar">
-          <i data-lucide="edit-2" class="w-4 h-4"></i>
-        </button>
-        <button onclick="deleteSupplier(${s.id})" class="p-1.5 bg-red-100 hover:bg-red-200 rounded-lg text-red-700 transition" title="Eliminar">
-          <i data-lucide="trash-2" class="w-4 h-4"></i>
-        </button>
-      </td>
-    </tr>
-  `).join('');
-  lucide.createIcons();
-}
-
-function populateSupplierSelects() {
-  const opts = suppliers.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
-  ['sp-supplier-id', 'pur-supplier-id'].forEach(id => {
-    const sel = document.getElementById(id);
-    if (sel) sel.innerHTML = opts || '<option value="">No hay proveedores cargados</option>';
-  });
-  const spMat = document.getElementById('sp-raw-material-id');
-  if (spMat) {
-    spMat.innerHTML = rawMaterials.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
-  }
-}
-
-function populateSupplierMaterialFilter() {
-  const sel = document.getElementById('sp-filter-material');
-  if (!sel) return;
-  const current = sel.value;
-  sel.innerHTML = '<option value="">Todos los insumos</option>' +
-    rawMaterials.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
-  sel.value = current || '';
-}
-
-function openSupplierModal(id = null) {
-  const modal = document.getElementById('supplier-modal');
-  const form = document.getElementById('supplier-form');
-  form.reset();
-  document.getElementById('sup-id').value = '';
-
-  if (id) {
-    const s = suppliers.find(x => x.id === id);
-    if (s) {
-      document.getElementById('sup-id').value = s.id;
-      document.getElementById('sup-name').value = s.name || '';
-      document.getElementById('sup-cuit').value = s.cuit || '';
-      document.getElementById('sup-phone').value = s.phone || '';
-      document.getElementById('sup-email').value = s.email || '';
-      document.getElementById('sup-address').value = s.address || '';
-      document.getElementById('sup-payment-terms').value = s.payment_terms || '';
-      document.getElementById('sup-notes').value = s.notes || '';
-    }
-  }
-  modal.classList.remove('opacity-0', 'pointer-events-none');
-  lucide.createIcons();
-}
-
-function closeSupplierModal() {
-  document.getElementById('supplier-modal').classList.add('opacity-0', 'pointer-events-none');
-}
-
-async function saveSupplier(e) {
-  e.preventDefault();
-  const payload = {
-    id: document.getElementById('sup-id').value || null,
-    name: document.getElementById('sup-name').value.trim(),
-    cuit: document.getElementById('sup-cuit').value.trim(),
-    phone: document.getElementById('sup-phone').value.trim(),
-    email: document.getElementById('sup-email').value.trim(),
-    address: document.getElementById('sup-address').value.trim(),
-    payment_terms: document.getElementById('sup-payment-terms').value.trim(),
-    notes: document.getElementById('sup-notes').value.trim(),
-    pin: document.getElementById('sup-pin').value
-  };
-  try {
-    const res = await fetch('/api/admin/suppliers', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    const data = await res.json();
-    if (data.success) {
-      closeSupplierModal();
-      loadSuppliersData();
-    } else {
-      alert(data.error || 'No se pudo guardar el proveedor.');
-    }
-  } catch (err) {
-    alert('Error de conexión al guardar el proveedor.');
-  }
-}
-
-async function deleteSupplier(id) {
-  const pin = prompt('🔑 Ingresá tu PIN de Encargado (Nivel 2) o Gerente (Nivel 3) para eliminar este proveedor:');
-  if (pin === null) return;
-  if (!confirm('¿Seguro que querés eliminar este proveedor?')) return;
-  try {
-    const res = await fetch(`/api/admin/suppliers/${id}`, {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pin })
-    });
-    const data = await res.json();
-    if (data.success) {
-      loadSuppliersData();
-    } else {
-      alert(data.error || 'No se pudo eliminar el proveedor.');
-    }
-  } catch (err) {
-    alert('Error de conexión al eliminar el proveedor.');
-  }
-}
-
-const AVAILABILITY_LABELS = {
-  disponible: '✅ Disponible',
-  a_pedido: '⏳ A pedido',
-  agotado: '❌ Agotado'
-};
-
-function renderSupplierProductsTable() {
-  const tbody = document.getElementById('supplier-products-table-body');
-  if (!tbody) return;
-
-  const filterMatId = document.getElementById('sp-filter-material')?.value;
-  let list = [...supplierProducts];
-  if (filterMatId) {
-    list = list.filter(p => p.raw_material_id === parseInt(filterMatId));
-  }
-
-  if (list.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-400">No hay precios de proveedores cargados todavía.</td></tr>`;
-    return;
-  }
-
-  tbody.innerHTML = list.map(p => {
-    const mat = rawMaterials.find(m => m.id === p.raw_material_id);
-    const updated = p.updated_at ? new Date(p.updated_at).toLocaleDateString('es-AR') : '-';
-    return `
-      <tr class="hover:bg-slate-50 transition">
-        <td class="p-3 font-extrabold text-slate-900">📦 ${mat ? mat.name : 'Insumo eliminado'}</td>
-        <td class="p-3 text-slate-700">${p.supplier_name || '-'}</td>
-        <td class="p-3 text-slate-600">${p.product_name || '-'}</td>
-        <td class="p-3 text-right font-mono font-black text-slate-900">$${Number(p.unit_price || 0).toLocaleString('es-AR')}</td>
-        <td class="p-3 text-center">
-          <span class="text-[10px] font-black px-2 py-0.5 rounded-md ${p.availability === 'disponible' ? 'bg-emerald-100 text-emerald-800' : p.availability === 'a_pedido' ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800'}">
-            ${AVAILABILITY_LABELS[p.availability] || p.availability}
-          </span>
-        </td>
-        <td class="p-3 text-slate-500 text-[11px]">${updated}</td>
-        <td class="p-3 text-center space-x-1 whitespace-nowrap">
-          <button onclick="openSupplierProductModal(${p.id})" class="p-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-700 transition" title="Editar">
-            <i data-lucide="edit-2" class="w-4 h-4"></i>
-          </button>
-          <button onclick="deleteSupplierProduct(${p.id})" class="p-1.5 bg-red-100 hover:bg-red-200 rounded-lg text-red-700 transition" title="Eliminar">
-            <i data-lucide="trash-2" class="w-4 h-4"></i>
-          </button>
-        </td>
-      </tr>
-    `;
-  }).join('');
-  lucide.createIcons();
-}
-
-function openSupplierProductModal(id = null) {
-  if (suppliers.length === 0) {
-    alert('⚠️ Primero cargá al menos un proveedor.');
-    return;
-  }
-  populateSupplierSelects();
-  const modal = document.getElementById('supplier-product-modal');
-  const form = document.getElementById('supplier-product-form');
-  form.reset();
-  document.getElementById('sp-id').value = '';
-
-  if (id) {
-    const p = supplierProducts.find(x => x.id === id);
-    if (p) {
-      document.getElementById('sp-id').value = p.id;
-      document.getElementById('sp-supplier-id').value = p.supplier_id;
-      document.getElementById('sp-raw-material-id').value = p.raw_material_id;
-      document.getElementById('sp-product-name').value = p.product_name || '';
-      document.getElementById('sp-unit-price').value = p.unit_price;
-      document.getElementById('sp-code').value = p.code || '';
-      document.getElementById('sp-availability').value = p.availability || 'disponible';
-      document.getElementById('sp-lead-time').value = p.lead_time || '';
-    }
-  }
-  modal.classList.remove('opacity-0', 'pointer-events-none');
-  lucide.createIcons();
-}
-
-function closeSupplierProductModal() {
-  document.getElementById('supplier-product-modal').classList.add('opacity-0', 'pointer-events-none');
-}
-
-async function saveSupplierProduct(e) {
-  e.preventDefault();
-  const payload = {
-    id: document.getElementById('sp-id').value || null,
-    supplier_id: document.getElementById('sp-supplier-id').value,
-    raw_material_id: document.getElementById('sp-raw-material-id').value,
-    product_name: document.getElementById('sp-product-name').value.trim(),
-    unit_price: document.getElementById('sp-unit-price').value,
-    code: document.getElementById('sp-code').value.trim(),
-    availability: document.getElementById('sp-availability').value,
-    lead_time: document.getElementById('sp-lead-time').value.trim(),
-    pin: document.getElementById('sp-pin').value
-  };
-  try {
-    const res = await fetch('/api/admin/supplier-products', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    const data = await res.json();
-    if (data.success) {
-      closeSupplierProductModal();
-      loadSuppliersData();
-    } else {
-      alert(data.error || 'No se pudo guardar el precio del proveedor.');
-    }
-  } catch (err) {
-    alert('Error de conexión al guardar el precio del proveedor.');
-  }
-}
-
-async function deleteSupplierProduct(id) {
-  const pin = prompt('🔑 Ingresá tu PIN de Encargado (Nivel 2) o Gerente (Nivel 3) para eliminar este precio:');
-  if (pin === null) return;
-  try {
-    const res = await fetch(`/api/admin/supplier-products/${id}`, {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pin })
-    });
-    const data = await res.json();
-    if (data.success) {
-      loadSuppliersData();
-    } else {
-      alert(data.error || 'No se pudo eliminar.');
-    }
-  } catch (err) {
-    alert('Error de conexión al eliminar.');
-  }
-}
-
-function renderSupplierPurchasesTable() {
-  const tbody = document.getElementById('supplier-purchases-table-body');
-  if (!tbody) return;
-
-  if (supplierPurchases.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-slate-400">No hay compras registradas todavía.</td></tr>`;
-    return;
-  }
-
-  tbody.innerHTML = supplierPurchases.map(p => {
-    const itemsSummary = (p.items || []).map(it => `${it.raw_material_name} (${it.quantity} ${it.unit})`).join(', ');
-    const date = p.date ? new Date(p.date).toLocaleDateString('es-AR') : '-';
-    return `
-      <tr class="hover:bg-slate-50 transition align-top">
-        <td class="p-3 text-slate-600 text-[11px]">${date}</td>
-        <td class="p-3 font-extrabold text-slate-900">🚚 ${p.supplier_name}</td>
-        <td class="p-3 text-slate-600 text-[11px] max-w-xs">${itemsSummary}</td>
-        <td class="p-3 text-right font-mono font-black text-slate-900">$${Number(p.total || 0).toLocaleString('es-AR')}</td>
-        <td class="p-3 text-center">
-          <span class="text-[10px] font-black px-2 py-0.5 rounded-md ${p.status === 'recibido' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}">
-            ${p.status === 'recibido' ? '✅ Recibido' : '⏳ Pendiente'}
-          </span>
-        </td>
-        <td class="p-3 text-center">
-          ${p.status !== 'recibido' ? `<button onclick="receiveSupplierPurchase(${p.id})" class="px-2.5 py-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-extrabold text-[11px] rounded-lg transition">Marcar Recibido</button>` : '<span class="text-slate-300 text-[11px]">-</span>'}
-        </td>
-      </tr>
-    `;
-  }).join('');
-}
-
-let purchaseItemRowCount = 0;
-
-function openSupplierPurchaseModal() {
-  if (suppliers.length === 0) {
-    alert('⚠️ Primero cargá al menos un proveedor.');
-    return;
-  }
-  populateSupplierSelects();
-  const modal = document.getElementById('supplier-purchase-modal');
-  const form = document.getElementById('supplier-purchase-form');
-  form.reset();
-  document.getElementById('purchase-items-container').innerHTML = '';
-  purchaseItemRowCount = 0;
-  addPurchaseItemRow();
-  updatePurchaseTotal();
-  modal.classList.remove('opacity-0', 'pointer-events-none');
-  lucide.createIcons();
-}
-
-function closeSupplierPurchaseModal() {
-  document.getElementById('supplier-purchase-modal').classList.add('opacity-0', 'pointer-events-none');
-}
-
-function addPurchaseItemRow() {
-  const container = document.getElementById('purchase-items-container');
-  const rowId = purchaseItemRowCount++;
-  const matOptions = rawMaterials.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
-  const row = document.createElement('div');
-  row.className = 'flex gap-1.5 items-center bg-slate-50 border border-slate-200 rounded-xl p-2';
-  row.id = `purchase-item-row-${rowId}`;
-  row.innerHTML = `
-    <select class="purchase-item-material flex-1 px-2 py-1.5 border border-slate-300 rounded-lg text-xs bg-white font-bold" onchange="updatePurchaseTotal()">${matOptions}</select>
-    <input type="number" step="0.01" min="0" placeholder="Cant." class="purchase-item-qty w-20 px-2 py-1.5 border border-slate-300 rounded-lg text-xs font-mono" oninput="updatePurchaseTotal()">
-    <input type="number" step="0.01" min="0" placeholder="Precio Unit." class="purchase-item-price w-24 px-2 py-1.5 border border-slate-300 rounded-lg text-xs font-mono" oninput="updatePurchaseTotal()">
-    <button type="button" onclick="removePurchaseItemRow(${rowId})" class="p-1.5 text-red-500 hover:bg-red-100 rounded-lg transition"><i data-lucide="x" class="w-4 h-4"></i></button>
-  `;
-  container.appendChild(row);
-  lucide.createIcons();
-}
-
-function removePurchaseItemRow(rowId) {
-  const row = document.getElementById(`purchase-item-row-${rowId}`);
-  if (row) row.remove();
-  updatePurchaseTotal();
-}
-
-function updatePurchaseTotal() {
-  let total = 0;
-  document.querySelectorAll('#purchase-items-container > div').forEach(row => {
-    const qty = parseFloat(row.querySelector('.purchase-item-qty')?.value || 0);
-    const price = parseFloat(row.querySelector('.purchase-item-price')?.value || 0);
-    total += qty * price;
-  });
-  const display = document.getElementById('purchase-total-display');
-  if (display) display.textContent = `$${total.toLocaleString('es-AR')}`;
-}
-
-async function saveSupplierPurchase(e) {
-  e.preventDefault();
-  const items = [];
-  document.querySelectorAll('#purchase-items-container > div').forEach(row => {
-    const raw_material_id = row.querySelector('.purchase-item-material')?.value;
-    const quantity = row.querySelector('.purchase-item-qty')?.value;
-    const unit_price = row.querySelector('.purchase-item-price')?.value;
-    if (raw_material_id && quantity && unit_price) {
-      items.push({ raw_material_id, quantity, unit_price });
-    }
-  });
-
-  if (items.length === 0) {
-    alert('⚠️ Cargá al menos un insumo con cantidad y precio válidos.');
-    return;
-  }
-
-  const payload = {
-    supplier_id: document.getElementById('pur-supplier-id').value,
-    status: document.getElementById('pur-status').value,
-    items,
-    notes: document.getElementById('pur-notes').value.trim(),
-    pin: document.getElementById('pur-pin').value
-  };
-
-  try {
-    const res = await fetch('/api/admin/supplier-purchases', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    const data = await res.json();
-    if (data.success) {
-      closeSupplierPurchaseModal();
-      loadSuppliersData();
-      loadStockMaterials();
-    } else {
-      alert(data.error || 'No se pudo registrar la compra.');
-    }
-  } catch (err) {
-    alert('Error de conexión al registrar la compra.');
-  }
-}
-
-async function receiveSupplierPurchase(id) {
-  const pin = prompt('🔑 Ingresá tu PIN de Encargado (Nivel 2) o Gerente (Nivel 3) para marcar esta compra como recibida (sumará el stock):');
-  if (pin === null) return;
-  try {
-    const res = await fetch(`/api/admin/supplier-purchases/${id}/receive`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pin })
-    });
-    const data = await res.json();
-    if (data.success) {
-      loadSuppliersData();
-      loadStockMaterials();
-    } else {
-      alert(data.error || 'No se pudo marcar como recibida.');
-    }
-  } catch (err) {
-    alert('Error de conexión al marcar como recibida.');
-  }
-}
-
 function openAdjustStockModal(matId = null) {
   loadStockMaterials();
   const modal = document.getElementById('adjust-stock-modal');
@@ -1577,72 +1135,6 @@ function setImageUploadStatus(text) {
   if (el) el.textContent = text;
 }
 
-// Mismo flujo que handleImageFileSelect (comprimir en el navegador + subir a
-// Supabase Storage), pero para el logo del negocio que se imprime en la
-// Factura/Tique C. Guarda el link resultante en #set-business-logo-url.
-function handleLogoFileSelect(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    const img = new Image();
-    img.onload = async function() {
-      const maxDim = 400;
-      let w = img.width, h = img.height;
-      if (w > maxDim || h > maxDim) {
-        if (w >= h) { h = Math.round(h * maxDim / w); w = maxDim; }
-        else { w = Math.round(w * maxDim / h); h = maxDim; }
-      }
-      const canvas = document.createElement('canvas');
-      canvas.width = w;
-      canvas.height = h;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, w, h);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-
-      const preview = document.getElementById('business-logo-preview');
-      preview.src = dataUrl;
-      preview.classList.remove('hidden');
-      document.getElementById('set-business-logo-url').value = dataUrl;
-      setLogoUploadStatus('⏳ Subiendo logo...');
-
-      try {
-        const res = await fetch('/api/admin/upload-image', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ image: dataUrl })
-        });
-        const data = await res.json();
-        if (data.success && data.url) {
-          document.getElementById('set-business-logo-url').value = data.url;
-          preview.src = data.url;
-          setLogoUploadStatus('✅ Logo subido');
-        } else {
-          console.warn('No se pudo subir el logo a Supabase Storage, se guarda incrustado:', data.error);
-          setLogoUploadStatus('⚠️ No se pudo subir a Supabase, se guardó el logo directamente (más pesado)');
-        }
-      } catch (err) {
-        console.warn('No se pudo subir el logo (sin conexión al servidor de subida), se guarda incrustado:', err.message);
-        setLogoUploadStatus('⚠️ No se pudo subir a Supabase, se guardó el logo directamente (más pesado)');
-      }
-    };
-    img.onerror = function() {
-      document.getElementById('set-business-logo-url').value = e.target.result;
-      const preview = document.getElementById('business-logo-preview');
-      preview.src = e.target.result;
-      preview.classList.remove('hidden');
-    };
-    img.src = e.target.result;
-  };
-  reader.readAsDataURL(file);
-}
-
-function setLogoUploadStatus(text) {
-  const el = document.getElementById('logo-upload-status');
-  if (el) el.textContent = text;
-}
-
 function showImagePreview(url) {
   const container = document.getElementById('image-preview-container');
   const img = document.getElementById('image-preview');
@@ -1850,46 +1342,9 @@ async function loadSettings() {
       document.getElementById('set-delivery-cost').value = settings.delivery_cost || '1200';
       document.getElementById('set-epson-ip').value = settings.epson_printer_ip || '';
       document.getElementById('set-auto-print').checked = settings.auto_print_epson === '1';
-
-      if (document.getElementById('set-business-razon-social')) {
-        document.getElementById('set-business-razon-social').value = settings.business_razon_social || '';
-        document.getElementById('set-business-description').value = settings.business_description || '';
-        document.getElementById('set-business-domicilio-fiscal').value = settings.business_domicilio_fiscal || '';
-        document.getElementById('set-business-condicion-iva').value = settings.business_condicion_iva || 'Monotributo';
-        document.getElementById('set-business-logo-url').value = settings.business_logo_url || '';
-        if (settings.business_logo_url) {
-          const preview = document.getElementById('business-logo-preview');
-          preview.src = settings.business_logo_url;
-          preview.classList.remove('hidden');
-        }
-      }
     }
   } catch (e) {
     console.error('Error al cargar ajustes:', e);
-  }
-  checkArcaStatus();
-}
-
-// Consulta el estado de la conexión con ARCA (facturación electrónica) y
-// muestra un cartelito en Ajustes. Nunca expone el certificado/clave, solo
-// si está todo bien configurado o falta algo.
-async function checkArcaStatus() {
-  const badge = document.getElementById('arca-estado-badge');
-  if (!badge) return;
-  try {
-    const res = await fetch('/api/facturacion/estado');
-    const data = await res.json();
-    if (data.success && data.configurado) {
-      const modo = data.homologacion ? '🧪 Homologación (pruebas)' : '✅ Producción';
-      badge.className = 'text-xs font-bold px-3 py-2 rounded-xl border bg-emerald-50 border-emerald-200 text-emerald-700';
-      badge.textContent = `Conectado a ARCA — ${modo} — CUIT ${data.cuit || '?'} · Pto. Vta. ${data.punto_venta || '?'}`;
-    } else {
-      badge.className = 'text-xs font-bold px-3 py-2 rounded-xl border bg-amber-50 border-amber-200 text-amber-700';
-      badge.textContent = `⚠️ ARCA no configurado todavía${data.error ? ' — ' + data.error : ''}`;
-    }
-  } catch (e) {
-    badge.className = 'text-xs font-bold px-3 py-2 rounded-xl border bg-red-50 border-red-200 text-red-700';
-    badge.textContent = '⚠️ No se pudo consultar el estado de ARCA';
   }
 }
 
@@ -2324,20 +1779,11 @@ async function saveSettings(e) {
   const epson_printer_ip = document.getElementById('set-epson-ip').value.trim();
   const auto_print_epson = document.getElementById('set-auto-print').checked ? '1' : '0';
 
-  const businessFields = {};
-  if (document.getElementById('set-business-razon-social')) {
-    businessFields.business_razon_social = document.getElementById('set-business-razon-social').value.trim();
-    businessFields.business_description = document.getElementById('set-business-description').value.trim();
-    businessFields.business_domicilio_fiscal = document.getElementById('set-business-domicilio-fiscal').value.trim();
-    businessFields.business_condicion_iva = document.getElementById('set-business-condicion-iva').value;
-    businessFields.business_logo_url = document.getElementById('set-business-logo-url').value.trim();
-  }
-
   try {
     const res = await fetch('/api/settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ restaurant_name, restaurant_address, whatsapp_phone, delivery_cost, epson_printer_ip, auto_print_epson, ...businessFields })
+      body: JSON.stringify({ restaurant_name, restaurant_address, whatsapp_phone, delivery_cost, epson_printer_ip, auto_print_epson })
     });
     const data = await res.json();
     if (data.success) {
@@ -2358,8 +1804,7 @@ function switchTab(tab) {
   const prodAnalyticsSection = document.getElementById('tab-production-analytics');
   const custSection = document.getElementById('tab-customers');
   const sSection = document.getElementById('tab-settings');
-  const supSection = document.getElementById('tab-suppliers');
-
+  
   const cBtn = document.getElementById('tab-btn-cash');
   const aBtn = document.getElementById('tab-btn-accounts');
   const kBtn = document.getElementById('tab-btn-stock');
@@ -2369,7 +1814,6 @@ function switchTab(tab) {
   const custBtn = document.getElementById('tab-btn-customers');
   const prodAnalyticsBtn = document.getElementById('tab-btn-production-analytics');
   const sBtn = document.getElementById('tab-btn-settings');
-  const supBtn = document.getElementById('tab-btn-suppliers');
 
   if (cSection) cSection.classList.add('hidden');
   if (aSection) aSection.classList.add('hidden');
@@ -2380,7 +1824,6 @@ function switchTab(tab) {
   if (prodAnalyticsSection) prodAnalyticsSection.classList.add('hidden');
   if (custSection) custSection.classList.add('hidden');
   if (sSection) sSection.classList.add('hidden');
-  if (supSection) supSection.classList.add('hidden');
 
   if (cBtn) cBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
   if (aBtn) aBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
@@ -2391,7 +1834,6 @@ function switchTab(tab) {
   if (prodAnalyticsBtn) prodAnalyticsBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
   if (custBtn) custBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
   if (sBtn) sBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
-  if (supBtn) supBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
 
   if (tab === 'cash') {
     if (cSection) cSection.classList.remove('hidden');
@@ -2425,10 +1867,6 @@ function switchTab(tab) {
     if (custSection) custSection.classList.remove('hidden');
     if (custBtn) custBtn.className = 'tab-btn pb-3 border-b-2 border-amber-500 text-amber-700 flex items-center gap-2 font-bold';
     loadAdminCustomers();
-  } else if (tab === 'suppliers') {
-    if (supSection) supSection.classList.remove('hidden');
-    if (supBtn) supBtn.className = 'tab-btn pb-3 border-b-2 border-orange-500 text-orange-600 flex items-center gap-2 font-bold';
-    loadSuppliersData();
   } else {
     if (sSection) sSection.classList.remove('hidden');
     if (sBtn) sBtn.className = 'tab-btn pb-3 border-b-2 border-orange-500 text-orange-600 flex items-center gap-2 font-bold';

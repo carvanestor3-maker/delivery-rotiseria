@@ -7,9 +7,6 @@ const net = require('net');
 const fs = require('fs');
 const { execSync } = require('child_process');
 const db = require('./db');
-const dbSuppliers = require('./db_suppliers');
-const dbFacturacion = require('./db_facturacion');
-const arcaFacturacion = require('./arca_facturacion');
 const storage = require('./storage');
 
 const app = express();
@@ -538,7 +535,7 @@ app.post('/api/production/register', (req, res) => {
 });
 
 // Ingreso de Mercadería al Stock General con Nombre de Usuario (Requiere PIN Nivel 2)
-app.post('/api/stock/entry', async (req, res) => {
+app.post('/api/stock/entry', (req, res) => {
   try {
     const { pin, supplier_id, raw_material_id, quantity, unit_cost, notes } = req.body;
 
@@ -560,8 +557,7 @@ app.post('/api/stock/entry', async (req, res) => {
 
     rawMat.current_stock = (rawMat.current_stock || 0) + qtyAdd;
 
-    // Los proveedores viven en su propia base separada (db_suppliers.js).
-    const supplier = supplier_id ? await dbSuppliers.getSupplier(parseInt(supplier_id)) : null;
+    const supplier = store.suppliers.find(s => s.id === parseInt(supplier_id));
 
     const nextId = store.stock_entries.length > 0 ? Math.max(...store.stock_entries.map(e => e.id)) + 1 : 1;
     store.stock_entries.unshift({
@@ -634,281 +630,6 @@ app.post('/api/admin/materials', (req, res) => {
     }
     db.saveStore();
     res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// ==========================================
-// PROVEEDORES, PRECIOS & COMPRAS: BASE DE DATOS SEPARADA (db_suppliers.js)
-// (los productos de cada proveedor se vinculan a un insumo ya cargado en
-// Administración, solo para poder comparar precios/disponibilidad - nunca
-// reemplaza ni se mezcla con la lista de insumos, y vive en sus propias
-// tablas/archivo, aparte del registro único del resto del sistema)
-// ==========================================
-
-// Guardar Proveedor (alta o edición, datos completos) - Requiere PIN Nivel 2
-app.post('/api/admin/suppliers', async (req, res) => {
-  try {
-    const { id, name, cuit, phone, email, address, payment_terms, notes, pin } = req.body;
-
-    const auth = verifyUserPin(pin, 2);
-    if (!auth.isValid) {
-      return res.status(401).json({ success: false, error: 'PIN de Encargado (Nivel 2) o Gerente (Nivel 3) requerido' });
-    }
-
-    const strName = (name || '').trim();
-    if (!strName) {
-      return res.status(400).json({ success: false, error: '⚠️ El nombre del proveedor es obligatorio.' });
-    }
-
-    const idNum = parseInt(id || 0);
-    const dupSupplier = await dbSuppliers.findSupplierByName(strName, idNum);
-    if (dupSupplier) {
-      return res.status(400).json({ success: false, error: `⚠️ PROVEEDOR DUPLICADO: Ya existe un proveedor registrado con el nombre "${dupSupplier.name}".` });
-    }
-
-    const payload = { name: strName, cuit, phone, email, address, payment_terms, notes };
-
-    if (idNum) {
-      const updated = await dbSuppliers.updateSupplier(idNum, payload);
-      if (!updated) {
-        return res.status(404).json({ success: false, error: 'Proveedor no encontrado.' });
-      }
-    } else {
-      await dbSuppliers.createSupplier(payload);
-    }
-
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// Eliminar Proveedor - Requiere PIN Nivel 2 (bloqueado si ya tiene compras registradas)
-app.delete('/api/admin/suppliers/:id', async (req, res) => {
-  try {
-    const { pin } = req.body;
-    const auth = verifyUserPin(pin, 2);
-    if (!auth.isValid) {
-      return res.status(401).json({ success: false, error: 'PIN de Encargado (Nivel 2) o Gerente (Nivel 3) requerido' });
-    }
-
-    const supId = parseInt(req.params.id);
-
-    const tienePurchases = await dbSuppliers.supplierHasPurchases(supId);
-    if (tienePurchases) {
-      return res.status(400).json({ success: false, error: '⚠️ No se puede eliminar: este proveedor tiene compras registradas en el historial. Simplemente dejá de cargarle productos o compras nuevas.' });
-    }
-
-    const ok = await dbSuppliers.deleteSupplier(supId);
-    if (!ok) {
-      return res.status(404).json({ success: false, error: 'Proveedor no encontrado.' });
-    }
-
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// Guardar Producto de Proveedor: precio y disponibilidad, vinculado a un
-// insumo genérico ya cargado - Requiere PIN Nivel 2
-app.post('/api/admin/supplier-products', async (req, res) => {
-  try {
-    const { id, supplier_id, raw_material_id, product_name, unit_price, code, availability, lead_time, pin } = req.body;
-
-    const auth = verifyUserPin(pin, 2);
-    if (!auth.isValid) {
-      return res.status(401).json({ success: false, error: 'PIN de Encargado (Nivel 2) o Gerente (Nivel 3) requerido' });
-    }
-
-    const store = db.getStore();
-    const supId = parseInt(supplier_id);
-    const matId = parseInt(raw_material_id);
-    const price = parseFloat(unit_price);
-
-    const supplier = await dbSuppliers.getSupplier(supId);
-    if (!supplier) {
-      return res.status(400).json({ success: false, error: 'Debe seleccionar un proveedor válido.' });
-    }
-    const rawMat = (store.raw_materials || []).find(m => m.id === matId);
-    if (!rawMat) {
-      return res.status(400).json({ success: false, error: 'Debe seleccionar un insumo válido.' });
-    }
-    if (isNaN(price) || price < 0) {
-      return res.status(400).json({ success: false, error: 'El precio unitario debe ser un número válido.' });
-    }
-
-    const strAvailability = ['disponible', 'agotado', 'a_pedido'].includes(availability) ? availability : 'disponible';
-    const payload = { supplier_id: supId, raw_material_id: matId, product_name, unit_price: price, code, availability: strAvailability, lead_time };
-
-    const idNum = parseInt(id || 0);
-    if (idNum) {
-      const updated = await dbSuppliers.updateSupplierProduct(idNum, payload);
-      if (!updated) {
-        return res.status(404).json({ success: false, error: 'Producto de proveedor no encontrado.' });
-      }
-    } else {
-      await dbSuppliers.createSupplierProduct(payload);
-    }
-
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// Eliminar Producto de Proveedor - Requiere PIN Nivel 2
-app.delete('/api/admin/supplier-products/:id', async (req, res) => {
-  try {
-    const { pin } = req.body;
-    const auth = verifyUserPin(pin, 2);
-    if (!auth.isValid) {
-      return res.status(401).json({ success: false, error: 'PIN de Encargado (Nivel 2) o Gerente (Nivel 3) requerido' });
-    }
-    const ok = await dbSuppliers.deleteSupplierProduct(parseInt(req.params.id));
-    if (!ok) {
-      return res.status(404).json({ success: false, error: 'Producto de proveedor no encontrado.' });
-    }
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// Registrar Compra / Pedido a Proveedor (con uno o varios insumos a la vez)
-// - Requiere PIN Nivel 2. Si se registra como "recibido", suma el stock y
-// deja constancia en el historial de ingresos, igual que una carga manual.
-app.post('/api/admin/supplier-purchases', async (req, res) => {
-  try {
-    const { supplier_id, items, status, notes, pin } = req.body;
-
-    const auth = verifyUserPin(pin, 2);
-    if (!auth.isValid) {
-      return res.status(401).json({ success: false, error: 'PIN de Encargado (Nivel 2) o Gerente (Nivel 3) requerido' });
-    }
-
-    const store = db.getStore();
-    const supId = parseInt(supplier_id);
-    const supplier = await dbSuppliers.getSupplier(supId);
-    if (!supplier) {
-      return res.status(400).json({ success: false, error: 'Debe seleccionar un proveedor válido.' });
-    }
-    if (!Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({ success: false, error: 'Debe cargar al menos un insumo en la compra.' });
-    }
-
-    const strStatus = status === 'recibido' ? 'recibido' : 'pendiente';
-
-    const cleanItems = [];
-    let total = 0;
-    for (const it of items) {
-      const matId = parseInt(it.raw_material_id);
-      const qty = parseFloat(it.quantity);
-      const price = parseFloat(it.unit_price);
-      const rawMat = (store.raw_materials || []).find(m => m.id === matId);
-      if (!rawMat || isNaN(qty) || qty <= 0 || isNaN(price) || price < 0) continue;
-      const subtotal = qty * price;
-      total += subtotal;
-      cleanItems.push({
-        raw_material_id: matId,
-        raw_material_name: rawMat.name,
-        unit: rawMat.unit,
-        quantity: qty,
-        unit_price: price,
-        subtotal
-      });
-    }
-
-    if (cleanItems.length === 0) {
-      return res.status(400).json({ success: false, error: 'Ningún insumo cargado es válido (revisá cantidades y precios).' });
-    }
-
-    const registeredBy = `${auth.user.name} (Nivel ${auth.user.level})`;
-    const purchase = await dbSuppliers.createSupplierPurchase({
-      supplier_id: supId,
-      supplier_name: supplier.name,
-      status: strStatus,
-      items: cleanItems,
-      total,
-      notes: (notes || '').trim(),
-      registered_by: registeredBy
-    });
-
-    if (strStatus === 'recibido') {
-      if (!store.stock_entries) store.stock_entries = [];
-      cleanItems.forEach(it => {
-        const rawMat = store.raw_materials.find(m => m.id === it.raw_material_id);
-        if (rawMat) rawMat.current_stock = (rawMat.current_stock || 0) + it.quantity;
-
-        const entryId = store.stock_entries.length > 0 ? Math.max(...store.stock_entries.map(e => e.id)) + 1 : 1;
-        store.stock_entries.unshift({
-          id: entryId,
-          date: purchase.date,
-          supplier_name: supplier.name,
-          raw_material_name: it.raw_material_name,
-          unit: it.unit,
-          quantity: it.quantity,
-          unit_cost: it.unit_price,
-          total_cost: it.subtotal,
-          notes: `Compra a proveedor #${purchase.id}${notes ? ' - ' + notes : ''}`,
-          registered_by: registeredBy
-        });
-      });
-      db.saveStore();
-      io.emit('stock_updated');
-    }
-
-    res.json({ success: true, purchase });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// Marcar una Compra/Pedido pendiente como Recibido (aplica el ingreso de
-// stock en ese momento) - Requiere PIN Nivel 2
-app.put('/api/admin/supplier-purchases/:id/receive', async (req, res) => {
-  try {
-    const { pin } = req.body;
-    const auth = verifyUserPin(pin, 2);
-    if (!auth.isValid) {
-      return res.status(401).json({ success: false, error: 'PIN de Encargado (Nivel 2) o Gerente (Nivel 3) requerido' });
-    }
-
-    const result = await dbSuppliers.markPurchaseReceived(parseInt(req.params.id));
-    if (result.error === 'not_found') {
-      return res.status(404).json({ success: false, error: 'Compra no encontrada.' });
-    }
-    if (result.error === 'already_received') {
-      return res.status(400).json({ success: false, error: 'Esta compra ya está marcada como recibida.' });
-    }
-    const purchase = result.purchase;
-
-    const store = db.getStore();
-    if (!store.stock_entries) store.stock_entries = [];
-    purchase.items.forEach(it => {
-      const rawMat = store.raw_materials.find(m => m.id === it.raw_material_id);
-      if (rawMat) rawMat.current_stock = (rawMat.current_stock || 0) + it.quantity;
-
-      const entryId = store.stock_entries.length > 0 ? Math.max(...store.stock_entries.map(e => e.id)) + 1 : 1;
-      store.stock_entries.unshift({
-        id: entryId,
-        date: new Date().toISOString(),
-        supplier_name: purchase.supplier_name,
-        raw_material_name: it.raw_material_name,
-        unit: it.unit,
-        quantity: it.quantity,
-        unit_cost: it.unit_price,
-        total_cost: it.subtotal,
-        notes: `Recepción de compra a proveedor #${purchase.id}`,
-        registered_by: `${auth.user.name} (Nivel ${auth.user.level})`
-      });
-    });
-
-    db.saveStore();
-    io.emit('stock_updated');
-    res.json({ success: true, purchase });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -2077,26 +1798,17 @@ app.post('/api/admin/customers/adjust-points', (req, res) => {
 });
 
 // APIS DE MERCADERÍA, INSUMOS Y PROVEEDORES
-// (suppliers / supplier_products / supplier_purchases se leen desde la base
-// de datos separada db_suppliers.js, no desde el store general)
-app.get('/api/admin/stock', async (req, res) => {
+app.get('/api/admin/stock', (req, res) => {
   try {
     const store = db.getStore();
-    const [suppliers, supplierProducts, supplierPurchases] = await Promise.all([
-      dbSuppliers.listSuppliers(),
-      dbSuppliers.listSupplierProducts(),
-      dbSuppliers.listSupplierPurchases()
-    ]);
     res.json({
       success: true,
-      suppliers,
+      suppliers: store.suppliers || [],
       raw_materials: store.raw_materials || [],
       product_recipes: store.product_recipes || [],
       stock_entries: store.stock_entries || [],
       stock_adjustments: store.stock_adjustments || [],
-      production_entries: store.production_entries || [],
-      supplier_products: supplierProducts,
-      supplier_purchases: supplierPurchases
+      production_entries: store.production_entries || []
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -3078,184 +2790,6 @@ app.post('/api/settings', (req, res) => {
   }
 });
 
-// ==========================================
-// FACTURACIÓN ELECTRÓNICA ARCA (Factura C / Tique C) - conexión directa,
-// sin terceros. Los comprobantes emitidos se guardan en su propia base de
-// datos separada (db_facturacion.js), no en el registro general.
-// ==========================================
-
-// Estado de la conexión con ARCA (para mostrar en el panel sin exponer
-// nunca el certificado ni la clave privada)
-app.get('/api/facturacion/estado', (req, res) => {
-  res.json({
-    success: true,
-    configurado: arcaFacturacion.isConfigured(),
-    error: arcaFacturacion.isConfigured() ? null : arcaFacturacion.getConfigError(),
-    homologacion: !(process.env.ARCA_PRODUCTION === '1' || process.env.ARCA_PRODUCTION === 'true'),
-    cuit: arcaFacturacion.CUIT,
-    punto_venta: arcaFacturacion.PUNTO_VENTA
-  });
-});
-
-// Consultar si un pedido/ticket ya tiene una factura emitida (para no
-// duplicar comprobantes ni perder el CAE ya obtenido)
-app.get('/api/facturacion/by-order/:orderId', async (req, res) => {
-  try {
-    const factura = await dbFacturacion.findByOrderId(parseInt(req.params.orderId));
-    res.json({ success: true, factura: factura || null });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// Emitir Factura C o Tique C para un pedido/ticket existente - Requiere PIN Nivel 2
-app.post('/api/facturacion/emitir/:orderId', async (req, res) => {
-  try {
-    const { tipo, doc_nro, pin } = req.body;
-
-    const auth = verifyUserPin(pin, 2);
-    if (!auth.isValid) {
-      return res.status(401).json({ success: false, error: 'PIN de Encargado (Nivel 2) o Gerente (Nivel 3) requerido' });
-    }
-
-    if (!arcaFacturacion.isConfigured()) {
-      return res.status(400).json({ success: false, error: `⚠️ ${arcaFacturacion.getConfigError()}` });
-    }
-
-    const tipoNombre = tipo === 'Tique C' ? 'Tique C' : 'Factura C';
-
-    const orderId = parseInt(req.params.orderId);
-    const store = db.getStore();
-    const order = (store.orders || []).find(o => o.id === orderId);
-    if (!order) {
-      return res.status(404).json({ success: false, error: 'Pedido/ticket no encontrado.' });
-    }
-
-    const yaEmitida = await dbFacturacion.findByOrderId(orderId);
-    if (yaEmitida) {
-      return res.status(400).json({ success: false, error: `⚠️ Este pedido ya tiene un comprobante emitido: ${yaEmitida.tipo_comprobante_nombre} ${String(yaEmitida.punto_venta).padStart(5, '0')}-${String(yaEmitida.numero_comprobante).padStart(8, '0')} (CAE ${yaEmitida.cae}).`, factura: yaEmitida });
-    }
-
-    let resultadoArca;
-    try {
-      resultadoArca = await arcaFacturacion.emitirComprobante({
-        tipoNombre,
-        docNro: doc_nro || order.customer_dni || null,
-        importeTotal: parseFloat(order.total)
-      });
-    } catch (arcaErr) {
-      return res.status(502).json({ success: false, error: `Error de ARCA al emitir el comprobante: ${arcaErr.message}` });
-    }
-
-    const factura = await dbFacturacion.crearFactura({
-      order_id: order.id,
-      order_number: order.order_number,
-      tipo_comprobante_nombre: resultadoArca.tipo_comprobante_nombre,
-      tipo_comprobante_id: resultadoArca.tipo_comprobante_id,
-      punto_venta: resultadoArca.punto_venta,
-      numero_comprobante: resultadoArca.numero_comprobante,
-      fecha_emision: resultadoArca.fecha_emision,
-      doc_tipo: resultadoArca.doc_tipo,
-      doc_nro: resultadoArca.doc_nro,
-      cliente_nombre: order.customer_name || '',
-      importe_total: resultadoArca.importe_total,
-      cae: resultadoArca.cae,
-      cae_vencimiento: resultadoArca.cae_vencimiento,
-      cuit_emisor: resultadoArca.cuit_emisor,
-      condicion_iva_emisor: resultadoArca.condicion_iva_emisor,
-      homologacion: resultadoArca.homologacion,
-      items: Array.isArray(order.items) ? order.items : [],
-      registered_by: `${auth.user.name} (Nivel ${auth.user.level})`
-    });
-
-    res.json({ success: true, factura });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// Representación imprimible de un comprobante ya emitido (con logo,
-// descripción del negocio y el QR obligatorio de ARCA)
-app.get('/api/facturacion/print/:id', async (req, res) => {
-  try {
-    const factura = await dbFacturacion.getById(parseInt(req.params.id));
-    if (!factura) {
-      return res.status(404).send('Comprobante no encontrado.');
-    }
-    const settings = getSettingsMap();
-    const qrDataUrl = await arcaFacturacion.generarQRDataUrl(factura);
-    res.send(renderFacturaHTML(factura, settings, qrDataUrl));
-  } catch (err) {
-    res.status(500).send(`Error al generar la impresión: ${err.message}`);
-  }
-});
-
-function renderFacturaHTML(factura, settings, qrDataUrl) {
-  const items = Array.isArray(factura.items) ? factura.items
-    : (typeof factura.items === 'string' ? JSON.parse(factura.items || '[]') : []);
-  const fecha = `${factura.fecha_emision.substring(6, 8)}/${factura.fecha_emision.substring(4, 6)}/${factura.fecha_emision.substring(0, 4)}`;
-  const caeVto = factura.cae_vencimiento
-    ? `${String(factura.cae_vencimiento).substring(6, 8)}/${String(factura.cae_vencimiento).substring(4, 6)}/${String(factura.cae_vencimiento).substring(0, 4)}`
-    : '-';
-  const razonSocial = settings.business_razon_social || settings.restaurant_name || 'La Gran Rotisería';
-  const logo = settings.business_logo_url
-    ? `<img src="${settings.business_logo_url}" alt="Logo" style="max-height:80px;max-width:220px;object-fit:contain;">`
-    : '';
-  const itemsRows = items.map(it => `
-    <tr>
-      <td>${(it.qty || it.quantity || 1)}</td>
-      <td>${it.name || it.descripcion || ''}</td>
-      <td style="text-align:right;">$${Math.round((it.price || it.unit_price || 0) * (it.qty || it.quantity || 1)).toLocaleString('es-AR')}</td>
-    </tr>`).join('');
-
-  return `<!DOCTYPE html>
-<html lang="es"><head><meta charset="UTF-8">
-<title>${factura.tipo_comprobante_nombre} ${String(factura.punto_venta).padStart(5, '0')}-${String(factura.numero_comprobante).padStart(8, '0')}</title>
-<style>
-  body { font-family: 'Courier New', monospace; max-width: 380px; margin: 20px auto; color: #111; font-size: 13px; }
-  .center { text-align: center; }
-  .row { display: flex; justify-content: space-between; }
-  hr { border: none; border-top: 1px dashed #888; margin: 10px 0; }
-  table { width: 100%; border-collapse: collapse; font-size: 12px; }
-  th { text-align: left; border-bottom: 1px solid #333; padding: 3px 0; }
-  td { padding: 3px 0; vertical-align: top; }
-  .homologacion-banner { background: #fee2e2; color: #991b1b; border: 2px solid #dc2626; padding: 8px; text-align: center; font-weight: bold; margin-bottom: 12px; }
-  .qr { text-align: center; margin-top: 14px; }
-  @media print { body { margin: 0; } }
-</style></head>
-<body>
-  ${factura.homologacion ? '<div class="homologacion-banner">⚠️ COMPROBANTE DE PRUEBA (HOMOLOGACIÓN) - NO VÁLIDO COMO FACTURA</div>' : ''}
-  <div class="center">
-    ${logo}
-    <h2 style="margin:6px 0 2px;">${razonSocial}</h2>
-    ${settings.business_description ? `<div style="font-size:11px;color:#444;">${settings.business_description}</div>` : ''}
-    ${settings.business_domicilio_fiscal ? `<div style="font-size:11px;">${settings.business_domicilio_fiscal}</div>` : ''}
-    <div style="font-size:11px;">CUIT: ${factura.cuit_emisor} · ${factura.condicion_iva_emisor}</div>
-  </div>
-  <hr>
-  <div class="center">
-    <strong>${factura.tipo_comprobante_nombre.toUpperCase()}</strong><br>
-    Punto de Venta: ${String(factura.punto_venta).padStart(5, '0')} &nbsp; N°: ${String(factura.numero_comprobante).padStart(8, '0')}<br>
-    Fecha: ${fecha}
-  </div>
-  <hr>
-  <div>Cliente: ${factura.cliente_nombre || 'Consumidor Final'}</div>
-  ${factura.doc_nro ? `<div>DNI: ${factura.doc_nro}</div>` : ''}
-  <hr>
-  <table>
-    <thead><tr><th>Cant.</th><th>Descripción</th><th style="text-align:right;">Importe</th></tr></thead>
-    <tbody>${itemsRows}</tbody>
-  </table>
-  <hr>
-  <div class="row"><strong>TOTAL</strong><strong>$${Math.round(factura.importe_total).toLocaleString('es-AR')}</strong></div>
-  <hr>
-  <div style="font-size:11px;">CAE: ${factura.cae}</div>
-  <div style="font-size:11px;">Vto. CAE: ${caeVto}</div>
-  <div class="qr">${qrDataUrl ? `<img src="${qrDataUrl}" alt="QR ARCA" width="150" height="150">` : ''}</div>
-  <p class="center" style="font-size:10px;color:#888;margin-top:14px;">Comprobante autorizado electrónicamente por ARCA</p>
-</body></html>`;
-}
-
 // RUTAS EXPLÍCITAS DE NAVEGACIÓN Y PORTALES (MÁXIMA COMPATIBILIDAD EN CELULARES Y TABLETS)
 app.get('/portales', (req, res) => res.sendFile(path.join(__dirname, 'public', 'portales.html')));
 app.get('/portales.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'portales.html')));
@@ -3290,10 +2824,9 @@ app.get('/admin.html', (req, res) => res.sendFile(path.join(__dirname, 'public',
 
 const PORT = process.env.PORT || 3000;
 
-// Esperamos a que las bases de datos (la general y la de proveedores, cada
-// una por separado) terminen de cargar antes de aceptar pedidos, para no
-// arrancar con datos a medio cargar.
-Promise.all([db.ready, dbSuppliers.ready, dbFacturacion.ready])
+// Esperamos a que la base de datos (Postgres en la nube, o el archivo local)
+// termine de cargar antes de aceptar pedidos, para no arrancar con datos a medio cargar.
+db.ready
   .then(() => {
     server.listen(PORT, '0.0.0.0', () => {
       console.log(`

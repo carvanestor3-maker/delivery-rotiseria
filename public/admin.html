@@ -59,8 +59,18 @@
       <a href="/bar.html" target="_blank" class="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-xs font-bold rounded-lg flex items-center gap-1">
         ☕ Celular 3 (Bar)
       </a>
+      <button onclick="staffLogout()" class="px-3 py-1.5 bg-red-700 hover:bg-red-600 text-xs font-black rounded-lg text-white flex items-center gap-1 shadow transition" title="Cerrar sesión">
+        🔒 Salir
+      </button>
     </div>
   </header>
+
+  <script>
+    async function staffLogout() {
+      try { await fetch('/api/auth/logout', { method: 'POST' }); } catch (e) {}
+      window.location.href = '/login.html';
+    }
+  </script>
 
   <main class="max-w-6xl mx-auto p-6 space-y-6">
 
@@ -74,6 +84,9 @@
       </button>
       <button onclick="switchTab('stock')" id="tab-btn-stock" class="tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2">
         📦 Insumos & Conciliación de Stock
+      </button>
+      <button onclick="switchTab('suppliers')" id="tab-btn-suppliers" class="tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2">
+        🚚 Proveedores, Precios & Compras
       </button>
       <button onclick="switchTab('products')" id="tab-btn-products" class="tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2">
         <i data-lucide="utensils" class="w-4 h-4"></i> 🍕 Productos & Minutas (Artículos Generados)
@@ -303,6 +316,93 @@
             <tbody id="materials-table-body" class="divide-y divide-slate-100">
               <!-- Dinámico -->
             </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- PESTAÑA NUEVA: PROVEEDORES, PRECIOS & COMPRAS (BASE PROPIA, INDEPENDIENTE DE LA CARGA DE INSUMOS) -->
+    <section id="tab-suppliers" class="hidden space-y-6">
+      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+        <h2 class="font-extrabold text-slate-900 text-lg flex items-center gap-2">🚚 Proveedores, Precios & Compras</h2>
+        <p class="text-xs text-slate-500">Base propia de proveedores y lo que vende cada uno (precio y disponibilidad) - separada de la carga de insumos, solo se vincula a cada insumo ya cargado para poder comparar precios y afinar costos.</p>
+      </div>
+
+      <!-- Proveedores -->
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center flex-wrap gap-2">
+          <h3 class="font-extrabold text-slate-800 text-sm">Proveedores</h3>
+          <button onclick="openSupplierModal()" class="px-3 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-extrabold shadow transition">+ Nuevo Proveedor</button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs">
+            <thead class="bg-slate-50 text-slate-500 uppercase text-[10px] font-bold">
+              <tr>
+                <th class="p-3 text-left">Nombre</th>
+                <th class="p-3 text-left">CUIT</th>
+                <th class="p-3 text-left">Teléfono</th>
+                <th class="p-3 text-left">Email</th>
+                <th class="p-3 text-left">Dirección</th>
+                <th class="p-3 text-left">Cond. de Pago</th>
+                <th class="p-3 text-center">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="suppliers-table-body" class="divide-y divide-slate-100"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Precios & Disponibilidad por Insumo -->
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center flex-wrap gap-2">
+          <div>
+            <h3 class="font-extrabold text-slate-800 text-sm">Precios & Disponibilidad por Insumo</h3>
+            <p class="text-[11px] text-slate-400">Filtrá por insumo para ver quién te sale más barato y quién tiene disponibilidad ahora</p>
+          </div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <select id="sp-filter-material" onchange="renderSupplierProductsTable()" class="px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-bold bg-white">
+              <option value="">Todos los insumos</option>
+            </select>
+            <button onclick="openSupplierProductModal()" class="px-3 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-extrabold shadow transition">+ Cargar Precio de Proveedor</button>
+          </div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs">
+            <thead class="bg-slate-50 text-slate-500 uppercase text-[10px] font-bold">
+              <tr>
+                <th class="p-3 text-left">Insumo</th>
+                <th class="p-3 text-left">Proveedor</th>
+                <th class="p-3 text-left">Producto del Proveedor</th>
+                <th class="p-3 text-right">Precio</th>
+                <th class="p-3 text-center">Disponibilidad</th>
+                <th class="p-3 text-left">Actualizado</th>
+                <th class="p-3 text-center">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="supplier-products-table-body" class="divide-y divide-slate-100"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Compras & Pedidos -->
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center flex-wrap gap-2">
+          <h3 class="font-extrabold text-slate-800 text-sm">Compras & Pedidos a Proveedores</h3>
+          <button onclick="openSupplierPurchaseModal()" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-extrabold shadow transition">+ Registrar Compra / Pedido</button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs">
+            <thead class="bg-slate-50 text-slate-500 uppercase text-[10px] font-bold">
+              <tr>
+                <th class="p-3 text-left">Fecha</th>
+                <th class="p-3 text-left">Proveedor</th>
+                <th class="p-3 text-left">Insumos</th>
+                <th class="p-3 text-right">Total</th>
+                <th class="p-3 text-center">Estado</th>
+                <th class="p-3 text-center">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="supplier-purchases-table-body" class="divide-y divide-slate-100"></tbody>
           </table>
         </div>
       </div>
@@ -653,6 +753,51 @@
         <div class="flex items-center gap-2">
           <input type="checkbox" id="set-auto-print" class="w-4 h-4 text-orange-600 rounded">
           <label for="set-auto-print" class="text-xs font-bold text-slate-700">Imprimir comanda automáticamente al recibir pedido nuevo</label>
+        </div>
+
+        <hr class="border-slate-200 my-4">
+
+        <h3 class="font-bold text-slate-900 text-base flex items-center gap-2">
+          🧾 Facturación Electrónica (ARCA)
+        </h3>
+        <p class="text-xs text-slate-500 -mt-2">Estos datos aparecen impresos en cada Factura C / Tique C emitida. El CUIT y el Punto de Venta se configuran aparte, como variables de entorno del servidor.</p>
+
+        <div id="arca-estado-badge" class="text-xs font-bold px-3 py-2 rounded-xl border bg-slate-50 border-slate-200 text-slate-500">
+          Verificando conexión con ARCA...
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Razón Social</label>
+          <input type="text" id="set-business-razon-social" placeholder="Si difiere del nombre del local" class="w-full px-4 py-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-orange-500">
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Descripción del Negocio</label>
+          <textarea id="set-business-description" rows="2" placeholder="Ej: Rotisería y delivery de comidas caseras" class="w-full px-4 py-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-orange-500"></textarea>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Domicilio Fiscal</label>
+          <input type="text" id="set-business-domicilio-fiscal" class="w-full px-4 py-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-orange-500">
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Condición frente al IVA</label>
+          <select id="set-business-condicion-iva" class="w-full px-4 py-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-orange-500 bg-white">
+            <option value="Monotributo">Monotributo</option>
+            <option value="Responsable Inscripto">Responsable Inscripto</option>
+            <option value="Exento">Exento</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Logo para la Factura</label>
+          <div class="flex items-center gap-3">
+            <img id="business-logo-preview" src="" class="h-14 w-14 object-contain rounded-lg border border-slate-200 bg-slate-50 hidden">
+            <input type="file" accept="image/*" onchange="handleLogoFileSelect(event)" class="text-xs">
+          </div>
+          <input type="hidden" id="set-business-logo-url">
+          <span id="logo-upload-status" class="text-[11px] text-slate-400"></span>
         </div>
 
         <div class="pt-4 border-t border-slate-200">
@@ -1523,6 +1668,167 @@
     </div>
   </div>
 
+  <!-- MODAL DE ALTA / EDICIÓN DE PROVEEDOR (DATOS COMPLETOS) -->
+  <div id="supplier-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200 text-slate-900">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex justify-between items-center border-b pb-3 border-slate-200">
+        <h3 class="font-extrabold text-orange-950 text-base flex items-center gap-2">🚚 Proveedor</h3>
+        <button onclick="closeSupplierModal()" class="text-slate-400 hover:text-slate-700">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <form id="supplier-form" onsubmit="saveSupplier(event)" class="space-y-3">
+        <input type="hidden" id="sup-id">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Nombre / Razón Social *</label>
+          <input type="text" id="sup-name" required placeholder="Ej: Frigorífico Central" class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-orange-500 font-bold">
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">CUIT</label>
+            <input type="text" id="sup-cuit" placeholder="Ej: 30-12345678-9" class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-orange-500 font-mono">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Teléfono / WhatsApp</label>
+            <input type="text" id="sup-phone" placeholder="Ej: 3794123456" class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-orange-500 font-mono">
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Email</label>
+          <input type="email" id="sup-email" placeholder="Ej: ventas@proveedor.com" class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-orange-500">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Dirección</label>
+          <input type="text" id="sup-address" placeholder="Ej: Av. Cazadores Correntinos 2100" class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-orange-500">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Condiciones de Pago</label>
+          <input type="text" id="sup-payment-terms" placeholder="Ej: Contado, Cta. Cte. 30 días, etc." class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-orange-500">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Notas</label>
+          <textarea id="sup-notes" rows="2" placeholder="Observaciones internas sobre este proveedor..." class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-orange-500"></textarea>
+        </div>
+        <div class="bg-orange-50 border border-orange-200 p-3 rounded-xl">
+          <label class="block text-xs font-bold text-orange-900 mb-1">🔑 PIN de Encargado (Nivel 2) o Gerente (Nivel 3) *</label>
+          <input type="password" id="sup-pin" required placeholder="Tu PIN personal" class="w-full px-3.5 py-2 bg-white border border-orange-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-orange-500 font-mono">
+        </div>
+        <div class="pt-4 flex justify-end gap-2 border-t border-slate-200">
+          <button type="button" onclick="closeSupplierModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 font-bold rounded-xl text-xs text-slate-700">Cancelar</button>
+          <button type="submit" class="px-4 py-2 bg-orange-600 hover:bg-orange-700 font-extrabold rounded-xl text-xs text-white shadow">Guardar Proveedor</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL DE PRECIO & DISPONIBILIDAD DE PRODUCTO DE PROVEEDOR (VINCULADO A UN INSUMO) -->
+  <div id="supplier-product-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200 text-slate-900">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex justify-between items-center border-b pb-3 border-slate-200">
+        <h3 class="font-extrabold text-orange-950 text-base flex items-center gap-2">💲 Precio & Disponibilidad de Proveedor</h3>
+        <button onclick="closeSupplierProductModal()" class="text-slate-400 hover:text-slate-700">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <form id="supplier-product-form" onsubmit="saveSupplierProduct(event)" class="space-y-3">
+        <input type="hidden" id="sp-id">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Proveedor *</label>
+          <select id="sp-supplier-id" required class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-orange-500 bg-white font-bold"></select>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Insumo Genérico (ya cargado en Administración) *</label>
+          <select id="sp-raw-material-id" required class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-orange-500 bg-white font-bold"></select>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Nombre del Producto para este Proveedor</label>
+          <input type="text" id="sp-product-name" placeholder="Ej: Cuadril de novillo caja 20kg" class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-orange-500">
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Precio Unitario ($) *</label>
+            <input type="number" step="0.01" id="sp-unit-price" required placeholder="Ej: 4500" class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-orange-500 font-mono font-bold">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Código del Proveedor</label>
+            <input type="text" id="sp-code" placeholder="Ej: COD-4521" class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-orange-500 font-mono">
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Disponibilidad *</label>
+            <select id="sp-availability" required class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-orange-500 bg-white font-bold">
+              <option value="disponible">✅ Disponible</option>
+              <option value="a_pedido">⏳ A pedido</option>
+              <option value="agotado">❌ Agotado</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Tiempo de Entrega</label>
+            <input type="text" id="sp-lead-time" placeholder="Ej: 24-48hs" class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-orange-500">
+          </div>
+        </div>
+        <div class="bg-orange-50 border border-orange-200 p-3 rounded-xl">
+          <label class="block text-xs font-bold text-orange-900 mb-1">🔑 PIN de Encargado (Nivel 2) o Gerente (Nivel 3) *</label>
+          <input type="password" id="sp-pin" required placeholder="Tu PIN personal" class="w-full px-3.5 py-2 bg-white border border-orange-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-orange-500 font-mono">
+        </div>
+        <div class="pt-4 flex justify-end gap-2 border-t border-slate-200">
+          <button type="button" onclick="closeSupplierProductModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 font-bold rounded-xl text-xs text-slate-700">Cancelar</button>
+          <button type="submit" class="px-4 py-2 bg-orange-600 hover:bg-orange-700 font-extrabold rounded-xl text-xs text-white shadow">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL DE REGISTRO DE COMPRA / PEDIDO A PROVEEDOR (VARIOS INSUMOS A LA VEZ) -->
+  <div id="supplier-purchase-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200 text-slate-900">
+    <div class="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex justify-between items-center border-b pb-3 border-slate-200">
+        <h3 class="font-extrabold text-emerald-950 text-base flex items-center gap-2">🧾 Registrar Compra / Pedido a Proveedor</h3>
+        <button onclick="closeSupplierPurchaseModal()" class="text-slate-400 hover:text-slate-700">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <form id="supplier-purchase-form" onsubmit="saveSupplierPurchase(event)" class="space-y-3">
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Proveedor *</label>
+            <select id="pur-supplier-id" required class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-emerald-500 bg-white font-bold"></select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Estado *</label>
+            <select id="pur-status" required class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-emerald-500 bg-white font-bold">
+              <option value="pendiente">⏳ Pedido (todavía no llegó)</option>
+              <option value="recibido">✅ Recibido (sumar al stock ahora)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="flex justify-between items-center pt-2">
+          <span class="text-xs font-black text-slate-800 uppercase">Insumos de la Compra</span>
+          <button type="button" onclick="addPurchaseItemRow()" class="px-2.5 py-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-extrabold text-[11px] rounded-lg transition">+ Agregar Insumo</button>
+        </div>
+        <div id="purchase-items-container" class="space-y-2 max-h-60 overflow-y-auto"></div>
+        <div class="text-right text-sm font-black text-slate-800">Total: <span id="purchase-total-display" class="font-mono">$0</span></div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Notas / Remito</label>
+          <input type="text" id="pur-notes" placeholder="Ej: Remito N° 4580" class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-emerald-500">
+        </div>
+
+        <div class="bg-emerald-50 border border-emerald-200 p-3 rounded-xl">
+          <label class="block text-xs font-bold text-emerald-900 mb-1">🔑 PIN de Encargado (Nivel 2) o Gerente (Nivel 3) *</label>
+          <input type="password" id="pur-pin" required placeholder="Tu PIN personal" class="w-full px-3.5 py-2 bg-white border border-emerald-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500 font-mono">
+        </div>
+
+        <div class="pt-4 flex justify-end gap-2 border-t border-slate-200">
+          <button type="button" onclick="closeSupplierPurchaseModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 font-bold rounded-xl text-xs text-slate-700">Cancelar</button>
+          <button type="submit" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 font-extrabold rounded-xl text-xs text-white shadow">Guardar Compra</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- MODAL DE FICHA TÉCNICA / RECETA (ARTÍCULOS GENERADOS POR PRODUCCIÓN DE COCINA) -->
   <div id="recipe-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200 text-slate-900">
     <div class="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
@@ -1765,7 +2071,7 @@
     </div>
   </div>
 
-  <script src="/js/admin.js?v=13.4.1"></script>
+  <script src="/js/admin.js?v=13.6.0"></script>
   <script>
     lucide.createIcons();
 

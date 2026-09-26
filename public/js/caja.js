@@ -247,6 +247,13 @@ function createCajaCard(order) {
       </button>
     </div>
 
+    <!-- Facturación ARCA -->
+    <div class="pt-1">
+      <button onclick="handleFacturarClick(${order.id})" class="w-full bg-slate-800 hover:bg-slate-700 border border-slate-600 text-amber-300 font-extrabold py-2 rounded-xl text-xs flex items-center justify-center gap-1 transition">
+        🧾 Facturar (ARCA)
+      </button>
+    </div>
+
     ${order.status !== 'entregado' ? `
       <div class="pt-1">
         <button onclick="markOrderDeliveredFromCaja(${order.id})" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-extrabold py-2 rounded-xl text-xs flex items-center justify-center gap-1 transition">
@@ -282,6 +289,62 @@ async function markOrderDeliveredFromCaja(orderId) {
     loadData();
   } catch (err) {
     console.error('Error al actualizar estado:', err);
+  }
+}
+
+// ==========================================================================
+// FACTURACIÓN ELECTRÓNICA ARCA (Factura C / Tique C)
+// ==========================================================================
+async function handleFacturarClick(orderId) {
+  try {
+    const res = await fetch(`/api/facturacion/by-order/${orderId}`);
+    const data = await res.json();
+    if (data.success && data.factura) {
+      // Ya tiene un comprobante emitido: directo a la impresión (no se puede duplicar)
+      window.open(`/api/facturacion/print/${data.factura.id}`, '_blank');
+      return;
+    }
+  } catch (err) {
+    console.error('Error al consultar factura existente:', err);
+  }
+  openFacturaModal(orderId);
+}
+
+function openFacturaModal(orderId) {
+  document.getElementById('fact-order-id').value = orderId;
+  document.getElementById('factura-form').reset();
+  document.getElementById('fact-order-id').value = orderId;
+  document.getElementById('factura-modal').classList.remove('opacity-0', 'pointer-events-none');
+  lucide.createIcons();
+}
+
+function closeFacturaModal() {
+  document.getElementById('factura-modal').classList.add('opacity-0', 'pointer-events-none');
+}
+
+async function submitFacturaModal(e) {
+  e.preventDefault();
+  const orderId = document.getElementById('fact-order-id').value;
+  const payload = {
+    tipo: document.getElementById('fact-tipo').value,
+    doc_nro: document.getElementById('fact-doc-nro').value.trim(),
+    pin: document.getElementById('fact-pin').value
+  };
+  try {
+    const res = await fetch(`/api/facturacion/emitir/${orderId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (data.success) {
+      closeFacturaModal();
+      window.open(`/api/facturacion/print/${data.factura.id}`, '_blank');
+    } else {
+      alert(`⚠️ ${data.error}`);
+    }
+  } catch (err) {
+    alert('Error de conexión al emitir el comprobante.');
   }
 }
 

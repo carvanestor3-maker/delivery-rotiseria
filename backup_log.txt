@@ -1,0 +1,264 @@
+üì¶ Generando copia de seguridad del sistema y base de datos...
+ZipArchiveHelper : El proceso no puede obtener acceso al archivo 'C:\Users\niico\canales 
+youtube\delivery-app\backup_log.txt' porque est† siendo utilizado en otro proceso.
+En C:\Windows\system32\WindowsPowerShell\v1.0\Modules\Microsoft.PowerShell.Archive\Microsoft.PowerShell.Archive.psm1: 
+642 Car†cter: 30
++ ... sArchived = ZipArchiveHelper $sourceFilePaths $destinationPath $compr ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : PermissionDenied: (C:\Users\niico\...\backup_log.txt:String) [Write-Error], IOException
+    + FullyQualifiedErrorId : CompressArchiveUnauthorizedAccessError,ZipArchiveHelper
+ 
+New-Object : Excepci¢n al llamar a ".ctor" con los argumentos "1": "No se puede leer la secuencia."
+En C:\Windows\system32\WindowsPowerShell\v1.0\Modules\Microsoft.PowerShell.Archive\Microsoft.PowerShell.Archive.psm1: 
+818 Car†cter: 38
++ ...     $srcStream = New-Object System.IO.BinaryReader $currentFileStream
++                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [New-Object], MethodInvocationException
+    + FullyQualifiedErrorId : ConstructorInvokedThrowException,Microsoft.PowerShell.Commands.NewObjectCommand
+ 
+
+‚úÖ ¬°COPIA DE SEGURIDAD GENERADA CON √âXITO EN SU DISCO RIGIDO!
+üìÅ Ubicaci√≥n: C:\Users\niico\canales youtube\respaldos_delivery\backup_rotiseria_2026-09-14T22-05-24.zip
+üïí Fecha: 14/9/2026, 07:06:32
+üì¶ Generando copia de seguridad del sistema y base de datos...
+ZipArchiveHelper : El proceso no puede obtener acceso al archivo 'C:\Users\niico\canales 
+youtube\delivery-app\backup_log.txt' porque est† siendo utilizado en otro proceso.
+En C:\Windows\system32\WindowsPowerShell\v1.0\Modules\Microsoft.PowerShell.Archive\Microsoft.PowerShell.Archive.psm1: 
+642 Car†cter: 30
++ ... sArchived = ZipArchiveHelper $sourceFilePaths $destinationPath $compr ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : PermissionDenied: (C:\Users\niico\...\backup_log.txt:String) [Write-Error], IOException
+    + FullyQualifiedErrorId : CompressArchiveUnauthorizedAccessError,ZipArchiveHelper
+ 
+New-Object : Excepci¢n al llamar a ".ctor" con los argumentos "1": "No se puede leer la secuencia."
+En C:\Windows\system32\WindowsPowerShell\v1.0\Modules\Microsoft.PowerShell.Archive\Microsoft.PowerShell.Archive.psm1: 
+818 Car†cter: 38
++ ...     $srcStream = New-Object System.IO.BinaryReader $currentFileStream
++                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [New-Object], MethodInvocationException
+    + FullyQualifiedErrorId : ConstructorInvokedThrowException,Microsoft.PowerShell.Commands.NewObjectCommand
+ 
+
+‚úÖ ¬°COPIA DE SEGURIDAD GENERADA CON √âXITO EN SU DISCO RIGIDO!
+üìÅ Ubicaci√≥n: C:\Users\niico\canales youtube\respaldos_delivery\backup_rotiseria_2026-09-15T07-00-04.zip
+üïí Fecha: 15/9/2026, 04:00:49
+üì¶ Generando copia de seguridad del sistema y base de datos...
+ZipArchiveHelper : El proceso no puede obtener acceso al archivo 'C:\Users\niico\canales 
+youtube\delivery-app\backup_log.txt' porque est† siendo utilizado en otro proceso.
+En C:\Windows\system32\WindowsPowerShell\v1.0\Modules\Microsoft.PowerShell.Archive\Microsoft.PowerShell.Archive.psm1: 
+642 Car†cter: 30
++ ... sArchived = ZipArchiveHelper $sourceFilePaths $destinationPath $compr ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : PermissionDenied: (C:\Users\niico\...\backup_log.txt:String) [Write-Error], IOException
+    + FullyQualifiedErrorId : CompressArchiveUnauthorizedAccessError,ZipArchiveHelper
+ 
+New-Object : Excepci¢n al llamar a ".ctor" con los argumentos "1": "No se puede leer la secuencia."
+En C:\Windows\system32\WindowsPowerShell\v1.0\Modules\Microsoft.PowerShell.Archive\Microsoft.PowerShell.Archive.psm1: 
+818 Car†cter: 38
++ ...     $srcStream = New-Object System.IO.BinaryReader $currentFileStream
++                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [New-Object], MethodInvocationException
+    + FullyQualifiedErrorId : ConstructorInvokedThrowException,Microsoft.PowerShell.Commands.NewObjectCommand
+ 
+
+‚úÖ ¬°COPIA DE SEGURIDAD GENERADA CON √âXITO EN SU DISCO RIGIDO!
+üìÅ Ubicaci√≥n: C:\Users\niico\canales youtube\respaldos_delivery\backup_rotiseria_2026-09-17T07-00-04.zip
+üïí Fecha: 17/9/2026, 04:01:13
+üì¶ Generando copia de seguridad del sistema y base de datos...
+ZipArchiveHelper : El proceso no puede obtener acceso al archivo 'C:\Users\niico\canales 
+youtube\delivery-app\backup_log.txt' porque est† siendo utilizado en otro proceso.
+En C:\Windows\system32\WindowsPowerShell\v1.0\Modules\Microsoft.PowerShell.Archive\Microsoft.PowerShell.Archive.psm1: 
+642 Car†cter: 30
++ ... sArchived = ZipArchiveHelper $sourceFilePaths $destinationPath $compr ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : PermissionDenied: (C:\Users\niico\...\backup_log.txt:String) [Write-Error], IOException
+    + FullyQualifiedErrorId : CompressArchiveUnauthorizedAccessError,ZipArchiveHelper
+ 
+New-Object : Excepci¢n al llamar a ".ctor" con los argumentos "1": "No se puede leer la secuencia."
+En C:\Windows\system32\WindowsPowerShell\v1.0\Modules\Microsoft.PowerShell.Archive\Microsoft.PowerShell.Archive.psm1: 
+818 Car†cter: 38
++ ...     $srcStream = New-Object System.IO.BinaryReader $currentFileStream
++                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [New-Object], MethodInvocationException
+    + FullyQualifiedErrorId : ConstructorInvokedThrowException,Microsoft.PowerShell.Commands.NewObjectCommand
+ 
+
+‚úÖ ¬°COPIA DE SEGURIDAD GENERADA CON √âXITO EN SU DISCO RIGIDO!
+üìÅ Ubicaci√≥n: C:\Users\niico\canales youtube\respaldos_delivery\backup_rotiseria_2026-09-18T07-00-10.zip
+üïí Fecha: 18/9/2026, 04:01:57
+üì¶ Generando copia de seguridad del sistema y base de datos...
+ZipArchiveHelper : El proceso no puede obtener acceso al archivo 'C:\Users\niico\canales 
+youtube\delivery-app\backup_log.txt' porque est† siendo utilizado en otro proceso.
+En C:\Windows\system32\WindowsPowerShell\v1.0\Modules\Microsoft.PowerShell.Archive\Microsoft.PowerShell.Archive.psm1: 
+642 Car†cter: 30
++ ... sArchived = ZipArchiveHelper $sourceFilePaths $destinationPath $compr ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : PermissionDenied: (C:\Users\niico\...\backup_log.txt:String) [Write-Error], IOException
+    + FullyQualifiedErrorId : CompressArchiveUnauthorizedAccessError,ZipArchiveHelper
+ 
+New-Object : Excepci¢n al llamar a ".ctor" con los argumentos "1": "No se puede leer la secuencia."
+En C:\Windows\system32\WindowsPowerShell\v1.0\Modules\Microsoft.PowerShell.Archive\Microsoft.PowerShell.Archive.psm1: 
+818 Car†cter: 38
++ ...     $srcStream = New-Object System.IO.BinaryReader $currentFileStream
++                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [New-Object], MethodInvocationException
+    + FullyQualifiedErrorId : ConstructorInvokedThrowException,Microsoft.PowerShell.Commands.NewObjectCommand
+ 
+
+‚úÖ ¬°COPIA DE SEGURIDAD GENERADA CON √âXITO EN SU DISCO RIGIDO!
+üìÅ Ubicaci√≥n: C:\Users\niico\canales youtube\respaldos_delivery\backup_rotiseria_2026-09-19T07-00-05.zip
+üïí Fecha: 19/9/2026, 04:01:19
+üì¶ Generando copia de seguridad del sistema y base de datos...
+ZipArchiveHelper : El proceso no puede obtener acceso al archivo 'C:\Users\niico\canales 
+youtube\delivery-app\backup_log.txt' porque est† siendo utilizado en otro proceso.
+En C:\Windows\system32\WindowsPowerShell\v1.0\Modules\Microsoft.PowerShell.Archive\Microsoft.PowerShell.Archive.psm1: 
+642 Car†cter: 30
++ ... sArchived = ZipArchiveHelper $sourceFilePaths $destinationPath $compr ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : PermissionDenied: (C:\Users\niico\...\backup_log.txt:String) [Write-Error], IOException
+    + FullyQualifiedErrorId : CompressArchiveUnauthorizedAccessError,ZipArchiveHelper
+ 
+New-Object : Excepci¢n al llamar a ".ctor" con los argumentos "1": "No se puede leer la secuencia."
+En C:\Windows\system32\WindowsPowerShell\v1.0\Modules\Microsoft.PowerShell.Archive\Microsoft.PowerShell.Archive.psm1: 
+818 Car†cter: 38
++ ...     $srcStream = New-Object System.IO.BinaryReader $currentFileStream
++                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [New-Object], MethodInvocationException
+    + FullyQualifiedErrorId : ConstructorInvokedThrowException,Microsoft.PowerShell.Commands.NewObjectCommand
+ 
+
+‚úÖ ¬°COPIA DE SEGURIDAD GENERADA CON √âXITO EN SU DISCO RIGIDO!
+üìÅ Ubicaci√≥n: C:\Users\niico\canales youtube\respaldos_delivery\backup_rotiseria_2026-09-20T07-00-10.zip
+üïí Fecha: 20/9/2026, 04:01:33
+üì¶ Generando copia de seguridad del sistema y base de datos...
+ZipArchiveHelper : El proceso no puede obtener acceso al archivo 'C:\Users\niico\canales 
+youtube\delivery-app\backup_log.txt' porque est† siendo utilizado en otro proceso.
+En C:\Windows\system32\WindowsPowerShell\v1.0\Modules\Microsoft.PowerShell.Archive\Microsoft.PowerShell.Archive.psm1: 
+642 Car†cter: 30
++ ... sArchived = ZipArchiveHelper $sourceFilePaths $destinationPath $compr ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : PermissionDenied: (C:\Users\niico\...\backup_log.txt:String) [Write-Error], IOException
+    + FullyQualifiedErrorId : CompressArchiveUnauthorizedAccessError,ZipArchiveHelper
+ 
+New-Object : Excepci¢n al llamar a ".ctor" con los argumentos "1": "No se puede leer la secuencia."
+En C:\Windows\system32\WindowsPowerShell\v1.0\Modules\Microsoft.PowerShell.Archive\Microsoft.PowerShell.Archive.psm1: 
+818 Car†cter: 38
++ ...     $srcStream = New-Object System.IO.BinaryReader $currentFileStream
++                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [New-Object], MethodInvocationException
+    + FullyQualifiedErrorId : ConstructorInvokedThrowException,Microsoft.PowerShell.Commands.NewObjectCommand
+ 
+
+‚úÖ ¬°COPIA DE SEGURIDAD GENERADA CON √âXITO EN SU DISCO RIGIDO!
+üìÅ Ubicaci√≥n: C:\Users\niico\canales youtube\respaldos_delivery\backup_rotiseria_2026-09-21T07-00-06.zip
+üïí Fecha: 21/9/2026, 04:01:29
+üì¶ Generando copia de seguridad del sistema y base de datos...
+ZipArchiveHelper : El proceso no puede obtener acceso al archivo 'C:\Users\niico\canales 
+youtube\delivery-app\backup_log.txt' porque est† siendo utilizado en otro proceso.
+En C:\Windows\system32\WindowsPowerShell\v1.0\Modules\Microsoft.PowerShell.Archive\Microsoft.PowerShell.Archive.psm1: 
+642 Car†cter: 30
++ ... sArchived = ZipArchiveHelper $sourceFilePaths $destinationPath $compr ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : PermissionDenied: (C:\Users\niico\...\backup_log.txt:String) [Write-Error], IOException
+    + FullyQualifiedErrorId : CompressArchiveUnauthorizedAccessError,ZipArchiveHelper
+ 
+New-Object : Excepci¢n al llamar a ".ctor" con los argumentos "1": "No se puede leer la secuencia."
+En C:\Windows\system32\WindowsPowerShell\v1.0\Modules\Microsoft.PowerShell.Archive\Microsoft.PowerShell.Archive.psm1: 
+818 Car†cter: 38
++ ...     $srcStream = New-Object System.IO.BinaryReader $currentFileStream
++                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [New-Object], MethodInvocationException
+    + FullyQualifiedErrorId : ConstructorInvokedThrowException,Microsoft.PowerShell.Commands.NewObjectCommand
+ 
+
+‚úÖ ¬°COPIA DE SEGURIDAD GENERADA CON √âXITO EN SU DISCO RIGIDO!
+üìÅ Ubicaci√≥n: C:\Users\niico\canales youtube\respaldos_delivery\backup_rotiseria_2026-09-22T07-00-15.zip
+üïí Fecha: 22/9/2026, 04:02:46
+üì¶ Generando copia de seguridad del sistema y base de datos...
+ZipArchiveHelper : El proceso no puede obtener acceso al archivo 'C:\Users\niico\canales 
+youtube\delivery-app\backup_log.txt' porque est† siendo utilizado en otro proceso.
+En C:\Windows\system32\WindowsPowerShell\v1.0\Modules\Microsoft.PowerShell.Archive\Microsoft.PowerShell.Archive.psm1: 
+642 Car†cter: 30
++ ... sArchived = ZipArchiveHelper $sourceFilePaths $destinationPath $compr ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : PermissionDenied: (C:\Users\niico\...\backup_log.txt:String) [Write-Error], IOException
+    + FullyQualifiedErrorId : CompressArchiveUnauthorizedAccessError,ZipArchiveHelper
+ 
+New-Object : Excepci¢n al llamar a ".ctor" con los argumentos "1": "No se puede leer la secuencia."
+En C:\Windows\system32\WindowsPowerShell\v1.0\Modules\Microsoft.PowerShell.Archive\Microsoft.PowerShell.Archive.psm1: 
+818 Car†cter: 38
++ ...     $srcStream = New-Object System.IO.BinaryReader $currentFileStream
++                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [New-Object], MethodInvocationException
+    + FullyQualifiedErrorId : ConstructorInvokedThrowException,Microsoft.PowerShell.Commands.NewObjectCommand
+ 
+
+‚úÖ ¬°COPIA DE SEGURIDAD GENERADA CON √âXITO EN SU DISCO RIGIDO!
+üìÅ Ubicaci√≥n: C:\Users\niico\canales youtube\respaldos_delivery\backup_rotiseria_2026-09-23T07-00-08.zip
+üïí Fecha: 23/9/2026, 04:01:30
+üì¶ Generando copia de seguridad del sistema y base de datos...
+ZipArchiveHelper : El proceso no puede obtener acceso al archivo 'C:\Users\niico\canales 
+youtube\delivery-app\backup_log.txt' porque est† siendo utilizado en otro proceso.
+En C:\Windows\system32\WindowsPowerShell\v1.0\Modules\Microsoft.PowerShell.Archive\Microsoft.PowerShell.Archive.psm1: 
+642 Car†cter: 30
++ ... sArchived = ZipArchiveHelper $sourceFilePaths $destinationPath $compr ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : PermissionDenied: (C:\Users\niico\...\backup_log.txt:String) [Write-Error], IOException
+    + FullyQualifiedErrorId : CompressArchiveUnauthorizedAccessError,ZipArchiveHelper
+ 
+New-Object : Excepci¢n al llamar a ".ctor" con los argumentos "1": "No se puede leer la secuencia."
+En C:\Windows\system32\WindowsPowerShell\v1.0\Modules\Microsoft.PowerShell.Archive\Microsoft.PowerShell.Archive.psm1: 
+818 Car†cter: 38
++ ...     $srcStream = New-Object System.IO.BinaryReader $currentFileStream
++                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [New-Object], MethodInvocationException
+    + FullyQualifiedErrorId : ConstructorInvokedThrowException,Microsoft.PowerShell.Commands.NewObjectCommand
+ 
+
+‚úÖ ¬°COPIA DE SEGURIDAD GENERADA CON √âXITO EN SU DISCO RIGIDO!
+üìÅ Ubicaci√≥n: C:\Users\niico\canales youtube\respaldos_delivery\backup_rotiseria_2026-09-24T07-00-03.zip
+üïí Fecha: 24/9/2026, 04:01:12
+üì¶ Generando copia de seguridad del sistema y base de datos...
+ZipArchiveHelper : El proceso no puede obtener acceso al archivo 'C:\Users\niico\canales 
+youtube\delivery-app\backup_log.txt' porque est† siendo utilizado en otro proceso.
+En C:\Windows\system32\WindowsPowerShell\v1.0\Modules\Microsoft.PowerShell.Archive\Microsoft.PowerShell.Archive.psm1: 
+642 Car†cter: 30
++ ... sArchived = ZipArchiveHelper $sourceFilePaths $destinationPath $compr ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : PermissionDenied: (C:\Users\niico\...\backup_log.txt:String) [Write-Error], IOException
+    + FullyQualifiedErrorId : CompressArchiveUnauthorizedAccessError,ZipArchiveHelper
+ 
+New-Object : Excepci¢n al llamar a ".ctor" con los argumentos "1": "No se puede leer la secuencia."
+En C:\Windows\system32\WindowsPowerShell\v1.0\Modules\Microsoft.PowerShell.Archive\Microsoft.PowerShell.Archive.psm1: 
+818 Car†cter: 38
++ ...     $srcStream = New-Object System.IO.BinaryReader $currentFileStream
++                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [New-Object], MethodInvocationException
+    + FullyQualifiedErrorId : ConstructorInvokedThrowException,Microsoft.PowerShell.Commands.NewObjectCommand
+ 
+
+‚úÖ ¬°COPIA DE SEGURIDAD GENERADA CON √âXITO EN SU DISCO RIGIDO!
+üìÅ Ubicaci√≥n: C:\Users\niico\canales youtube\respaldos_delivery\backup_rotiseria_2026-09-25T07-00-04.zip
+üïí Fecha: 25/9/2026, 04:01:25
+üì¶ Generando copia de seguridad del sistema y base de datos...
+ZipArchiveHelper : El proceso no puede obtener acceso al archivo 'C:\Users\niico\canales 
+youtube\delivery-app\backup_log.txt' porque est† siendo utilizado en otro proceso.
+En C:\Windows\system32\WindowsPowerShell\v1.0\Modules\Microsoft.PowerShell.Archive\Microsoft.PowerShell.Archive.psm1: 
+642 Car†cter: 30
++ ... sArchived = ZipArchiveHelper $sourceFilePaths $destinationPath $compr ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : PermissionDenied: (C:\Users\niico\...\backup_log.txt:String) [Write-Error], IOException
+    + FullyQualifiedErrorId : CompressArchiveUnauthorizedAccessError,ZipArchiveHelper
+ 
+New-Object : Excepci¢n al llamar a ".ctor" con los argumentos "1": "No se puede leer la secuencia."
+En C:\Windows\system32\WindowsPowerShell\v1.0\Modules\Microsoft.PowerShell.Archive\Microsoft.PowerShell.Archive.psm1: 
+818 Car†cter: 38
++ ...     $srcStream = New-Object System.IO.BinaryReader $currentFileStream
++                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [New-Object], MethodInvocationException
+    + FullyQualifiedErrorId : ConstructorInvokedThrowException,Microsoft.PowerShell.Commands.NewObjectCommand
+ 
+
+‚úÖ ¬°COPIA DE SEGURIDAD GENERADA CON √âXITO EN SU DISCO RIGIDO!
+üìÅ Ubicaci√≥n: C:\Users\niico\canales youtube\respaldos_delivery\backup_rotiseria_2026-09-26T07-00-05.zip
+üïí Fecha: 26/9/2026, 04:01:23

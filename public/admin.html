@@ -97,6 +97,9 @@
       <button onclick="switchTab('audit')" id="tab-btn-audit" class="tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2">
         📜 Bitácora de Auditoría (Nivel 3)
       </button>
+      <button onclick="switchTab('backups')" id="tab-btn-backups" class="tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2">
+        💾 Backups Diarios de Caja
+      </button>
       <button onclick="switchTab('production-analytics')" id="tab-btn-production-analytics" class="tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2">
         📊 Costos & Rentabilidad de Producción
       </button>
@@ -711,6 +714,50 @@
           </div>
         </div>
 
+      </div>
+    </section>
+
+    <!-- PESTAÑA: BACKUPS DIARIOS DE CAJA -->
+    <section id="tab-backups" class="hidden space-y-6">
+      <div class="bg-slate-800 text-white p-6 rounded-2xl shadow-md flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <div>
+          <h2 class="font-extrabold text-xl flex items-center gap-2">
+            💾 Backups Diarios de Caja
+          </h2>
+          <p class="text-xs text-slate-300 mt-1">Un backup por día: turnos de caja abiertos/cerrados, todas las ventas, pagos de Cuenta Corriente, anulaciones y cambios de forma de pago. Se genera solo, todos los días, y queda guardado acá para siempre (no se borra al reiniciar el servidor).</p>
+        </div>
+        <button onclick="generateTodayBackupNow()" class="bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-extrabold px-4 py-2.5 rounded-xl text-xs flex items-center gap-1.5 shadow-md transition whitespace-nowrap">
+          🔄 Generar Backup de Hoy Ahora
+        </button>
+      </div>
+
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
+          <h3 class="font-extrabold text-slate-800 text-sm">Historial de Backups (últimos 120 días)</h3>
+          <span id="backups-count-badge" class="text-xs font-bold bg-slate-200 text-slate-700 px-2.5 py-1 rounded-full">0 backups</span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-sm">
+            <thead>
+              <tr class="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase">
+                <th class="p-3">Fecha</th>
+                <th class="p-3">Ventas</th>
+                <th class="p-3">Total Vendido</th>
+                <th class="p-3">Anulaciones</th>
+                <th class="p-3">Turnos de Caja</th>
+                <th class="p-3">Pagos Cta Cte</th>
+                <th class="p-3">Cambios Forma Pago</th>
+                <th class="p-3 text-right">Descargar</th>
+              </tr>
+            </thead>
+            <tbody id="backups-tbody" class="divide-y divide-slate-100">
+              <!-- Dinámico -->
+            </tbody>
+          </table>
+        </div>
+        <div id="backups-empty-msg" class="hidden p-8 text-center text-slate-400 text-sm">
+          Todavía no hay ningún backup diario generado. Tocá "Generar Backup de Hoy Ahora" para crear el primero.
+        </div>
       </div>
     </section>
 

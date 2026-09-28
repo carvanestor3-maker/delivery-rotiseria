@@ -330,7 +330,7 @@ app.delete('/api/admin/users/:id', (req, res) => {
 });
 
 // APERTURA DE TURNO DE CAJA POR NÚMERO DE CAJA, CAJERO ASIGNADO Y AUTORIZANTE (REQUERIDO NIVEL 2 O 3)
-app.post('/api/cash/shift/open', (req, res) => {
+app.post('/api/cash/shift/open', async (req, res) => {
   try {
     const { box_number, cashier_name, initial_cash, shift_type, pin } = req.body;
     const numBox = parseInt(box_number || 1);
@@ -391,7 +391,10 @@ app.post('/api/cash/shift/open', (req, res) => {
     };
 
     store.cash_shifts.unshift(newShift);
-    db.saveStore();
+    // Guardado CON confirmación: la apertura de caja registra el efectivo
+    // inicial declarado por el cajero -> si no queda grabado, tiene que
+    // saberse antes de seguir cobrando, no perderse en silencio.
+    await db.saveStoreAndConfirm();
     io.emit('cash_shift_updated');
 
     res.json({ success: true, shift: newShift, user_name: auth.user.name, cashier_name: strCashierName, box_number: numBox });
@@ -401,7 +404,7 @@ app.post('/api/cash/shift/open', (req, res) => {
 });
 
 // CIERRE DE TURNO DE CAJA POR NÚMERO DE CAJA Y USUARIO INDIVIDUAL (REQUERIDO NIVEL 2 O 3)
-app.post('/api/cash/shift/close', (req, res) => {
+app.post('/api/cash/shift/close', async (req, res) => {
   try {
     const { box_number, shift_id, final_cash, pin } = req.body;
     const numBox = box_number ? parseInt(box_number) : null;
@@ -451,7 +454,10 @@ app.post('/api/cash/shift/close', (req, res) => {
       }
     }
 
-    db.saveStore();
+    // Guardado CON confirmación: el cierre de caja registra el efectivo
+    // final contado -> es el dato que se usa para cuadrar la caja, no puede
+    // quedar en el aire si la base no confirmó el guardado.
+    await db.saveStoreAndConfirm();
     io.emit('cash_shift_updated');
 
     res.json({ success: true, shift: activeShift, user_name: auth.user.name, box_number: activeShift.box_number || 1, bar_auto_closed: barAutoClosed });
@@ -488,7 +494,7 @@ app.post('/api/admin/audit-logs', (req, res) => {
       periodOrders.forEach(o => {
         total += o.total;
         if (o.payment_method === 'Efectivo') cash += o.total;
-        else if (o.payment_method.includes('Tarjeta')) card += o.total;
+        else if (o.payment_method.includes('Tarjeta') || o.payment_method.toLowerCase().includes('posnet')) card += o.total;
         else if (o.payment_method.includes('Cuenta Corriente')) cc += o.total;
         else digital += o.total;
       });
@@ -1751,7 +1757,7 @@ app.post('/api/club/login-by-dni', (req, res) => {
   }
 });
 
-app.post('/api/orders', (req, res) => {
+app.post('/api/orders', async (req, res) => {
   try {
     const { customer_name, customer_phone, customer_dni, address, delivery_type, payment_method, payment_note, notes, items, total } = req.body;
 
@@ -1833,7 +1839,10 @@ app.post('/api/orders', (req, res) => {
       }
     }
 
-    db.saveStore();
+    // Guardado CON confirmación: si la base no confirma que el pedido quedó
+    // grabado, el catch de abajo le avisa a quien está pidiendo/cobrando en
+    // vez de responder "éxito" y perder el pedido en silencio.
+    await db.saveStoreAndConfirm();
 
     io.emit('new_order', newOrder);
     if (customerObj) io.emit('customer_updated', customerObj);
@@ -1970,15 +1979,20 @@ app.put('/api/orders/:id/status', (req, res) => {
   }
 });
 
-// CANCELAR PEDIDO YA INGRESADO A COCINA (REQUERIDO NIVEL 3 - SOLO ANTES DE INGRESAR A CAJA, REVIERTE STOCK)
-app.post('/api/orders/:id/cancel', (req, res) => {
+// CANCELAR / ANULAR PEDIDO (REQUERIDO NIVEL 3). Sin `force_from_caja`, se
+// comporta como antes: solo antes de ingresar a Caja (revierte stock). Con
+// `force_from_caja: true` (usado desde el botón de Caja/Admin) también
+// permite anular un pedido YA cobrado o entregado — revierte el saldo de
+// Cuenta Corriente si corresponde, y deja marcado que el dinero ya cobrado
+// en efectivo/tarjeta/MP debe reconciliarse a mano en la caja física.
+app.post('/api/orders/:id/cancel', async (req, res) => {
   try {
     const { id } = req.params;
-    const { reason, pin } = req.body;
+    const { reason, pin, force_from_caja } = req.body;
 
     const auth = verifyUserPin(pin, 3);
     if (!auth.isValid) {
-      return res.status(401).json({ success: false, error: 'Acceso Denegado: Cancelar un pedido requiere PIN de Gerente / Dueño (Nivel 3).' });
+      return res.status(401).json({ success: false, error: 'Acceso Denegado: Anular un pedido requiere PIN de Gerente / Dueño (Nivel 3).' });
     }
 
     const store = db.getStore();
@@ -1992,19 +2006,16 @@ app.post('/api/orders/:id/cancel', (req, res) => {
       return res.status(400).json({ success: false, error: `El pedido ${existingOrder.order_number} ya estaba cancelado.` });
     }
 
-    if (existingOrder.status === 'entregado') {
-      return res.status(400).json({ success: false, error: `No se puede cancelar el pedido ${existingOrder.order_number} porque ya fue marcado como Entregado.` });
-    }
-
-    if (existingOrder.paid === 1) {
+    const yaFacturadoOEntregado = existingOrder.paid === 1 || existingOrder.status === 'entregado';
+    if (yaFacturadoOEntregado && !force_from_caja) {
       return res.status(400).json({
         success: false,
-        error: `El pedido ${existingOrder.order_number} ya fue ingresado a Caja ($${existingOrder.total}). No puede cancelarse desde Cocina: primero hay que revertir el cobro en Caja / Admin.`
+        error: `El pedido ${existingOrder.order_number} ya fue ingresado a Caja ($${existingOrder.total}) o marcado Entregado. No puede anularse desde Cocina: hacelo desde el botón "Anular venta" en Caja / Admin.`
       });
     }
 
     // Si la comanda ya había entrado a cocina (descontando insumos), se revierte el stock consumido
-    const statusesConDescuentoDeStock = ['en_preparacion', 'en_camino', 'ready', 'bar_despachado', 'en_proceso'];
+    const statusesConDescuentoDeStock = ['en_preparacion', 'en_camino', 'ready', 'bar_despachado', 'en_proceso', 'entregado'];
     if (statusesConDescuentoDeStock.includes(existingOrder.status)) {
       const orderItems = typeof existingOrder.items === 'string' ? JSON.parse(existingOrder.items) : existingOrder.items;
       if (Array.isArray(orderItems)) {
@@ -2021,12 +2032,36 @@ app.post('/api/orders/:id/cancel', (req, res) => {
       }
     }
 
+    // Si el pedido era de Cuenta Corriente y ya se le había cargado la deuda
+    // al cliente (al marcarlo Entregado), se la revertimos acá.
+    const isCuentaCorriente = existingOrder.payment_method && existingOrder.payment_method.includes('Cuenta Corriente');
+    let reversedAccount = null;
+    if (isCuentaCorriente && existingOrder.status === 'entregado') {
+      const account = store.customer_accounts.find(a =>
+        a.dni === existingOrder.payment_note ||
+        (a.phone && existingOrder.customer_phone && (a.phone.includes(existingOrder.customer_phone) || existingOrder.customer_phone.includes(a.phone)))
+      );
+      if (account) {
+        account.balance = Math.max(0, (account.balance || 0) - existingOrder.total);
+        reversedAccount = account;
+      }
+    }
+
+    const previousStatus = existingOrder.status;
+    const previousPaid = existingOrder.paid;
     existingOrder.status = 'cancelado';
+    existingOrder.paid = 0;
     existingOrder.cancelled_reason = (reason || '').trim() || 'Sin motivo especificado';
     existingOrder.cancelled_by = `${auth.user.name} (Nivel ${auth.user.level})`;
     existingOrder.cancelled_at = new Date().toISOString();
+    existingOrder.cancelled_from_caja = !!force_from_caja;
+    existingOrder.status_before_cancel = previousStatus;
+    existingOrder.was_paid_before_cancel = previousPaid === 1;
     existingOrder.updated_at = new Date().toISOString();
-    db.saveStore();
+
+    // Guardado CON confirmación: una anulación (sobre todo de un pedido ya
+    // cobrado) no puede quedar solo en memoria.
+    await db.saveStoreAndConfirm();
 
     const updatedOrder = {
       ...existingOrder,
@@ -2035,8 +2070,300 @@ app.post('/api/orders/:id/cancel', (req, res) => {
 
     io.emit('order_updated', updatedOrder);
     io.emit('stock_updated');
+    if (reversedAccount) io.emit('customer_updated', reversedAccount);
 
-    res.json({ success: true, order: updatedOrder, user_name: auth.user.name });
+    res.json({
+      success: true,
+      order: updatedOrder,
+      user_name: auth.user.name,
+      warning: (previousPaid === 1 && !isCuentaCorriente)
+        ? `⚠️ Este pedido ya había sido cobrado en efectivo/tarjeta/MP ($${existingOrder.total}). El sistema lo anuló y lo sacó de las ventas válidas, pero el ajuste del dinero físico en la caja hay que hacerlo a mano.`
+        : null
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// CAMBIAR LA FORMA DE PAGO DE UN PEDIDO YA CARGADO (REQUERIDO NIVEL 3).
+// Deja registro de quién lo cambió, cuándo y desde/hacia qué método — y
+// ajusta el saldo de Cuenta Corriente si el cambio entra o sale de ese medio
+// de pago en un pedido ya marcado Entregado.
+app.post('/api/orders/:id/change-payment-method', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { new_payment_method, new_payment_note, new_payments, reason, pin } = req.body;
+
+    const auth = verifyUserPin(pin, 3);
+    if (!auth.isValid) {
+      return res.status(401).json({ success: false, error: 'Acceso Denegado: Cambiar la forma de pago requiere PIN de Gerente / Dueño (Nivel 3).' });
+    }
+
+    const store = db.getStore();
+    const order = store.orders.find(o => o.id === parseInt(id));
+    if (!order) {
+      return res.status(404).json({ success: false, error: 'Pedido no encontrado' });
+    }
+    if (order.status === 'cancelado') {
+      return res.status(400).json({ success: false, error: `El pedido ${order.order_number} está anulado, no se le puede cambiar la forma de pago.` });
+    }
+
+    // Se puede pasar `new_payment_method` (un único medio, como antes) o
+    // `new_payments` (array [{method, amount}, ...] para dividir el pago en
+    // varios medios). Al menos uno de los dos es obligatorio.
+    let newMethodSummary = new_payment_method;
+    let newCombinedPayments = null;
+    if (new_payments && Array.isArray(new_payments) && new_payments.length > 0) {
+      const cleanPayments = new_payments
+        .map(p => ({ method: String(p.method || '').trim(), amount: parseFloat(p.amount) || 0, note: (p.note || '').trim() }))
+        .filter(p => p.method && p.amount > 0);
+      if (cleanPayments.length === 0) {
+        return res.status(400).json({ success: false, error: 'Los pagos combinados ingresados no son válidos.' });
+      }
+      const sumPayments = cleanPayments.reduce((s, p) => s + p.amount, 0);
+      if (Math.abs(sumPayments - order.total) > 1) {
+        return res.status(400).json({
+          success: false,
+          error: `⚠️ Los pagos combinados suman $${sumPayments} y el total del pedido es $${order.total}. Tienen que coincidir.`
+        });
+      }
+      newCombinedPayments = cleanPayments;
+      newMethodSummary = cleanPayments.length > 1
+        ? cleanPayments.map(p => `${p.method} ($${p.amount})`).join(' + ')
+        : cleanPayments[0].method;
+    }
+    if (!newMethodSummary) {
+      return res.status(400).json({ success: false, error: 'Falta indicar la nueva forma de pago.' });
+    }
+
+    const wasCuentaCorriente = order.payment_method && order.payment_method.includes('Cuenta Corriente');
+    const willBeCuentaCorriente = newMethodSummary.includes('Cuenta Corriente');
+
+    // Si el pedido ya está Entregado, la deuda de Cta Cte ya se contabilizó
+    // al cliente — hay que sacarla o cargarla según corresponda al cambiar.
+    if (order.status === 'entregado' && wasCuentaCorriente !== willBeCuentaCorriente) {
+      const account = store.customer_accounts.find(a =>
+        a.dni === (order.payment_note || new_payment_note) ||
+        (a.phone && order.customer_phone && (a.phone.includes(order.customer_phone) || order.customer_phone.includes(a.phone)))
+      );
+      if (account) {
+        if (wasCuentaCorriente && !willBeCuentaCorriente) {
+          account.balance = Math.max(0, (account.balance || 0) - order.total);
+        } else if (!wasCuentaCorriente && willBeCuentaCorriente) {
+          account.balance = (account.balance || 0) + order.total;
+        }
+      } else if (willBeCuentaCorriente) {
+        return res.status(400).json({ success: false, error: `No se encontró una Cuenta Corriente autorizada para este cliente, no se puede pasar el pedido a ese medio de pago.` });
+      }
+    }
+
+    const previousMethod = order.payment_method;
+    order.payment_method = newMethodSummary;
+    order.payments = newCombinedPayments; // null si quedó en un único medio
+    if (new_payment_note !== undefined) order.payment_note = new_payment_note;
+    if (!order.payment_method_history) order.payment_method_history = [];
+    order.payment_method_history.push({
+      from: previousMethod,
+      to: newMethodSummary,
+      reason: (reason || '').trim() || 'Sin motivo especificado',
+      changed_by: `${auth.user.name} (Nivel ${auth.user.level})`,
+      changed_at: new Date().toISOString()
+    });
+    order.updated_at = new Date().toISOString();
+
+    await db.saveStoreAndConfirm();
+
+    io.emit('order_updated', { ...order, items: typeof order.items === 'string' ? JSON.parse(order.items) : order.items });
+
+    res.json({ success: true, order, user_name: auth.user.name });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ==========================================
+// BACKUP DIARIO DE MOVIMIENTOS DE CAJA (TURNOS, VENTAS, CTA CTE, ANULACIONES Y
+// CAMBIOS DE FORMA DE PAGO). Se genera 1 vez por día (automático, ver tarea
+// programada) y queda guardado ADENTRO de la base (store.daily_backups), no
+// en el disco del servidor -> sobrevive a reinicios/redeploys de Render.
+// ==========================================
+function buildDailyBackupSnapshot(store, dateStr) {
+  // Argentina no tiene horario de verano -> offset fijo -03:00 todo el año.
+  const dayStart = new Date(`${dateStr}T00:00:00-03:00`);
+  const dayEnd = new Date(`${dateStr}T23:59:59.999-03:00`);
+  const inRange = (iso) => {
+    if (!iso) return false;
+    const t = new Date(iso).getTime();
+    return t >= dayStart.getTime() && t <= dayEnd.getTime();
+  };
+
+  const cashShifts = (store.cash_shifts || []).filter(s => inRange(s.opened_at) || inRange(s.closed_at));
+  const ordersCreated = (store.orders || []).filter(o => inRange(o.created_at));
+  const cancellations = (store.orders || []).filter(o => o.status === 'cancelado' && inRange(o.cancelled_at));
+  const accountPayments = (store.account_payments || []).filter(p => inRange(p.date));
+
+  const paymentChanges = [];
+  (store.orders || []).forEach(o => {
+    (o.payment_method_history || []).forEach(h => {
+      if (inRange(h.changed_at)) {
+        paymentChanges.push({
+          order_id: o.id,
+          order_number: o.order_number,
+          from: h.from,
+          to: h.to,
+          reason: h.reason,
+          changed_by: h.changed_by,
+          changed_at: h.changed_at
+        });
+      }
+    });
+  });
+
+  const ventasValidas = ordersCreated.filter(o => o.status !== 'cancelado');
+  const summary = {
+    cantidad_ventas: ventasValidas.length,
+    total_vendido: ventasValidas.reduce((s, o) => s + (o.total || 0), 0),
+    total_efectivo: ventasValidas.filter(o => (o.payment_method || '').includes('Efectivo')).reduce((s, o) => s + (o.total || 0), 0),
+    total_tarjeta: ventasValidas.filter(o => (o.payment_method || '').includes('Tarjeta') || (o.payment_method || '').toLowerCase().includes('posnet')).reduce((s, o) => s + (o.total || 0), 0),
+    total_mp: ventasValidas.filter(o => (o.payment_method || '').toLowerCase().includes('mercadopago') || (o.payment_method || '').toLowerCase().includes('mercado pago')).reduce((s, o) => s + (o.total || 0), 0),
+    total_cta_cte: ventasValidas.filter(o => (o.payment_method || '').includes('Cuenta Corriente')).reduce((s, o) => s + (o.total || 0), 0),
+    cantidad_anuladas: cancellations.length,
+    total_anulado: cancellations.reduce((s, o) => s + (o.total || 0), 0),
+    turnos_caja: cashShifts.length,
+    pagos_cta_cte: accountPayments.length,
+    cambios_forma_pago: paymentChanges.length
+  };
+
+  return {
+    id: dateStr,
+    date: dateStr,
+    created_at: new Date().toISOString(),
+    cash_shifts: cashShifts,
+    orders: ordersCreated,
+    cancellations,
+    account_payments: accountPayments,
+    payment_changes: paymentChanges,
+    summary
+  };
+}
+
+// GENERA (O REGENERA) EL BACKUP DEL DÍA INDICADO Y LO GUARDA EN LA BASE.
+// Lo dispara automáticamente una tarea programada 1 vez por día, y también se
+// puede disparar a mano desde el panel (botón "Generar backup de hoy").
+app.post('/api/admin/backups/generate', async (req, res) => {
+  try {
+    const { date, pin } = req.body;
+
+    const auth = verifyUserPin(pin, 2);
+    if (!auth.isValid) {
+      return res.status(401).json({ success: false, error: 'Acceso Denegado: Generar el backup diario requiere PIN de Encargado (Nivel 2) o Gerente (Nivel 3).' });
+    }
+
+    const store = db.getStore();
+    if (!store.daily_backups) store.daily_backups = [];
+
+    const dateStr = date || new Date().toLocaleDateString('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' }); // YYYY-MM-DD
+    const snapshot = buildDailyBackupSnapshot(store, dateStr);
+
+    const existingIdx = store.daily_backups.findIndex(b => b.id === dateStr);
+    if (existingIdx >= 0) store.daily_backups[existingIdx] = snapshot;
+    else store.daily_backups.unshift(snapshot);
+
+    // No dejar crecer el blob de la base para siempre: conservamos los
+    // últimos 120 días de backups diarios (~4 meses), más que suficiente
+    // para cualquier auditoría razonable.
+    store.daily_backups.sort((a, b) => (a.date < b.date ? 1 : -1));
+    if (store.daily_backups.length > 120) store.daily_backups = store.daily_backups.slice(0, 120);
+
+    await db.saveStoreAndConfirm();
+
+    res.json({ success: true, backup: snapshot, user_name: auth.user.name });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// LISTA LIVIANA DE BACKUPS DIARIOS DISPONIBLES (sin el detalle completo, para
+// no mandar un JSON gigante cada vez que se abre la pantalla de Backups).
+app.get('/api/admin/backups', (req, res) => {
+  try {
+    const store = db.getStore();
+    const list = (store.daily_backups || [])
+      .map(b => ({ id: b.id, date: b.date, created_at: b.created_at, summary: b.summary }))
+      .sort((a, b) => (a.date < b.date ? 1 : -1));
+    res.json({ success: true, backups: list });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// DETALLE COMPLETO DE UN BACKUP DIARIO PUNTUAL (para ver en pantalla).
+app.get('/api/admin/backups/:id', (req, res) => {
+  try {
+    const store = db.getStore();
+    const backup = (store.daily_backups || []).find(b => b.id === req.params.id);
+    if (!backup) {
+      return res.status(404).json({ success: false, error: 'No hay un backup guardado para esa fecha.' });
+    }
+    res.json({ success: true, backup });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// DESCARGA EL BACKUP DIARIO COMO EXCEL DE VARIAS SOLAPAS (Turnos, Ventas,
+// Pagos Cta Cte, Anulaciones y Cambios de Forma de Pago, Resumen).
+app.get('/api/admin/backups/:id/excel', (req, res) => {
+  try {
+    const XLSX = require('xlsx');
+    const store = db.getStore();
+    const backup = (store.daily_backups || []).find(b => b.id === req.params.id);
+    if (!backup) {
+      return res.status(404).json({ success: false, error: 'No hay un backup guardado para esa fecha.' });
+    }
+
+    const wb = XLSX.utils.book_new();
+
+    const wsTurnos = XLSX.utils.json_to_sheet((backup.cash_shifts || []).map(s => ({
+      'Caja N°': s.box_number, 'Cajero/a': s.cashier_name, 'Tipo': s.shift_type,
+      'Apertura': s.opened_at, 'Cierre': s.closed_at, 'Efectivo Inicial': s.initial_cash,
+      'Efectivo Final': s.final_cash, 'Abierto por': s.opened_by, 'Cerrado por': s.closed_by || '',
+      'Estado': s.status
+    })));
+    XLSX.utils.book_append_sheet(wb, wsTurnos, 'Turnos de Caja');
+
+    const wsVentas = XLSX.utils.json_to_sheet((backup.orders || []).map(o => ({
+      'N° Orden': o.order_number, 'Cliente': o.customer_name, 'Total': o.total,
+      'Forma de Pago': o.payment_method, 'Estado': o.status, 'Cobrado': o.paid ? 'Sí' : 'No',
+      'Hora': o.created_at
+    })));
+    XLSX.utils.book_append_sheet(wb, wsVentas, 'Ventas del Día');
+
+    const wsCC = XLSX.utils.json_to_sheet((backup.account_payments || []).map(p => ({
+      'Cliente': p.customer_name, 'Monto': p.amount, 'Tipo': p.type, 'Notas': p.notes, 'Hora': p.date
+    })));
+    XLSX.utils.book_append_sheet(wb, wsCC, 'Pagos Cta Cte');
+
+    const wsAnul = XLSX.utils.json_to_sheet((backup.cancellations || []).map(o => ({
+      'N° Orden': o.order_number, 'Total': o.total, 'Motivo': o.cancelled_reason,
+      'Anulado por': o.cancelled_by, 'Hora Anulación': o.cancelled_at,
+      'Estado Previo': o.status_before_cancel, 'Desde Caja': o.cancelled_from_caja ? 'Sí' : 'No (Cocina)'
+    })));
+    XLSX.utils.book_append_sheet(wb, wsAnul, 'Anulaciones');
+
+    const wsCambios = XLSX.utils.json_to_sheet((backup.payment_changes || []).map(c => ({
+      'N° Orden': c.order_number, 'Antes': c.from, 'Ahora': c.to, 'Motivo': c.reason,
+      'Cambiado por': c.changed_by, 'Hora': c.changed_at
+    })));
+    XLSX.utils.book_append_sheet(wb, wsCambios, 'Cambios Forma de Pago');
+
+    const wsResumen = XLSX.utils.json_to_sheet([backup.summary]);
+    XLSX.utils.book_append_sheet(wb, wsResumen, 'Resumen');
+
+    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="backup_caja_${backup.date}.xlsx"`);
+    res.send(buffer);
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -2205,7 +2532,7 @@ app.get('/api/admin/accounts', (req, res) => {
   }
 });
 
-app.post('/api/admin/accounts', (req, res) => {
+app.post('/api/admin/accounts', async (req, res) => {
   try {
     const { id, name, dni, phone, address, payment_term, credit_limit, pin } = req.body;
 
@@ -2228,7 +2555,6 @@ app.post('/api/admin/accounts', (req, res) => {
         acc.address = address || '';
         acc.payment_term = payment_term || 'quincenal';
         acc.credit_limit = parseFloat(credit_limit || 20000);
-        db.saveStore();
       }
     } else {
       const nextId = store.customer_accounts.length > 0 ? Math.max(...store.customer_accounts.map(a => a.id)) + 1 : 1;
@@ -2244,8 +2570,10 @@ app.post('/api/admin/accounts', (req, res) => {
         status: 'active',
         created_at: new Date().toISOString()
       });
-      db.saveStore();
     }
+    // Guardado CON confirmación (ver nota en POST /api/orders): dar de alta
+    // un cliente en cuenta corriente tampoco puede quedar solo en memoria.
+    await db.saveStoreAndConfirm();
 
     res.json({ success: true, user_name: auth.user.name });
   } catch (err) {
@@ -2253,7 +2581,7 @@ app.post('/api/admin/accounts', (req, res) => {
   }
 });
 
-app.post('/api/admin/accounts/:id/payment', (req, res) => {
+app.post('/api/admin/accounts/:id/payment', async (req, res) => {
   try {
     const { id } = req.params;
     const { amount, payment_type, notes } = req.body;
@@ -2303,7 +2631,9 @@ app.post('/api/admin/accounts/:id/payment', (req, res) => {
       updated_at: new Date().toISOString()
     });
 
-    db.saveStore();
+    // Guardado CON confirmación (ver nota en POST /api/orders): un cobro de
+    // cuenta corriente tampoco puede quedar solo en memoria.
+    await db.saveStoreAndConfirm();
     io.emit('order_updated');
 
     res.json({ success: true, account });
@@ -2338,7 +2668,10 @@ app.get('/api/cash/summary', (req, res) => {
         } else {
           cashPending += total;
         }
-      } else if (o.payment_method.includes('Tarjeta')) {
+      } else if (o.payment_method.includes('Tarjeta') || o.payment_method.toLowerCase().includes('posnet')) {
+        // El Posnet de MercadoPago es tarjeta tapada/pasada por una terminal
+        // física (igual que un posnet bancario) -> se cuadra junto con
+        // "Tarjetas (Posnet)", no junto con MercadoPago QR/transferencia.
         cardTotal += total;
       } else {
         digitalTotal += total;
@@ -2733,12 +3066,38 @@ app.delete('/api/admin/categories/:id', (req, res) => {
 });
 
 // RUTA API POS: VENTA DIRECTA EN MOSTRADOR POR ESCÁNER / BALANZA
-app.post('/api/pos/sale', (req, res) => {
+app.post('/api/pos/sale', async (req, res) => {
   try {
-    const { items, payment_method, payment_note, cashier_name, box_number, total } = req.body;
+    const { items, payment_method, payment_note, payments, cashier_name, box_number, total } = req.body;
 
     if (!items || !Array.isArray(items) || items.length === 0 || !total) {
       return res.status(400).json({ success: false, error: 'El carrito de venta directa no puede estar vacío.' });
+    }
+
+    // Pago combinado: `payments` es opcional, un array [{method, amount, note?}, ...]
+    // (ej: parte Efectivo + parte Tarjeta). Si viene, tiene que sumar exacto
+    // el total de la venta. Si no viene, se usa el `payment_method` único de
+    // siempre (compatibilidad con lo que ya existía).
+    let combinedPayments = null;
+    let paymentMethodSummary = payment_method || 'Efectivo';
+    if (payments && Array.isArray(payments) && payments.length > 0) {
+      const cleanPayments = payments
+        .map(p => ({ method: String(p.method || '').trim(), amount: parseFloat(p.amount) || 0, note: (p.note || '').trim() }))
+        .filter(p => p.method && p.amount > 0);
+      if (cleanPayments.length === 0) {
+        return res.status(400).json({ success: false, error: 'Los pagos combinados ingresados no son válidos.' });
+      }
+      const sumPayments = cleanPayments.reduce((s, p) => s + p.amount, 0);
+      if (Math.abs(sumPayments - parseFloat(total)) > 1) { // tolerancia de $1 por redondeo
+        return res.status(400).json({
+          success: false,
+          error: `⚠️ Los pagos combinados suman $${sumPayments} y el total de la venta es $${total}. Tienen que coincidir.`
+        });
+      }
+      combinedPayments = cleanPayments;
+      paymentMethodSummary = cleanPayments.length > 1
+        ? cleanPayments.map(p => `${p.method} ($${p.amount})`).join(' + ')
+        : cleanPayments[0].method;
     }
 
     const store = db.getStore();
@@ -2761,8 +3120,9 @@ app.post('/api/pos/sale', (req, res) => {
       customer_phone: 'En Local',
       address: 'Venta Directa en Mostrador',
       delivery_type: 'retiro',
-      payment_method: payment_method || 'Efectivo',
+      payment_method: paymentMethodSummary,
       payment_note: payment_note || `Caja N° ${numBox}`,
+      payments: combinedPayments, // null si fue un único medio de pago
       notes: `Venta Directa POS cobrada por ${strCashier} en Caja N° ${numBox}`,
       items: typeof items === 'string' ? items : JSON.stringify(items),
       total: parseFloat(total),
@@ -2791,7 +3151,9 @@ app.post('/api/pos/sale', (req, res) => {
     });
 
     store.orders.unshift(newOrder);
-    db.saveStore();
+    // Guardado CON confirmación (ver nota en POST /api/orders): una venta de
+    // mostrador cobrada en caja no puede quedar "guardada" solo en memoria.
+    await db.saveStoreAndConfirm();
 
     io.emit('new_order', newOrder);
     io.emit('order_updated', newOrder);

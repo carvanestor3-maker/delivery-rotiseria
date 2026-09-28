@@ -2355,6 +2355,7 @@ function switchTab(tab) {
   const pSection = document.getElementById('tab-products');
   const usrSection = document.getElementById('tab-users');
   const uSection = document.getElementById('tab-audit');
+  const bkSection = document.getElementById('tab-backups');
   const prodAnalyticsSection = document.getElementById('tab-production-analytics');
   const custSection = document.getElementById('tab-customers');
   const sSection = document.getElementById('tab-settings');
@@ -2366,6 +2367,7 @@ function switchTab(tab) {
   const pBtn = document.getElementById('tab-btn-products');
   const usrBtn = document.getElementById('tab-btn-users');
   const uBtn = document.getElementById('tab-btn-audit');
+  const bkBtn = document.getElementById('tab-btn-backups');
   const custBtn = document.getElementById('tab-btn-customers');
   const prodAnalyticsBtn = document.getElementById('tab-btn-production-analytics');
   const sBtn = document.getElementById('tab-btn-settings');
@@ -2377,6 +2379,7 @@ function switchTab(tab) {
   if (pSection) pSection.classList.add('hidden');
   if (usrSection) usrSection.classList.add('hidden');
   if (uSection) uSection.classList.add('hidden');
+  if (bkSection) bkSection.classList.add('hidden');
   if (prodAnalyticsSection) prodAnalyticsSection.classList.add('hidden');
   if (custSection) custSection.classList.add('hidden');
   if (sSection) sSection.classList.add('hidden');
@@ -2388,6 +2391,7 @@ function switchTab(tab) {
   if (pBtn) pBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
   if (usrBtn) usrBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
   if (uBtn) uBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
+  if (bkBtn) bkBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
   if (prodAnalyticsBtn) prodAnalyticsBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
   if (custBtn) custBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
   if (sBtn) sBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
@@ -2417,6 +2421,10 @@ function switchTab(tab) {
     if (uSection) uSection.classList.remove('hidden');
     if (uBtn) uBtn.className = 'tab-btn pb-3 border-b-2 border-purple-600 text-purple-700 flex items-center gap-2 font-bold';
     loadAuditLogs();
+  } else if (tab === 'backups') {
+    if (bkSection) bkSection.classList.remove('hidden');
+    if (bkBtn) bkBtn.className = 'tab-btn pb-3 border-b-2 border-slate-700 text-slate-800 flex items-center gap-2 font-bold';
+    loadDailyBackups();
   } else if (tab === 'production-analytics') {
     if (prodAnalyticsSection) prodAnalyticsSection.classList.remove('hidden');
     if (prodAnalyticsBtn) prodAnalyticsBtn.className = 'tab-btn pb-3 border-b-2 border-amber-500 text-amber-700 flex items-center gap-2 font-bold';
@@ -2625,6 +2633,84 @@ async function submitProductionEntry(e) {
     }
   } catch (err) {
     console.error('Error al guardar producción:', err);
+  }
+}
+
+// ==========================================================================
+// BACKUPS DIARIOS DE CAJA (turnos, ventas, cta cte, anulaciones y cambios
+// de forma de pago). Se generan solos todos los días vía tarea programada,
+// y acá se pueden ver y bajar en Excel.
+// ==========================================================================
+async function loadDailyBackups() {
+  const tbody = document.getElementById('backups-tbody');
+  const emptyMsg = document.getElementById('backups-empty-msg');
+  const countBadge = document.getElementById('backups-count-badge');
+  if (!tbody) return;
+
+  try {
+    const res = await fetch('/api/admin/backups');
+    const data = await res.json();
+    if (!data.success) {
+      tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-red-500 font-bold text-xs">${data.error}</td></tr>`;
+      return;
+    }
+
+    const backups = data.backups || [];
+    if (countBadge) countBadge.textContent = `${backups.length} backup${backups.length === 1 ? '' : 's'}`;
+
+    if (backups.length === 0) {
+      tbody.innerHTML = '';
+      if (emptyMsg) emptyMsg.classList.remove('hidden');
+      return;
+    }
+    if (emptyMsg) emptyMsg.classList.add('hidden');
+
+    tbody.innerHTML = backups.map(b => {
+      const s = b.summary || {};
+      const fechaLegible = new Date(`${b.date}T12:00:00-03:00`).toLocaleDateString('es-AR', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
+      return `
+        <tr class="hover:bg-slate-50 transition">
+          <td class="p-3 text-xs font-extrabold text-slate-900">${fechaLegible}</td>
+          <td class="p-3 text-xs font-mono text-slate-700">${s.cantidad_ventas || 0}</td>
+          <td class="p-3 text-xs font-mono font-bold text-emerald-700">${formatCurrency(s.total_vendido || 0)}</td>
+          <td class="p-3 text-xs font-mono ${s.cantidad_anuladas ? 'text-red-600 font-bold' : 'text-slate-400'}">${s.cantidad_anuladas || 0}</td>
+          <td class="p-3 text-xs font-mono text-slate-700">${s.turnos_caja || 0}</td>
+          <td class="p-3 text-xs font-mono text-slate-700">${s.pagos_cta_cte || 0}</td>
+          <td class="p-3 text-xs font-mono ${s.cambios_forma_pago ? 'text-amber-600 font-bold' : 'text-slate-400'}">${s.cambios_forma_pago || 0}</td>
+          <td class="p-3 text-right">
+            <a href="/api/admin/backups/${b.id}/excel" class="inline-block bg-slate-800 hover:bg-slate-700 text-white font-bold px-3 py-1.5 rounded-lg text-[11px] transition">
+              📥 Excel
+            </a>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  } catch (err) {
+    console.error('Error al cargar backups diarios:', err);
+    tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-red-500 font-bold text-xs">Error de conexión al cargar los backups.</td></tr>`;
+  }
+}
+
+async function generateTodayBackupNow() {
+  const pin = prompt('🔑 Ingresá el PIN de Encargado (Nivel 2) o Gerente (Nivel 3) para generar el backup de hoy:');
+  if (!pin) return;
+
+  try {
+    const res = await fetch('/api/admin/backups/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin })
+    });
+    const data = await res.json();
+    if (!data.success) {
+      alert(`⚠️ ${data.error}`);
+      return;
+    }
+    alert(`✅ Backup del ${data.backup.date} generado correctamente.`);
+    loadDailyBackups();
+  } catch (err) {
+    console.error('Error al generar backup diario:', err);
+    alert('⚠️ Ocurrió un error de conexión al generar el backup.');
   }
 }
 

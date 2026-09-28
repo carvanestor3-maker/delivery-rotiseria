@@ -292,8 +292,36 @@
               <select id="pos-payment-method" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-emerald-500 bg-white font-extrabold text-slate-900">
                 <option value="Efectivo">💵 Efectivo</option>
                 <option value="Tarjeta de Débito/Crédito">💳 Tarjeta de Débito / Crédito</option>
-                <option value="MercadoPago / Transferencia">📱 MercadoPago / Transferencia</option>
+                <option value="MercadoPago / Transferencia">📱 MercadoPago / Transferencia (QR o link)</option>
+                <option value="Posnet MercadoPago">💳📱 Posnet MercadoPago (tarjeta con el posnet de MP)</option>
               </select>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <input type="checkbox" id="pos-combine-payment" onchange="togglePosCombinedPayment()" class="w-4 h-4 text-emerald-600 rounded">
+              <label for="pos-combine-payment" class="text-xs font-bold text-slate-700">➗ Combinar dos formas de pago (ej: parte Efectivo + parte Tarjeta)</label>
+            </div>
+
+            <div id="pos-combined-payment-box" class="hidden space-y-2 bg-white p-3 rounded-xl border border-emerald-200">
+              <div class="grid grid-cols-2 gap-2">
+                <select id="pos-combo-method-1" class="w-full px-2 py-1.5 border border-slate-300 rounded-lg text-[11px] font-bold bg-white">
+                  <option value="Efectivo">💵 Efectivo</option>
+                  <option value="Tarjeta de Débito/Crédito">💳 Tarjeta</option>
+                  <option value="MercadoPago / Transferencia">📱 MP QR/Transf</option>
+                  <option value="Posnet MercadoPago">💳📱 Posnet MP</option>
+                </select>
+                <input type="number" id="pos-combo-amount-1" placeholder="Monto $" oninput="recalcPosComboRemainder()" class="w-full px-2 py-1.5 border border-slate-300 rounded-lg text-[11px] font-mono">
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <select id="pos-combo-method-2" class="w-full px-2 py-1.5 border border-slate-300 rounded-lg text-[11px] font-bold bg-white">
+                  <option value="Tarjeta de Débito/Crédito">💳 Tarjeta</option>
+                  <option value="Efectivo">💵 Efectivo</option>
+                  <option value="MercadoPago / Transferencia">📱 MP QR/Transf</option>
+                  <option value="Posnet MercadoPago">💳📱 Posnet MP</option>
+                </select>
+                <input type="number" id="pos-combo-amount-2" placeholder="Monto $" readonly class="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-[11px] font-mono bg-slate-100">
+              </div>
+              <p id="pos-combo-remainder-note" class="text-[10px] text-slate-500">El segundo monto se completa solo con lo que falta para llegar al total.</p>
             </div>
 
             <div class="flex items-center gap-2 bg-amber-50 p-2.5 rounded-xl border border-amber-200">

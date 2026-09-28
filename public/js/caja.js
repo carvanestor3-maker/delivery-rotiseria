@@ -254,6 +254,21 @@ function createCajaCard(order) {
       </button>
     </div>
 
+    ${order.status !== 'cancelado' ? `
+      <div class="grid grid-cols-2 gap-2 pt-1">
+        <button onclick="changePaymentMethodFromCaja(${order.id})" class="bg-slate-800 hover:bg-slate-700 border border-blue-500/30 active:scale-95 text-blue-300 font-bold py-2 rounded-lg text-[11px] flex items-center justify-center gap-1 transition">
+          💳 Cambiar Forma de Pago (N3)
+        </button>
+        <button onclick="cancelOrderFromCaja(${order.id})" class="bg-red-950/40 hover:bg-red-900/60 border border-red-500/30 active:scale-95 text-red-300 font-bold py-2 rounded-lg text-[11px] flex items-center justify-center gap-1 transition">
+          ❌ Anular Venta (N3)
+        </button>
+      </div>
+    ` : `
+      <div class="text-center text-[11px] font-bold text-red-400 bg-red-950/30 border border-red-500/30 py-1.5 rounded-lg">
+        🚫 VENTA ANULADA${order.cancelled_reason ? ` — ${order.cancelled_reason}` : ''}
+      </div>
+    `}
+
     ${order.status !== 'entregado' ? `
       <div class="pt-1">
         <button onclick="markOrderDeliveredFromCaja(${order.id})" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-extrabold py-2 rounded-xl text-xs flex items-center justify-center gap-1 transition">
@@ -289,6 +304,120 @@ async function markOrderDeliveredFromCaja(orderId) {
     loadData();
   } catch (err) {
     console.error('Error al actualizar estado:', err);
+  }
+}
+
+// ==========================================================================
+// ANULACIÓN DE VENTA DESDE CAJA (Nivel 3) — a diferencia de Cocina, acá SÍ se
+// puede anular un pedido ya cobrado / entregado (se usa para errores de
+// cobro, vueltos mal dados, etc). Revierte stock y saldo de Cta Cte si
+// corresponde, y deja registro de quién y por qué en el backup diario.
+// ==========================================================================
+async function cancelOrderFromCaja(orderId) {
+  const order = orders.find(o => o.id === orderId);
+  if (!order) return;
+
+  const yaCobrado = order.paid === 1 || order.status === 'entregado';
+  const advertencia = yaCobrado
+    ? `\n\n⚠️ Este pedido YA FUE COBRADO/ENTREGADO. Si el cliente pagó en Efectivo, Tarjeta o MercadoPago, tenés que devolver el dinero o ajustar la caja a mano — el sistema anula la venta pero no mueve plata físicamente.`
+    : '';
+
+  const reason = prompt(`❌ ANULAR VENTA ${order.order_number} (${order.customer_name}) — ${formatCurrency(order.total)}${advertencia}\n\nMotivo de la anulación:`);
+  if (reason === null) return;
+  if (!reason.trim()) {
+    alert('⚠️ Tenés que indicar un motivo para anular la venta.');
+    return;
+  }
+
+  const pin = prompt('🔑 Ingresá el PIN de Gerente / Dueño (Nivel 3) para confirmar la anulación:');
+  if (!pin) return;
+
+  try {
+    const res = await fetch(`/api/orders/${orderId}/cancel`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason, pin, force_from_caja: true })
+    });
+    const data = await res.json();
+    if (!data.success) {
+      alert(`⚠️ ${data.error}`);
+      return;
+    }
+    if (data.warning) alert(`⚠️ ${data.warning}`);
+    await loadCashSummary();
+    await loadOrders();
+  } catch (err) {
+    console.error('Error al anular venta desde caja:', err);
+    alert('⚠️ Ocurrió un error de conexión al intentar anular la venta.');
+  }
+}
+
+// ==========================================================================
+// CAMBIO DE FORMA DE PAGO DE UNA VENTA YA CARGADA (Nivel 3) — soporta un
+// único medio nuevo o combinar dos (ej: el cliente pagó mal y se corrige a
+// mitad Efectivo / mitad Tarjeta). Queda auditado en payment_method_history.
+// ==========================================================================
+async function changePaymentMethodFromCaja(orderId) {
+  const order = orders.find(o => o.id === orderId);
+  if (!order) return;
+
+  const opciones = [
+    'Efectivo',
+    'Tarjeta de Débito/Crédito',
+    'MercadoPago / Transferencia',
+    'Posnet MercadoPago',
+    'Cuenta Corriente Autorizada'
+  ];
+
+  const listado = opciones.map((op, i) => `${i + 1}) ${op}`).join('\n');
+  const choice = prompt(`💳 Cambiar forma de pago de ${order.order_number} (actual: ${order.payment_method}, total ${formatCurrency(order.total)})\n\n${listado}\n7) Combinar dos formas de pago\n\nElegí un número:`);
+  if (choice === null) return;
+
+  const idx = parseInt(choice, 10);
+  let new_payment_method = null;
+  let new_payments = null;
+
+  if (idx === 7) {
+    const m1 = prompt(`Primer método:\n${listado}\n\nElegí un número:`);
+    const method1 = opciones[parseInt(m1, 10) - 1];
+    if (!method1) { alert('⚠️ Opción inválida.'); return; }
+    const amount1Str = prompt(`Monto pagado con "${method1}" (de un total de ${formatCurrency(order.total)}):`);
+    const amount1 = parseFloat(amount1Str);
+    if (!amount1 || amount1 <= 0 || amount1 >= order.total) { alert('⚠️ Monto inválido (tiene que ser mayor a $0 y menor al total).'); return; }
+    const m2 = prompt(`Segundo método (se completa con el resto, $${(order.total - amount1).toFixed(2)}):\n${listado}\n\nElegí un número:`);
+    const method2 = opciones[parseInt(m2, 10) - 1];
+    if (!method2) { alert('⚠️ Opción inválida.'); return; }
+    new_payments = [
+      { method: method1, amount: amount1 },
+      { method: method2, amount: order.total - amount1 }
+    ];
+  } else {
+    new_payment_method = opciones[idx - 1];
+    if (!new_payment_method) { alert('⚠️ Opción inválida.'); return; }
+  }
+
+  const reason = prompt('Motivo del cambio de forma de pago:');
+  if (reason === null) return;
+
+  const pin = prompt('🔑 Ingresá el PIN de Gerente / Dueño (Nivel 3) para confirmar el cambio:');
+  if (!pin) return;
+
+  try {
+    const res = await fetch(`/api/orders/${orderId}/change-payment-method`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ new_payment_method, new_payments, reason, pin })
+    });
+    const data = await res.json();
+    if (!data.success) {
+      alert(`⚠️ ${data.error}`);
+      return;
+    }
+    await loadCashSummary();
+    await loadOrders();
+  } catch (err) {
+    console.error('Error al cambiar forma de pago:', err);
+    alert('⚠️ Ocurrió un error de conexión al intentar cambiar la forma de pago.');
   }
 }
 
@@ -1128,6 +1257,33 @@ function printPosBarReceipt() {
   }, 250);
 }
 
+function togglePosCombinedPayment() {
+  const checked = document.getElementById('pos-combine-payment').checked;
+  const box = document.getElementById('pos-combined-payment-box');
+  const singleSelect = document.getElementById('pos-payment-method');
+  if (checked) {
+    box.classList.remove('hidden');
+    singleSelect.disabled = true;
+    recalcPosComboRemainder();
+  } else {
+    box.classList.add('hidden');
+    singleSelect.disabled = false;
+  }
+}
+
+function recalcPosComboRemainder() {
+  const grandTotal = posCart.reduce((sum, i) => sum + i.total, 0);
+  const amount1 = parseFloat(document.getElementById('pos-combo-amount-1').value) || 0;
+  const remainder = Math.max(0, grandTotal - amount1);
+  document.getElementById('pos-combo-amount-2').value = remainder.toFixed(2);
+  const note = document.getElementById('pos-combo-remainder-note');
+  if (note) {
+    note.textContent = amount1 > grandTotal
+      ? `⚠️ El primer monto ($${amount1}) supera el total de la venta ($${grandTotal}).`
+      : `Total de la venta: ${formatCurrency(grandTotal)}. El segundo monto se completa solo (falta $${remainder.toFixed(2)}).`;
+  }
+}
+
 async function submitPosSale() {
   if (posCart.length === 0) {
     alert('⚠️ El carrito de venta directa está vacío.');
@@ -1135,18 +1291,47 @@ async function submitPosSale() {
   }
 
   const grandTotal = posCart.reduce((sum, i) => sum + i.total, 0);
-  const payment_method = document.getElementById('pos-payment-method').value;
+  const isCombined = document.getElementById('pos-combine-payment') && document.getElementById('pos-combine-payment').checked;
   const generateBarTicket = document.getElementById('pos-generate-bar-ticket') ? document.getElementById('pos-generate-bar-ticket').checked : false;
 
+  let payment_method;
+  let payments = null;
+
+  if (isCombined) {
+    const method1 = document.getElementById('pos-combo-method-1').value;
+    const method2 = document.getElementById('pos-combo-method-2').value;
+    const amount1 = parseFloat(document.getElementById('pos-combo-amount-1').value) || 0;
+    const amount2 = parseFloat(document.getElementById('pos-combo-amount-2').value) || 0;
+
+    if (amount1 <= 0 || amount2 <= 0) {
+      alert('⚠️ Para combinar formas de pago, ingresá un monto mayor a $0 en el primer método (el segundo se completa solo).');
+      return;
+    }
+    if (Math.abs((amount1 + amount2) - grandTotal) > 1) {
+      alert(`⚠️ La suma de los dos montos ($${(amount1 + amount2).toFixed(2)}) no coincide con el total de la venta (${formatCurrency(grandTotal)}).`);
+      return;
+    }
+    payments = [
+      { method: method1, amount: amount1 },
+      { method: method2, amount: amount2 }
+    ];
+    payment_method = `${method1} ($${amount1}) + ${method2} ($${amount2.toFixed(2)})`;
+  } else {
+    payment_method = document.getElementById('pos-payment-method').value;
+  }
+
   try {
+    const body = {
+      items: posCart,
+      payment_method,
+      total: grandTotal
+    };
+    if (payments) body.payments = payments;
+
     const res = await fetch('/api/pos/sale', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        items: posCart,
-        payment_method,
-        total: grandTotal
-      })
+      body: JSON.stringify(body)
     });
 
     const data = await res.json();
@@ -1155,6 +1340,11 @@ async function submitPosSale() {
       const order = data.order;
       clearPosCart();
       closePosModal();
+      // Reseteamos el combo de pago para la próxima venta.
+      const combineCheckbox = document.getElementById('pos-combine-payment');
+      if (combineCheckbox) { combineCheckbox.checked = false; togglePosCombinedPayment(); }
+      const amt1 = document.getElementById('pos-combo-amount-1');
+      if (amt1) amt1.value = '';
       await loadCashSummary();
       await loadOrders();
 

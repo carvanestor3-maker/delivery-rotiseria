@@ -41,12 +41,16 @@ app.use(session({
   secret: process.env.SESSION_SECRET || 'rotiseria-secreto-cambiar-en-render',
   resave: false,
   saveUninitialized: false,
-  rolling: true,
   cookie: {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    maxAge: 1000 * 60 * 60 * 24 * 30
+    sameSite: 'lax'
+    // A PROPÓSITO sin maxAge: es lo que hace que sea una cookie "de sesión
+    // del navegador" de verdad. Antes tenía maxAge de 30 días, y por eso
+    // cerrabas la app y al volver a abrirla seguías adentro sin que pida
+    // PIN — quedaba guardada en el navegador todo ese tiempo. Sin maxAge,
+    // el navegador la borra sola al cerrarse del todo, así que la próxima
+    // vez que abras el panel va a pedir PIN de nuevo.
   }
 }));
 

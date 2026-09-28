@@ -59,6 +59,13 @@ function requiredStaffLevelFor(req) {
   const p = req.path;
   if (STAFF_L2_PAGES.includes(p)) return 2;
   if (STAFF_L1_PAGES.includes(p)) return 1;
+  // Gestión de personal y claves PIN: acá se ve y se cambia la clave
+  // maestra y las claves de cada empleado, así que hace falta sesión de
+  // Nivel 3 desde el propio login (no solo Nivel 2), además del PIN que ya
+  // se pide para guardar/borrar. Si no, cualquier Encargado (Nivel 2) podía
+  // ver las claves de todo el personal con solo abrir la pestaña.
+  if (p === '/api/admin/users' || p.startsWith('/api/admin/users/')) return 3;
+  if (p === '/api/admin/master-pin') return 3;
   if (STAFF_L2_API_PREFIXES.some(prefix => p.startsWith(prefix))) return 2;
   if (STAFF_L1_API_PREFIXES.some(prefix => p.startsWith(prefix))) return 1;
   if (p === '/api/verify-pin') return 1;
@@ -3508,20 +3515,81 @@ app.post('/api/customer/address', (req, res) => {
 
 app.get('/api/settings', (req, res) => {
   try {
-    res.json({ success: true, settings: getSettingsMap() });
+    // Nunca se devuelven las claves maestras acá: esta ruta solo requiere
+    // sesión Nivel 2, y si admin_pin/encargado_pin viajaran en la
+    // respuesta cualquier Encargado podría leer la clave maestra de
+    // Nivel 3 con solo abrir la pestaña de Ajustes.
+    const { admin_pin, encargado_pin, ...safeSettings } = getSettingsMap();
+    res.json({ success: true, settings: safeSettings });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
+
+// Lista blanca de ajustes generales que se pueden guardar por esta vía
+// (requiere sesión Nivel 2, sin PIN adicional). admin_pin y encargado_pin
+// NUNCA pueden pasar por acá aunque vengan en el body: son las claves
+// maestras de Nivel 2/3 y se cambian solo por /api/admin/master-pin, que
+// exige la clave maestra Nivel 3 ACTUAL para poder cambiarlas. Si esto no
+// estuviera restringido, cualquier Encargado (Nivel 2) podría mandar
+// {"admin_pin":"lo-que-quiera"} y auto-otorgarse acceso de Nivel 3 sin
+// conocer la clave real.
+const SETTINGS_ALLOWED_KEYS = new Set([
+  'restaurant_name', 'restaurant_address', 'whatsapp_phone', 'delivery_cost',
+  'epson_printer_ip', 'epson_printer_port', 'auto_print_epson',
+  'business_razon_social', 'business_description', 'business_domicilio_fiscal',
+  'business_condicion_iva', 'business_logo_url'
+]);
 
 app.post('/api/settings', (req, res) => {
   try {
     const settings = req.body;
     const store = db.getStore();
     for (const [key, value] of Object.entries(settings)) {
+      if (!SETTINGS_ALLOWED_KEYS.has(key)) continue; // ignorado en silencio: clave no permitida por esta vía
       store.settings[key] = String(value);
     }
     db.saveStore();
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// CAMBIO DE CLAVES MAESTRAS DE NIVEL 2 (ENCARGADO) Y NIVEL 3 (GERENTE/DUEÑO).
+// Para cambiar CUALQUIERA de las dos hace falta la clave maestra Nivel 3
+// ACTUAL (current_admin_pin) — así solo alguien que ya tiene acceso real de
+// Nivel 3 puede cambiarlas, nunca un Encargado ni nadie que solo conozca la
+// clave vieja de otra fuente. En cuanto se guarda la nueva clave, la vieja
+// deja de servir en el acto (verifyUserPin siempre lee el valor actual).
+app.post('/api/admin/master-pin', async (req, res) => {
+  try {
+    const { current_admin_pin, new_admin_pin, new_encargado_pin } = req.body;
+
+    const auth = verifyUserPin(current_admin_pin, 3);
+    if (!auth.isValid) {
+      return res.status(401).json({ success: false, error: 'Acceso Denegado: Para cambiar las claves maestras hace falta la clave actual de Gerente / Dueño (Nivel 3).' });
+    }
+
+    const store = db.getStore();
+    if (!store.settings) store.settings = {};
+
+    if (new_admin_pin !== undefined && new_admin_pin !== '') {
+      const strNew = String(new_admin_pin).trim();
+      if (!/^\d{4,8}$/.test(strNew)) {
+        return res.status(400).json({ success: false, error: 'La nueva clave maestra de Nivel 3 tiene que ser numérica, de 4 a 8 dígitos.' });
+      }
+      store.settings.admin_pin = strNew;
+    }
+    if (new_encargado_pin !== undefined && new_encargado_pin !== '') {
+      const strNew = String(new_encargado_pin).trim();
+      if (!/^\d{4,8}$/.test(strNew)) {
+        return res.status(400).json({ success: false, error: 'La nueva clave maestra de Nivel 2 tiene que ser numérica, de 4 a 8 dígitos.' });
+      }
+      store.settings.encargado_pin = strNew;
+    }
+
+    await db.saveStoreAndConfirm();
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });

@@ -32,6 +32,26 @@ function downloadSystemBackup() {
   window.location.href = `/api/admin/backup/download?pin=${encodeURIComponent(pin)}`;
 }
 
+// Esta pestaña es exclusiva de Nivel 3: si la sesión actual (con la que se
+// inició sesión en /login.html) es Nivel 1 o 2, se muestra el aviso de
+// bloqueo en vez de la tabla de personal y claves.
+async function checkUsersTabAccess() {
+  const lockedMsg = document.getElementById('users-locked-msg');
+  const content = document.getElementById('users-content');
+  try {
+    const res = await fetch('/api/auth/me');
+    const data = await res.json();
+    const isLevel3 = data.success && data.level >= 3;
+    if (lockedMsg) lockedMsg.classList.toggle('hidden', isLevel3);
+    if (content) content.classList.toggle('hidden', !isLevel3);
+    if (isLevel3) loadUsers();
+  } catch (err) {
+    console.error('Error al verificar nivel de sesión:', err);
+    if (lockedMsg) lockedMsg.classList.remove('hidden');
+    if (content) content.classList.add('hidden');
+  }
+}
+
 // Cargar Usuarios / Personal Nombrado
 async function loadUsers() {
   try {
@@ -129,7 +149,10 @@ function renderUsersTable() {
         ${levelBadge}
       </td>
       <td class="p-4 font-mono font-bold text-slate-700">
-        •••• (${u.pin})
+        <span id="pin-mask-${u.id}">••••</span><span id="pin-value-${u.id}" class="hidden">${u.pin}</span>
+        <button type="button" onclick="togglePinVisibility(${u.id})" class="ml-1 text-slate-400 hover:text-slate-700 transition align-middle" title="Mostrar/ocultar clave">
+          <i data-lucide="eye" class="w-3.5 h-3.5 inline"></i>
+        </button>
       </td>
       <td class="p-4">
         <span class="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md">🟢 Activo</span>
@@ -148,6 +171,46 @@ function renderUsersTable() {
   });
 
   lucide.createIcons();
+}
+
+function togglePinVisibility(id) {
+  const mask = document.getElementById(`pin-mask-${id}`);
+  const value = document.getElementById(`pin-value-${id}`);
+  if (!mask || !value) return;
+  mask.classList.toggle('hidden');
+  value.classList.toggle('hidden');
+}
+
+async function saveMasterPins(e) {
+  e.preventDefault();
+  const current_admin_pin = document.getElementById('master-current-pin').value.trim();
+  const new_admin_pin = document.getElementById('master-new-admin-pin').value.trim();
+  const new_encargado_pin = document.getElementById('master-new-encargado-pin').value.trim();
+
+  if (!new_admin_pin && !new_encargado_pin) {
+    alert('⚠️ Ingresá al menos una clave nueva (Nivel 3 y/o Nivel 2) para cambiar.');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/admin/master-pin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ current_admin_pin, new_admin_pin, new_encargado_pin })
+    });
+    const data = await res.json();
+    if (data.success) {
+      alert('✅ Clave(s) maestra(s) actualizada(s). La clave vieja ya dejó de funcionar.');
+      document.getElementById('master-current-pin').value = '';
+      document.getElementById('master-new-admin-pin').value = '';
+      document.getElementById('master-new-encargado-pin').value = '';
+    } else {
+      alert(`⚠️ ${data.error}`);
+    }
+  } catch (err) {
+    console.error('Error al cambiar clave maestra:', err);
+    alert('⚠️ Ocurrió un error de conexión al cambiar la clave maestra.');
+  }
 }
 
 function openUserModal(usr = null) {
@@ -2416,7 +2479,7 @@ function switchTab(tab) {
   } else if (tab === 'users') {
     if (usrSection) usrSection.classList.remove('hidden');
     if (usrBtn) usrBtn.className = 'tab-btn pb-3 border-b-2 border-purple-600 text-purple-700 flex items-center gap-2 font-bold';
-    loadUsers();
+    checkUsersTabAccess();
   } else if (tab === 'audit') {
     if (uSection) uSection.classList.remove('hidden');
     if (uBtn) uBtn.className = 'tab-btn pb-3 border-b-2 border-purple-600 text-purple-700 flex items-center gap-2 font-bold';

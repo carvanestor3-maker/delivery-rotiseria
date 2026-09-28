@@ -50,15 +50,7 @@ const initialData = {
     referral_points: 500,
     points_per_100_currency: 3,
     encargado_pin: '2222', // PIN Nivel 2 por defecto
-    admin_pin: '9999',     // PIN Nivel 3 por defecto
-    // Datos para el encabezado de la Factura/Tique C (facturación ARCA) -
-    // el CUIT y el punto de venta salen de las variables de entorno
-    // ARCA_CUIT / ARCA_PUNTO_VENTA (no se editan acá).
-    business_logo_url: '',
-    business_description: '',
-    business_razon_social: '',
-    business_domicilio_fiscal: '',
-    business_condicion_iva: 'Monotributo'
+    admin_pin: '9999'      // PIN Nivel 3 por defecto
   },
   customers: [],
   users: [
@@ -188,7 +180,10 @@ const initialData = {
     { id:89, code:'BEB-APE-001', category_id:6,  name:'Aperol Spritz',                             description:'Aperol, prosecco y agua con gas, servido con rodaja de naranja.',                    price:7500,  image_url:'https://images.unsplash.com/photo-1558642891-54be180ea339?w=500', video_url:'https://www.youtube.com/watch?v=1tBegk9YfnM', available:1, unit_type:'unidad' },
     { id:90, code:'BEB-TON-001', category_id:6,  name:'Agua Tónica con Limón',                     description:'Agua tónica, jugo de limón fresco y hielo.',                                         price:3000,  image_url:'https://images.unsplash.com/photo-1560508179-b2c9a3555b3e?w=500', video_url:'https://www.youtube.com/results?search_query=agua+tonica+limon+trago', available:1, unit_type:'unidad' }
   ],
-  // suppliers ya NO vive acá - ver db_suppliers.js (base de datos separada).
+  suppliers: [
+    { id: 1, name: 'Frigorífico Central', phone: '3794123456', address: 'Av. Cazadores Correntinos 2100' },
+    { id: 2, name: 'Distribuidora Don Pedro', phone: '3794987654', address: 'Calle Junín 850' }
+  ],
   raw_materials: [
     { id: 1, name: 'Carne Vacuna para Milanesas', unit: 'kg', current_stock: 45.0, min_stock: 10.0 },
     { id: 2, name: 'Papas para Fritar', unit: 'kg', current_stock: 80.0, min_stock: 15.0 },
@@ -245,11 +240,7 @@ function applyDefaults() {
       if (!store.orders) store.orders = initialData.orders;
       if (!store.customer_accounts) store.customer_accounts = initialData.customer_accounts;
       if (!store.account_payments) store.account_payments = [];
-      // NOTA: suppliers / supplier_products / supplier_purchases YA NO viven
-      // acá. Desde que se separaron las bases de datos, esos datos están en
-      // db_suppliers.js (tablas propias en Postgres, o proveedores_store.json
-      // aparte si no hay Postgres) - no se cargan más como parte de este
-      // registro único.
+      if (!store.suppliers) store.suppliers = initialData.suppliers;
       if (!store.raw_materials) store.raw_materials = initialData.raw_materials;
       if (!store.product_recipes) store.product_recipes = initialData.product_recipes;
       if (!store.stock_entries) store.stock_entries = [];
@@ -257,11 +248,6 @@ function applyDefaults() {
       if (!store.cash_shifts) store.cash_shifts = initialData.cash_shifts;
       if (!store.settings.admin_pin) store.settings.admin_pin = '9999';
       if (!store.settings.encargado_pin) store.settings.encargado_pin = '2222';
-      if (store.settings.business_logo_url === undefined) store.settings.business_logo_url = '';
-      if (store.settings.business_description === undefined) store.settings.business_description = '';
-      if (store.settings.business_razon_social === undefined) store.settings.business_razon_social = '';
-      if (store.settings.business_domicilio_fiscal === undefined) store.settings.business_domicilio_fiscal = '';
-      if (!store.settings.business_condicion_iva) store.settings.business_condicion_iva = 'Monotributo';
       if (!store.club_customers) store.club_customers = [];
       if (!store.points_history) store.points_history = [];
       if (!store.coupons) store.coupons = [
@@ -468,6 +454,10 @@ const db = {
 
         if (query.includes('from customer_accounts')) {
           return [...store.customer_accounts].sort((a, b) => a.name.localeCompare(b.name));
+        }
+
+        if (query.includes('from suppliers')) {
+          return [...store.suppliers];
         }
 
         if (query.includes('from raw_materials')) {

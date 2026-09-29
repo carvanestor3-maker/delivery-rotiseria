@@ -50,7 +50,15 @@ const initialData = {
     referral_points: 500,
     points_per_100_currency: 3,
     encargado_pin: '2222', // PIN Nivel 2 por defecto
-    admin_pin: '9999'      // PIN Nivel 3 por defecto
+    admin_pin: '9999',     // PIN Nivel 3 por defecto
+    // Datos para el encabezado de la Factura/Tique C (facturación ARCA) -
+    // el CUIT y el punto de venta salen de las variables de entorno
+    // ARCA_CUIT / ARCA_PUNTO_VENTA (no se editan acá).
+    business_logo_url: '',
+    business_description: '',
+    business_razon_social: '',
+    business_domicilio_fiscal: '',
+    business_condicion_iva: 'Monotributo'
   },
   customers: [],
   users: [
@@ -180,10 +188,7 @@ const initialData = {
     { id:89, code:'BEB-APE-001', category_id:6,  name:'Aperol Spritz',                             description:'Aperol, prosecco y agua con gas, servido con rodaja de naranja.',                    price:7500,  image_url:'https://images.unsplash.com/photo-1558642891-54be180ea339?w=500', video_url:'https://www.youtube.com/watch?v=1tBegk9YfnM', available:1, unit_type:'unidad' },
     { id:90, code:'BEB-TON-001', category_id:6,  name:'Agua Tónica con Limón',                     description:'Agua tónica, jugo de limón fresco y hielo.',                                         price:3000,  image_url:'https://images.unsplash.com/photo-1560508179-b2c9a3555b3e?w=500', video_url:'https://www.youtube.com/results?search_query=agua+tonica+limon+trago', available:1, unit_type:'unidad' }
   ],
-  suppliers: [
-    { id: 1, name: 'Frigorífico Central', phone: '3794123456', address: 'Av. Cazadores Correntinos 2100' },
-    { id: 2, name: 'Distribuidora Don Pedro', phone: '3794987654', address: 'Calle Junín 850' }
-  ],
+  // suppliers ya NO vive acá - ver db_suppliers.js (base de datos separada).
   raw_materials: [
     { id: 1, name: 'Carne Vacuna para Milanesas', unit: 'kg', current_stock: 45.0, min_stock: 10.0 },
     { id: 2, name: 'Papas para Fritar', unit: 'kg', current_stock: 80.0, min_stock: 15.0 },
@@ -240,7 +245,11 @@ function applyDefaults() {
       if (!store.orders) store.orders = initialData.orders;
       if (!store.customer_accounts) store.customer_accounts = initialData.customer_accounts;
       if (!store.account_payments) store.account_payments = [];
-      if (!store.suppliers) store.suppliers = initialData.suppliers;
+      // NOTA: suppliers / supplier_products / supplier_purchases YA NO viven
+      // acá. Desde que se separaron las bases de datos, esos datos están en
+      // db_suppliers.js (tablas propias en Postgres, o proveedores_store.json
+      // aparte si no hay Postgres) - no se cargan más como parte de este
+      // registro único.
       if (!store.raw_materials) store.raw_materials = initialData.raw_materials;
       if (!store.product_recipes) store.product_recipes = initialData.product_recipes;
       if (!store.stock_entries) store.stock_entries = [];
@@ -248,6 +257,11 @@ function applyDefaults() {
       if (!store.cash_shifts) store.cash_shifts = initialData.cash_shifts;
       if (!store.settings.admin_pin) store.settings.admin_pin = '9999';
       if (!store.settings.encargado_pin) store.settings.encargado_pin = '2222';
+      if (store.settings.business_logo_url === undefined) store.settings.business_logo_url = '';
+      if (store.settings.business_description === undefined) store.settings.business_description = '';
+      if (store.settings.business_razon_social === undefined) store.settings.business_razon_social = '';
+      if (store.settings.business_domicilio_fiscal === undefined) store.settings.business_domicilio_fiscal = '';
+      if (!store.settings.business_condicion_iva) store.settings.business_condicion_iva = 'Monotributo';
       if (!store.club_customers) store.club_customers = [];
       if (!store.points_history) store.points_history = [];
       if (!store.coupons) store.coupons = [
@@ -336,23 +350,42 @@ async function loadStorePostgres() {
   }
 }
 
+// Intenta el UPDATE del bloque de datos hasta `maxAttempts` veces, con una
+// pequeña espera creciente entre intento e intento (400ms, 900ms, ...).
+// Antes se reintentaba una sola vez e inmediatamente, lo cual no alcanza
+// cuando la conexión del pool a Postgres estaba "muerta" (cortada por el
+// proveedor mientras el servicio estaba inactivo/dormido, algo común en
+// Render en el plan gratis): el primer intento fallaba con esa conexión
+// vieja, y el reintento a veces todavía la agarraba antes de que el pool
+// terminara de descartarla, así que el guardado fallaba igual y el panel
+// mostraba un error aunque el cambio ya estuviera aplicado en memoria.
+async function writeStoreWithRetries(maxAttempts = 3) {
+  let lastErr;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      await pool.query('UPDATE app_store SET data = $1, updated_at = now() WHERE id = 1', [JSON.stringify(store)]);
+      return;
+    } catch (e) {
+      lastErr = e;
+      if (attempt < maxAttempts) {
+        const waitMs = 400 * attempt; // 400ms, 800ms, ...
+        console.warn(`⚠️ Guardado en Postgres falló (intento ${attempt}/${maxAttempts}), reintentando en ${waitMs}ms:`, e.message);
+        await new Promise(resolve => setTimeout(resolve, waitMs));
+      }
+    }
+  }
+  throw lastErr;
+}
+
 let saveInProgress = false;
 let savePending = false;
 async function saveStorePostgres() {
   if (saveInProgress) { savePending = true; return; }
   saveInProgress = true;
   try {
-    await pool.query('UPDATE app_store SET data = $1, updated_at = now() WHERE id = 1', [JSON.stringify(store)]);
+    await writeStoreWithRetries();
   } catch (e) {
-    // Reintentamos una sola vez: si la conexión que usó el pool ya estaba
-    // muerta (cortada por el proveedor mientras estaba inactiva), pg la
-    // descarta sola y este segundo intento abre una conexión nueva.
-    console.warn('⚠️ Guardado en Postgres falló, reintentando una vez:', e.message);
-    try {
-      await pool.query('UPDATE app_store SET data = $1, updated_at = now() WHERE id = 1', [JSON.stringify(store)]);
-    } catch (e2) {
-      console.error('⚠️ Error al guardar en Postgres (tras reintento):', e2.message);
-    }
+    console.error('⚠️ Error al guardar en Postgres (tras reintentos):', e.message);
   } finally {
     saveInProgress = false;
     if (savePending) { savePending = false; saveStorePostgres(); }
@@ -378,15 +411,11 @@ async function saveStoreAndConfirm() {
     saveStoreFile();
     return;
   }
-  try {
-    await pool.query('UPDATE app_store SET data = $1, updated_at = now() WHERE id = 1', [JSON.stringify(store)]);
-  } catch (e) {
-    // Mismo caso que en saveStorePostgres: reintentamos una vez antes de
-    // darnos por vencidos y mostrarle el error a quien está guardando
-    // (por ejemplo, al cambiar un plato de categoría desde el panel).
-    console.warn('⚠️ Guardado (con confirmación) en Postgres falló, reintentando una vez:', e.message);
-    await pool.query('UPDATE app_store SET data = $1, updated_at = now() WHERE id = 1', [JSON.stringify(store)]);
-  }
+  // Mismos reintentos con espera que saveStorePostgres (ver writeStoreWithRetries).
+  // Acá sí dejamos que el error final suba, para que el endpoint le avise a
+  // quien está guardando (por ejemplo, al cambiar un plato de categoría o su
+  // foto desde el panel) si de verdad no se pudo persistir tras 3 intentos.
+  await writeStoreWithRetries();
 }
 
 // Promesa que resuelve cuando los datos ya están cargados y listos para usar.
@@ -401,6 +430,12 @@ const ready = USE_POSTGRES
 // Adaptador SQL y Gestión del Store
 const db = {
   ready,
+  // Se exponen para que server.js pueda guardar las sesiones de login del
+  // personal (PIN) en la misma base Postgres en vez de en memoria: así una
+  // reinicio del servidor (deploy, o que Render "duerma" el plan free por
+  // inactividad) no desloguea a todo el personal de golpe.
+  pool,
+  USE_POSTGRES,
   getStore() {
     return store;
   },
@@ -454,10 +489,6 @@ const db = {
 
         if (query.includes('from customer_accounts')) {
           return [...store.customer_accounts].sort((a, b) => a.name.localeCompare(b.name));
-        }
-
-        if (query.includes('from suppliers')) {
-          return [...store.suppliers];
         }
 
         if (query.includes('from raw_materials')) {

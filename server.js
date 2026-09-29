@@ -37,7 +37,29 @@ app.use(express.urlencoded({ limit: '100mb', extended: true }));
 // (Admin, Caja, Cocina, Bar, Producción, Portales) dejando públicas
 // solo las páginas de pedidos de clientes (/pedidos, /menu, index.html).
 // ==========================================
+//
+// Las sesiones se guardan en la misma base Postgres (tabla "user_sessions",
+// se crea sola la primera vez) en vez de quedar solo en la memoria del
+// proceso de Node. Esto es clave en el plan Free de Render: cuando no hay
+// tráfico un rato, Render "duerme" el servidor y lo reinicia de cero en el
+// siguiente pedido — con sesiones en memoria eso borra el login de TODO el
+// personal sin aviso (parecía que el PIN "dejaba de funcionar" de golpe).
+// Con Postgres, el reinicio no pierde las sesiones activas.
+// Si no hay Postgres configurado (por ejemplo corriendo local en una PC sin
+// internet), sigue usando el almacenamiento en memoria de express-session
+// por defecto, como antes.
+let sessionStore = undefined;
+if (db.USE_POSTGRES && db.pool) {
+  const pgSession = require('connect-pg-simple')(session);
+  sessionStore = new pgSession({
+    pool: db.pool,
+    tableName: 'user_sessions',
+    createTableIfMissing: true
+  });
+}
+
 app.use(session({
+  store: sessionStore,
   secret: process.env.SESSION_SECRET || 'rotiseria-secreto-cambiar-en-render',
   resave: false,
   saveUninitialized: false,

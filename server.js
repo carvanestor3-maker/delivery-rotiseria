@@ -198,6 +198,21 @@ function verifyUserPin(inputPin, requiredLevel = 2) {
 
   if (!strPin) return { isValid: false, user: null };
 
+  const settings = getSettingsMap();
+  const encargadoPin = settings.encargado_pin || '2222';
+  const adminPin = settings.admin_pin || '9999';
+
+  // La clave maestra de Nivel 3 (Gerente/Dueño) se revisa PRIMERO, antes que
+  // los empleados nombrados de "Personal, Usuarios & PINs". Es la clave de
+  // mayor privilegio del sistema: si por casualidad coincide con el PIN
+  // individual de algún empleado cargado ahí, quien la escribe tiene que
+  // entrar igual como Nivel 3, sin quedar "tapado" por el nivel más bajo de
+  // ese empleado. Antes se revisaban primero los empleados nombrados, y una
+  // coincidencia de números dejaba a la clave maestra sin efecto.
+  if (strPin === String(adminPin)) {
+    return { isValid: true, user: { id: 0, name: 'Gerente General / Dueño', level: 3 } };
+  }
+
   const users = store.users || [];
   const foundUser = users.find(u => u.active !== 0 && String(u.pin).trim() === strPin);
 
@@ -209,20 +224,10 @@ function verifyUserPin(inputPin, requiredLevel = 2) {
     }
   }
 
-  const settings = getSettingsMap();
-  const encargadoPin = settings.encargado_pin || '2222';
-  const adminPin = settings.admin_pin || '9999';
-
-  if (requiredLevel === 3) {
-    if (strPin === String(adminPin)) {
-      return { isValid: true, user: { id: 0, name: 'Gerente General / Dueño', level: 3 } };
-    }
-  } else {
-    if (strPin === String(encargadoPin)) {
-      return { isValid: true, user: { id: 0, name: 'Encargado de Turno', level: 2 } };
-    } else if (strPin === String(adminPin)) {
-      return { isValid: true, user: { id: 0, name: 'Gerente General / Dueño', level: 3 } };
-    }
+  // Ya se revisó adminPin arriba, así que acá solo puede coincidir con la
+  // clave maestra de Nivel 2 (que nunca alcanza para un requiredLevel 3).
+  if (strPin === String(encargadoPin)) {
+    return { isValid: true, user: { id: 0, name: 'Encargado de Turno', level: 2 } };
   }
 
   return { isValid: false, user: null };

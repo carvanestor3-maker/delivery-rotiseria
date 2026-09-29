@@ -85,6 +85,9 @@
       <button onclick="switchTab('stock')" id="tab-btn-stock" class="tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2">
         📦 Insumos & Conciliación de Stock
       </button>
+      <button onclick="switchTab('semi')" id="tab-btn-semi" class="tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2">
+        🥣 Pre-Armados / Semielaborados
+      </button>
       <button onclick="switchTab('suppliers')" id="tab-btn-suppliers" class="tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2">
         🚚 Proveedores, Precios & Compras
       </button>
@@ -272,6 +275,8 @@
             </tbody>
           </table>
         </div>
+      </div>
+
       <!-- Historial de Tandas de Producción Registradas por Cocina -->
       <div class="bg-white rounded-2xl border border-amber-300 shadow-sm overflow-hidden mb-6">
         <div class="p-4 bg-amber-100/60 border-b border-amber-200 flex justify-between items-center">
@@ -311,12 +316,95 @@
                 <th class="p-3">Código / SKU</th>
                 <th class="p-3">Materia Prima / Insumo Genérico</th>
                 <th class="p-3">Unidad</th>
+                <th class="p-3">Costo/Unidad</th>
                 <th class="p-3">Stock Virtual</th>
                 <th class="p-3">Mínimo</th>
                 <th class="p-3 text-right">Acciones</th>
               </tr>
             </thead>
             <tbody id="materials-table-body" class="divide-y divide-slate-100">
+              <!-- Dinámico -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- PESTAÑA NUEVA: PRE-ARMADOS / SEMIELABORADOS (BASE PROPIA E INDEPENDIENTE -
+         db_semielaborados.js - igual que Proveedores vive en db_suppliers.js).
+         Acá viven las preparaciones intermedias (salsas, rellenos, jarabes, bases,
+         etc.) que se arman a partir de Insumos Genéricos y después se usan, a su
+         vez, como un componente más dentro de la Ficha Técnica de un plato o trago
+         más complejo. Tienen su propio stock, su propio mínimo de alerta y su
+         propio costo por unidad (promedio ponderado, recalculado en cada tanda de
+         producción). -->
+    <section id="tab-semi" class="hidden space-y-6">
+      <div class="flex justify-between items-center bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+        <div>
+          <h2 class="font-extrabold text-slate-900 text-lg flex items-center gap-2">
+            🥣 Pre-Armados / Semielaborados
+          </h2>
+          <p class="text-xs text-slate-500">Preparaciones intermedias (salsas, rellenos, jarabes, masas base, etc.) hechas de Insumos, que después se usan como ingrediente dentro de la Ficha Técnica de platos y tragos más complejos.</p>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <button onclick="openSemiRecipeModal()" class="bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-extrabold px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-md transition">
+            👨‍🍳 Ficha Técnica del Pre-Armado
+          </button>
+          <button onclick="openSemiProductionModal()" class="bg-amber-600 hover:bg-amber-700 active:scale-95 text-white font-extrabold px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-md transition">
+            🏭 Cargar Producción de Pre-Armado
+          </button>
+          <button onclick="openSemiModal()" class="bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-extrabold px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-md transition">
+            <i data-lucide="plus" class="w-4 h-4"></i> ➕ Nuevo Pre-Armado
+          </button>
+        </div>
+      </div>
+
+      <!-- Historial de Producción de Pre-Armados -->
+      <div class="bg-white rounded-2xl border border-amber-300 shadow-sm overflow-hidden mb-6">
+        <div class="p-4 bg-amber-100/60 border-b border-amber-200 flex justify-between items-center">
+          <div class="font-extrabold text-amber-950 text-sm flex items-center gap-2">
+            📋 Historial de Cargas de Producción de Pre-Armados
+          </div>
+          <span class="text-xs font-bold text-amber-800 bg-amber-200/60 px-2.5 py-1 rounded-full">Descuenta insumos y recalcula el costo promedio automáticamente</span>
+        </div>
+        <div class="max-h-72 overflow-y-auto overflow-x-auto shadow-inner">
+          <table class="w-full text-left border-collapse text-sm">
+            <thead class="sticky top-0 bg-slate-100 z-10 shadow-sm">
+              <tr class="border-b border-slate-200 text-xs font-bold text-slate-600 uppercase">
+                <th class="p-3">Fecha / Hora</th>
+                <th class="p-3">Pre-Armado</th>
+                <th class="p-3">Cantidad Producida</th>
+                <th class="p-3">Costo Insumos / Costo x Unidad</th>
+                <th class="p-3 text-right">Registrado Por</th>
+              </tr>
+            </thead>
+            <tbody id="semi-production-history-tbody" class="divide-y divide-slate-100">
+              <!-- Dinámico -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Tabla de Inventario de Pre-Armados -->
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="p-4 bg-slate-50 border-b border-slate-200 font-extrabold text-slate-800 text-sm flex justify-between items-center">
+          <span>Inventario de Pre-Armados / Semielaborados</span>
+          <span class="text-xs text-slate-500 font-normal">🥣 Se producen a partir de Insumos Genéricos, nunca se compran directo a un proveedor</span>
+        </div>
+        <div class="max-h-64 overflow-y-auto overflow-x-auto shadow-inner">
+          <table class="w-full text-left border-collapse text-sm">
+            <thead class="sticky top-0 bg-slate-100 z-10 shadow-sm">
+              <tr class="border-b border-slate-200 text-xs font-bold text-slate-600 uppercase">
+                <th class="p-3">Código</th>
+                <th class="p-3">Pre-Armado / Semielaborado</th>
+                <th class="p-3">Unidad</th>
+                <th class="p-3">Costo x Unidad</th>
+                <th class="p-3">Stock Virtual</th>
+                <th class="p-3">Mínimo</th>
+                <th class="p-3 text-right">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="semi-table-body" class="divide-y divide-slate-100">
               <!-- Dinámico -->
             </tbody>
           </table>
@@ -1326,10 +1414,17 @@
           </div>
         </div>
 
-        <div>
-          <label class="block text-xs font-semibold text-slate-700 mb-1">Stock Inicial Actual *</label>
-          <input type="number" step="0.01" id="mat-current" required placeholder="Ej: 45" class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 font-mono font-bold">
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Stock Inicial Actual *</label>
+            <input type="number" step="0.01" id="mat-current" required placeholder="Ej: 45" class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 font-mono font-bold">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Costo por Unidad ($)</label>
+            <input type="number" step="0.01" id="mat-cost" placeholder="Ej: 3500 (opcional)" class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 font-mono">
+          </div>
         </div>
+        <p class="text-[10px] text-slate-400 -mt-2">💡 El Costo por Unidad se usa para calcular el costo real de los platos y Pre-Armados que usen este insumo en su Ficha Técnica. Se puede dejar en blanco y cargar más adelante.</p>
 
         <div>
           <label class="block text-xs font-semibold text-slate-700 mb-1">🔑 Clave PIN Personal (Encargado Nivel 2 o Gerente Nivel 3) *</label>
@@ -1964,10 +2059,15 @@
         <!-- Componentes de la Receta -->
         <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
           <div class="flex justify-between items-center border-b border-slate-200 pb-2">
-            <span class="text-xs font-black text-slate-800 uppercase">🥩 Insumos Genéricos Componentes (Receta)</span>
-            <button type="button" onclick="addRecipeIngredientRow()" class="px-2.5 py-1 bg-indigo-100 hover:bg-indigo-200 text-indigo-900 font-extrabold text-[11px] rounded-lg border border-indigo-300 transition">
-              ➕ Agregar Insumo
-            </button>
+            <span class="text-xs font-black text-slate-800 uppercase">🥩 Insumos y Pre-Armados Componentes (Receta)</span>
+            <div class="flex items-center gap-1.5">
+              <button type="button" onclick="addRecipeIngredientRow()" class="px-2.5 py-1 bg-indigo-100 hover:bg-indigo-200 text-indigo-900 font-extrabold text-[11px] rounded-lg border border-indigo-300 transition">
+                ➕ Agregar Insumo
+              </button>
+              <button type="button" onclick="addRecipeSemiRow()" class="px-2.5 py-1 bg-teal-100 hover:bg-teal-200 text-teal-900 font-extrabold text-[11px] rounded-lg border border-teal-300 transition">
+                🥣 Agregar Pre-Armado
+              </button>
+            </div>
           </div>
 
           <div id="recipe-ingredients-container" class="space-y-2 max-h-60 overflow-y-auto">
@@ -1983,6 +2083,166 @@
         <div class="pt-4 flex justify-end gap-2 border-t border-slate-200">
           <button type="button" onclick="closeRecipeModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 font-bold rounded-xl text-xs text-slate-700">Cancelar</button>
           <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 font-extrabold rounded-xl text-xs text-white shadow">Guardar Ficha Técnica</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL DE ALTA / EDICIÓN DE PRE-ARMADO / SEMIELABORADO (CATÁLOGO -
+       vive en su propia base db_semielaborados.js) -->
+  <div id="semi-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200 text-slate-900">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+      <div class="flex justify-between items-center border-b pb-3 border-slate-200">
+        <h3 id="semi-modal-title" class="font-extrabold text-slate-900 text-lg">Nuevo Pre-Armado / Semielaborado</h3>
+        <button onclick="closeSemiModal()" class="text-slate-400 hover:text-slate-700">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="semi-form" onsubmit="saveSemiElaborado(event)" class="space-y-3">
+        <input type="hidden" id="semi-id">
+
+        <div class="grid grid-cols-3 gap-2">
+          <div class="col-span-2">
+            <label class="block text-xs font-bold text-slate-700 mb-1">Nombre del Pre-Armado *</label>
+            <input type="text" id="semi-name" required placeholder="Ej: Salsa Bolognesa Base" class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-500 font-bold">
+          </div>
+          <div class="col-span-1">
+            <label class="block text-xs font-bold text-slate-700 mb-1">Código *</label>
+            <input type="text" id="semi-code" required placeholder="Ej: SEMI-001" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm font-mono font-bold outline-none focus:ring-2 focus:ring-teal-500 uppercase">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Unidad de Medida *</label>
+            <select id="semi-unit" required class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-500 bg-white font-bold">
+              <option value="kg">Kilos (kg)</option>
+              <option value="litros">Litros (lts)</option>
+              <option value="unidades">Unidades (u)</option>
+              <option value="gramos">Gramos (gr)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Stock Mínimo (Alerta)</label>
+            <input type="number" step="0.01" id="semi-min" required placeholder="Ej: 5" class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-500 font-mono">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Stock Inicial Actual</label>
+          <input type="number" step="0.01" id="semi-current" placeholder="Ej: 0 (se va a ir sumando con cada producción)" class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-500 font-mono font-bold">
+        </div>
+
+        <div class="bg-teal-50 border border-teal-200 p-3 rounded-xl">
+          <label class="block text-xs font-bold text-teal-900 mb-1">🔑 Clave PIN Personal (Encargado Nivel 2 o Gerente Nivel 3) *</label>
+          <input type="text" autocomplete="off" style="-webkit-text-security: disc; text-security: disc;" id="semi-pin" required placeholder="Tu PIN personal" class="w-full px-3.5 py-2 bg-white border border-teal-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-500 font-mono">
+        </div>
+
+        <div class="pt-4 flex justify-end gap-2 border-t border-slate-200">
+          <button type="button" onclick="closeSemiModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 font-bold rounded-xl text-xs text-slate-700">Cancelar</button>
+          <button type="submit" class="px-4 py-2 bg-teal-600 hover:bg-teal-700 font-bold rounded-xl text-xs text-white shadow">Guardar Pre-Armado</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL DE FICHA TÉCNICA DEL PROPIO PRE-ARMADO (siempre hecha 100% de
+       Insumos Genéricos directos - nunca de otro Pre-Armado, para no armar
+       una cadena de niveles infinita) -->
+  <div id="semi-recipe-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200 text-slate-900">
+    <div class="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex justify-between items-center border-b pb-3 border-slate-200">
+        <div>
+          <h3 class="font-extrabold text-teal-950 text-base flex items-center gap-2">
+            👨‍🍳 Ficha Técnica del Pre-Armado
+          </h3>
+          <p class="text-xs text-slate-500">Define de qué Insumos Genéricos se arma 1 unidad de este Pre-Armado</p>
+        </div>
+        <button onclick="closeSemiRecipeModal()" class="text-slate-400 hover:text-slate-700">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="semi-recipe-form" onsubmit="saveSemiRecipe(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-800 mb-1">Seleccionar Pre-Armado *</label>
+          <select id="semi-rec-id" onchange="loadSemiRecipeDetails()" required class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-teal-500 bg-white font-extrabold text-teal-950">
+            <!-- Dinámico -->
+          </select>
+        </div>
+
+        <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
+          <div class="flex justify-between items-center border-b border-slate-200 pb-2">
+            <span class="text-xs font-black text-slate-800 uppercase">🥩 Insumos Genéricos Componentes</span>
+            <button type="button" onclick="addSemiRecipeIngredientRow()" class="px-2.5 py-1 bg-teal-100 hover:bg-teal-200 text-teal-900 font-extrabold text-[11px] rounded-lg border border-teal-300 transition">
+              ➕ Agregar Insumo
+            </button>
+          </div>
+
+          <div id="semi-recipe-ingredients-container" class="space-y-2 max-h-60 overflow-y-auto">
+            <!-- Renglones de insumos -->
+          </div>
+        </div>
+
+        <div class="bg-teal-50 border border-teal-200 p-3 rounded-xl">
+          <label class="block text-xs font-bold text-teal-900 mb-1">🔑 PIN de Encargado (Nivel 2) o Gerente (Nivel 3) *</label>
+          <input type="text" autocomplete="off" style="-webkit-text-security: disc; text-security: disc;" id="semi-rec-pin" required placeholder="Tu PIN personal" class="w-full px-3.5 py-2 bg-white border border-teal-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-500 font-mono">
+        </div>
+
+        <div class="pt-4 flex justify-end gap-2 border-t border-slate-200">
+          <button type="button" onclick="closeSemiRecipeModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 font-bold rounded-xl text-xs text-slate-700">Cancelar</button>
+          <button type="submit" class="px-4 py-2 bg-teal-600 hover:bg-teal-700 font-extrabold rounded-xl text-xs text-white shadow">Guardar Ficha Técnica</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL DE CARGA DE PRODUCCIÓN DE PRE-ARMADO (descuenta insumos y
+       recalcula el costo promedio ponderado, igual que la producción de
+       comida preparada pero para la base separada db_semielaborados.js) -->
+  <div id="semi-production-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200 text-slate-900">
+    <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl space-y-4">
+      <div class="flex justify-between items-center border-b pb-3 border-slate-200">
+        <h3 class="font-extrabold text-teal-900 text-base flex items-center gap-2">
+          🏭 Carga de Producción de Pre-Armado
+        </h3>
+        <button onclick="closeSemiProductionModal()" class="text-slate-400 hover:text-slate-700">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="semi-production-form" onsubmit="submitSemiProductionEntry(event)" class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Pre-Armado *</label>
+          <select id="semi-prod-entry-id" required class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-teal-500 bg-white font-bold text-slate-900">
+            <!-- Dinámico -->
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Cantidad Producida *</label>
+          <input type="number" step="0.001" id="semi-prod-entry-qty" required placeholder="Ej: 5.00" class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-500 font-mono font-bold">
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-800 mb-1">👨‍🍳 Operario que Elaboró (Opcional)</label>
+          <input type="text" id="semi-prod-entry-operator" placeholder="Ej: Mario Gómez" class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-teal-500 font-medium">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Observación (Opcional)</label>
+          <input type="text" id="semi-prod-entry-notes" placeholder="Ej: Tanda de la mañana" class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-teal-500">
+        </div>
+
+        <div class="bg-teal-50 border border-teal-200 p-3 rounded-xl">
+          <label class="block text-xs font-bold text-teal-900 mb-1">🔑 PIN Personal (Nivel 1, 2 o 3) *</label>
+          <input type="text" autocomplete="off" style="-webkit-text-security: disc; text-security: disc;" id="semi-prod-entry-pin" required placeholder="Tu PIN personal" class="w-full px-3.5 py-2 bg-white border border-teal-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-500 font-mono">
+        </div>
+
+        <div class="pt-4 flex justify-end gap-2 border-t border-slate-200">
+          <button type="button" onclick="closeSemiProductionModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 font-bold rounded-xl text-xs text-slate-700">Cancelar</button>
+          <button type="submit" class="px-4 py-2 bg-teal-600 hover:bg-teal-700 font-extrabold rounded-xl text-xs text-white shadow">Registrar Producción</button>
         </div>
       </form>
     </div>

@@ -9,6 +9,7 @@ const fs = require('fs');
 const { execSync } = require('child_process');
 const db = require('./db');
 const dbSuppliers = require('./db_suppliers');
+const dbSemi = require('./db_semielaborados');
 const dbFacturacion = require('./db_facturacion');
 const arcaFacturacion = require('./arca_facturacion');
 const storage = require('./storage');
@@ -635,8 +636,66 @@ app.post('/api/admin/stock/adjust', (req, res) => {
   }
 });
 
+// ==========================================================================
+// AYUDANTES COMPARTIDOS: descontar / revertir los componentes de la Ficha
+// Técnica de un producto (plato o trago) cuando se vende o se produce. Cada
+// componente puede ser un Insumo Genérico directo (vive en raw_materials,
+// acá mismo en la base principal) o un Pre-Armado / Semielaborado (una
+// preparación intermedia con su propio stock, hecha a su vez de insumos, y
+// que vive en su base separada db_semielaborados.js). Se centraliza acá
+// para no repetir esta lógica de "¿de qué tipo es este ingrediente?" en
+// cada uno de los puntos donde se vende o produce un plato/trago.
+// ==========================================================================
+async function deductProductRecipeComponents(store, productId, qtyMultiplier) {
+  const recipes = (store.product_recipes || []).filter(r => r.product_id === productId);
+  const deducted = [];
+  let totalCost = 0;
+
+  for (const r of recipes) {
+    const qty = (r.qty_per_portion || 0) * qtyMultiplier;
+    if (!(qty > 0)) continue;
+
+    if (r.semi_elaborado_id) {
+      const semi = await dbSemi.deductSemiStock(r.semi_elaborado_id, qty);
+      if (semi) {
+        const unitCost = parseFloat(semi.cost_per_unit || 0);
+        const cost = parseFloat((qty * unitCost).toFixed(2));
+        totalCost += cost;
+        deducted.push({ tipo: 'Pre-Armado', material_name: semi.name, code: semi.code, unit: semi.unit, qty_deducted: qty, cost_per_unit: unitCost, total_cost: cost, remaining_stock: semi.current_stock });
+      }
+    } else if (r.raw_material_id) {
+      const mat = (store.raw_materials || []).find(m => m.id === r.raw_material_id);
+      if (mat) {
+        mat.current_stock = parseFloat(Math.max(0, (mat.current_stock || 0) - qty).toFixed(4));
+        const unitCost = parseFloat(mat.cost_per_unit || mat.cost || 0);
+        const cost = parseFloat((qty * unitCost).toFixed(2));
+        totalCost += cost;
+        deducted.push({ tipo: 'Insumo', material_name: mat.name, code: mat.code, unit: mat.unit, qty_deducted: qty, cost_per_unit: unitCost, total_cost: cost, remaining_stock: mat.current_stock });
+      }
+    }
+  }
+
+  return { deducted, totalCost };
+}
+
+async function restoreProductRecipeComponents(store, productId, qtyMultiplier) {
+  const recipes = (store.product_recipes || []).filter(r => r.product_id === productId);
+
+  for (const r of recipes) {
+    const qty = (r.qty_per_portion || 0) * qtyMultiplier;
+    if (!(qty > 0)) continue;
+
+    if (r.semi_elaborado_id) {
+      await dbSemi.restoreSemiStock(r.semi_elaborado_id, qty);
+    } else if (r.raw_material_id) {
+      const mat = (store.raw_materials || []).find(m => m.id === r.raw_material_id);
+      if (mat) mat.current_stock = parseFloat(((mat.current_stock || 0) + qty).toFixed(4));
+    }
+  }
+}
+
 // REGISTRAR PRODUCCIÓN EN LOTE CON NOMBRE DE ENCARGADO (Mise en place - Requiere Nivel 2)
-app.post('/api/production/register', (req, res) => {
+app.post('/api/production/register', async (req, res) => {
   try {
     const { product_id, portions, pin } = req.body;
     const pid = parseInt(product_id);
@@ -657,17 +716,8 @@ app.post('/api/production/register', (req, res) => {
       return res.status(404).json({ success: false, error: 'Producto no encontrado' });
     }
 
-    const recipes = store.product_recipes.filter(r => r.product_id === pid);
-    let discountedMaterials = [];
-
-    recipes.forEach(r => {
-      const rawMat = store.raw_materials.find(m => m.id === r.raw_material_id);
-      if (rawMat) {
-        const discountQty = (r.qty_per_portion || 0) * qtyPortions;
-        rawMat.current_stock = Math.max(0, (rawMat.current_stock || 0) - discountQty);
-        discountedMaterials.push(`${rawMat.name}: -${discountQty.toFixed(2)}${rawMat.unit}`);
-      }
-    });
+    const { deducted } = await deductProductRecipeComponents(store, pid, qtyPortions);
+    const discountedMaterials = deducted.map(d => `${d.material_name}: -${d.qty_deducted.toFixed(2)}${d.unit}`);
 
     db.saveStore();
     io.emit('stock_updated');
@@ -736,7 +786,7 @@ app.post('/api/stock/entry', async (req, res) => {
 // Guardar Insumo / Materia Prima (Requiere PIN Nivel 2)
 app.post('/api/admin/materials', (req, res) => {
   try {
-    const { id, code, name, unit, min_stock, current_stock, pin } = req.body;
+    const { id, code, name, unit, min_stock, current_stock, cost_per_unit, pin } = req.body;
 
     const auth = verifyUserPin(pin, 2);
     if (!auth.isValid) {
@@ -767,6 +817,7 @@ app.post('/api/admin/materials', (req, res) => {
         mat.unit = unit || 'kg';
         mat.min_stock = parseFloat(min_stock || 5);
         if (current_stock !== undefined) mat.current_stock = parseFloat(current_stock);
+        if (cost_per_unit !== undefined && cost_per_unit !== '') mat.cost_per_unit = parseFloat(cost_per_unit);
       }
     } else {
       const nextId = store.raw_materials.length > 0 ? Math.max(...store.raw_materials.map(m => m.id)) + 1 : 1;
@@ -776,11 +827,165 @@ app.post('/api/admin/materials', (req, res) => {
         name,
         unit: unit || 'kg',
         current_stock: parseFloat(current_stock || 0),
-        min_stock: parseFloat(min_stock || 5)
+        min_stock: parseFloat(min_stock || 5),
+        cost_per_unit: parseFloat(cost_per_unit || 0)
       });
     }
     db.saveStore();
     res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ==========================================================================
+// PRE-ARMADOS / SEMIELABORADOS: BASE DE DATOS SEPARADA (db_semielaborados.js)
+// (salsas, rellenos, jarabes, mezclas base para bebidas o comidas: se
+// preparan a partir de Insumos Genéricos y quedan con SU PROPIO stock, para
+// después poder usarse como un componente más dentro de la Ficha Técnica de
+// un plato o trago más complejo - ver /api/admin/recipes/save)
+// ==========================================================================
+
+// Guardar Pre-Armado (alta o edición del catálogo) - Requiere PIN Nivel 2
+app.post('/api/admin/semi-elaborados', async (req, res) => {
+  try {
+    const { id, code, name, unit, min_stock, current_stock, pin } = req.body;
+
+    const auth = verifyUserPin(pin, 2);
+    if (!auth.isValid) {
+      return res.status(401).json({ success: false, error: 'PIN de Encargado (Nivel 2) o Gerente (Nivel 3) requerido' });
+    }
+
+    const strCode = (code || '').trim().toUpperCase();
+    if (!strCode) {
+      return res.status(400).json({ success: false, error: '⚠️ El Código / SKU del pre-armado es obligatorio. Presioná el botón ⚡ Auto.' });
+    }
+    if (!name || !name.trim()) {
+      return res.status(400).json({ success: false, error: '⚠️ El nombre del pre-armado es obligatorio.' });
+    }
+
+    const editId = id ? parseInt(id) : null;
+    const dupCode = await dbSemi.findSemiElaboradoByCode(strCode, editId);
+    if (dupCode) {
+      return res.status(400).json({ success: false, error: `⚠️ CÓDIGO SKU DUPLICADO: El código "${strCode}" ya está asignado al pre-armado "${dupCode.name}".` });
+    }
+    const dupName = await dbSemi.findSemiElaboradoByName(name, editId);
+    if (dupName) {
+      return res.status(400).json({ success: false, error: `⚠️ PRE-ARMADO DUPLICADO: Ya existe un pre-armado registrado con el nombre "${dupName.name}".` });
+    }
+
+    let semi;
+    if (editId) {
+      semi = await dbSemi.updateSemiElaborado(editId, { code: strCode, name, unit, min_stock, current_stock });
+      if (!semi) {
+        return res.status(404).json({ success: false, error: 'Pre-armado no encontrado.' });
+      }
+    } else {
+      semi = await dbSemi.createSemiElaborado({ code: strCode, name, unit, min_stock, current_stock });
+    }
+
+    io.emit('stock_updated');
+    res.json({ success: true, semi_elaborado: semi, user_name: auth.user.name });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Guardar la Ficha Técnica de UN Pre-Armado (de qué insumos genéricos está
+// hecho y en qué cantidad, por cada unidad que se produce) - Requiere Nivel 2
+app.post('/api/admin/semi-elaborados/:id/recipe', async (req, res) => {
+  try {
+    const { ingredients, pin } = req.body;
+    const semiId = parseInt(req.params.id);
+
+    const auth = verifyUserPin(pin, 2);
+    if (!auth.isValid) {
+      return res.status(401).json({ success: false, error: 'PIN de Encargado (Nivel 2) o Gerente (Nivel 3) requerido' });
+    }
+
+    const semi = await dbSemi.getSemiElaborado(semiId);
+    if (!semi) {
+      return res.status(404).json({ success: false, error: 'Pre-armado no encontrado.' });
+    }
+
+    const saved = await dbSemi.saveSemiElaboradoRecipe(semiId, ingredients);
+    io.emit('stock_updated');
+    res.json({ success: true, semi_elaborado_id: semiId, ingredients: saved });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Cargar una Tanda de Producción de un Pre-Armado: descuenta los insumos
+// genéricos de la base principal según su Ficha Técnica, calcula el costo
+// real de esa tanda, y le suma el stock resultante al Pre-Armado (con su
+// costo promedio ponderado actualizado) - Requiere Nivel 1, 2 o 3
+app.post('/api/production/semi-add', async (req, res) => {
+  try {
+    const { semi_elaborado_id, quantity, notes, operator_name, pin } = req.body;
+
+    const auth = verifyUserPin(pin, 1);
+    if (!auth.isValid) {
+      return res.status(401).json({ success: false, error: 'PIN personal de operario o personal registrado (Nivel 1, 2 o 3) requerido' });
+    }
+
+    const semiId = parseInt(semi_elaborado_id);
+    const qtyAdd = parseFloat(quantity || 0);
+    if (!semiId || qtyAdd <= 0) {
+      return res.status(400).json({ success: false, error: 'Pre-armado y cantidad producida son obligatorios' });
+    }
+
+    const semi = await dbSemi.getSemiElaborado(semiId);
+    if (!semi) {
+      return res.status(404).json({ success: false, error: 'Pre-armado no encontrado' });
+    }
+
+    const store = db.getStore();
+    const recipeRows = (await dbSemi.listAllSemiElaboradoRecipes()).filter(r => r.semi_elaborado_id === semiId);
+
+    if (recipeRows.length === 0) {
+      return res.status(400).json({ success: false, error: `⚠️ "${semi.name}" todavía no tiene Ficha Técnica cargada (no se sabe de qué insumos está hecho). Cargala primero.` });
+    }
+
+    const deductedMaterials = [];
+    let rawMaterialCostTotal = 0;
+
+    recipeRows.forEach(r => {
+      const mat = (store.raw_materials || []).find(m => m.id === r.raw_material_id);
+      if (mat) {
+        const totalDeduct = parseFloat((r.qty_per_unit * qtyAdd).toFixed(4));
+        const unitCost = parseFloat(mat.cost_per_unit || mat.cost || 0);
+        const matCost = parseFloat((totalDeduct * unitCost).toFixed(2));
+        rawMaterialCostTotal += matCost;
+
+        mat.current_stock = parseFloat(Math.max(0, (mat.current_stock || 0) - totalDeduct).toFixed(4));
+        deductedMaterials.push({
+          material_name: mat.name,
+          code: mat.code,
+          unit: mat.unit,
+          qty_deducted: totalDeduct,
+          cost_per_unit: unitCost,
+          total_cost: matCost,
+          remaining_stock: mat.current_stock
+        });
+      }
+    });
+
+    db.saveStore();
+
+    const { semi: updatedSemi, entry } = await dbSemi.registerProduction({
+      semiElaboradoId: semiId,
+      quantity: qtyAdd,
+      deductedMaterials,
+      rawMaterialCostTotal,
+      notes,
+      operatorName: operator_name ? String(operator_name).trim() : auth.user.name,
+      registeredBy: `${auth.user.name} (Nivel ${auth.user.level})`
+    });
+
+    io.emit('stock_updated');
+
+    res.json({ success: true, semi_elaborado: updatedSemi, entry, user_name: auth.user.name });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -1091,16 +1296,35 @@ app.post('/api/admin/recipes/save', (req, res) => {
 
     store.product_recipes = store.product_recipes.filter(r => r.product_id !== pid);
 
+    // Cada ingrediente puede ser un Insumo Genérico directo (raw_material_id)
+    // O un Pre-Armado / Semielaborado (semi_elaborado_id) - nunca los dos a
+    // la vez. El Pre-Armado vive en su base separada (db_semielaborados.js);
+    // acá solo se guarda la referencia a su ID.
     if (Array.isArray(ingredients)) {
       ingredients.forEach(ing => {
-        const rawMatId = parseInt(ing.raw_material_id);
         const qtyPerPortion = parseFloat(ing.qty_per_portion || 0);
-        if (rawMatId && qtyPerPortion > 0) {
-          store.product_recipes.push({
-            product_id: pid,
-            raw_material_id: rawMatId,
-            qty_per_portion: qtyPerPortion
-          });
+        if (!(qtyPerPortion > 0)) return;
+
+        if (ing.semi_elaborado_id) {
+          const semiId = parseInt(ing.semi_elaborado_id);
+          if (semiId) {
+            store.product_recipes.push({
+              product_id: pid,
+              raw_material_id: null,
+              semi_elaborado_id: semiId,
+              qty_per_portion: qtyPerPortion
+            });
+          }
+        } else if (ing.raw_material_id) {
+          const rawMatId = parseInt(ing.raw_material_id);
+          if (rawMatId) {
+            store.product_recipes.push({
+              product_id: pid,
+              raw_material_id: rawMatId,
+              semi_elaborado_id: null,
+              qty_per_portion: qtyPerPortion
+            });
+          }
         }
       });
     }
@@ -1115,7 +1339,7 @@ app.post('/api/admin/recipes/save', (req, res) => {
 });
 
 // REGISTRO DE PRODUCCIÓN DIARIA DE COMIDA PREPARADA POR LA COCINA (REQUERIDO NIVEL 2 O 3)
-app.post('/api/production/add', (req, res) => {
+app.post('/api/production/add', async (req, res) => {
   try {
     const { product_id, quantity, notes, operator_name, pin } = req.body;
 
@@ -1138,24 +1362,8 @@ app.post('/api/production/add', (req, res) => {
     prod.stock_prepared = parseFloat(((prod.stock_prepared || 0) + qtyAdd).toFixed(3));
     prod.is_prepared_food = 1;
 
-    // Descontar insumos genéricos según la Receta / Ficha Técnica (Escandallo)
-    const recipes = (store.product_recipes || []).filter(r => r.product_id === prod.id);
-    const deductedMaterials = [];
-
-    recipes.forEach(r => {
-      const mat = store.raw_materials.find(m => m.id === r.raw_material_id);
-      if (mat) {
-        const totalDeduct = parseFloat((r.qty_per_portion * qtyAdd).toFixed(4));
-        mat.current_stock = parseFloat(Math.max(0, (mat.current_stock || 0) - totalDeduct).toFixed(4));
-        deductedMaterials.push({
-          material_name: mat.name,
-          code: mat.code,
-          unit: mat.unit,
-          qty_deducted: totalDeduct,
-          remaining_stock: mat.current_stock
-        });
-      }
-    });
+    // Descontar insumos y/o Pre-Armados según la Receta / Ficha Técnica (Escandallo)
+    const { deducted: deductedMaterials } = await deductProductRecipeComponents(store, prod.id, qtyAdd);
 
     if (!store.production_entries) store.production_entries = [];
 
@@ -1259,7 +1467,7 @@ app.post('/api/production/batches/start', (req, res) => {
 });
 
 // POST /api/production/batches/:id/finish (Concluir Lote de Producción)
-app.post('/api/production/batches/:id/finish', (req, res) => {
+app.post('/api/production/batches/:id/finish', async (req, res) => {
   try {
     const { id } = req.params;
     const { notes } = req.body;
@@ -1287,35 +1495,15 @@ app.post('/api/production/batches/:id/finish', (req, res) => {
 
     // Actualizar Stock de Comida Preparada y Análisis Estadístico de Costos
     const prod = store.products.find(p => p.id === batch.product_id);
-    const deductedMaterials = [];
     let rawMaterialCostTotal = 0;
 
     if (prod) {
       prod.stock_prepared = parseFloat(((prod.stock_prepared || 0) + batch.quantity).toFixed(3));
       prod.is_prepared_food = 1;
 
-      // Descontar insumos genéricos según Ficha Técnica (Escandallo) y calcular costo directo de materias primas
-      const recipes = (store.product_recipes || []).filter(r => r.product_id === prod.id);
-      recipes.forEach(r => {
-        const mat = store.raw_materials.find(m => m.id === r.raw_material_id);
-        if (mat) {
-          const totalDeduct = parseFloat((r.qty_per_portion * batch.quantity).toFixed(4));
-          const unitCost = parseFloat(mat.cost_per_unit || mat.cost || 0);
-          const matCost = parseFloat((totalDeduct * unitCost).toFixed(2));
-          rawMaterialCostTotal += matCost;
-
-          mat.current_stock = parseFloat(Math.max(0, (mat.current_stock || 0) - totalDeduct).toFixed(4));
-          deductedMaterials.push({
-            material_name: mat.name,
-            code: mat.code,
-            unit: mat.unit,
-            qty_deducted: totalDeduct,
-            cost_per_unit: unitCost,
-            total_cost: matCost,
-            remaining_stock: mat.current_stock
-          });
-        }
-      });
+      // Descontar insumos y/o Pre-Armados según Ficha Técnica (Escandallo) y calcular costo directo
+      const { deducted: deductedMaterials, totalCost } = await deductProductRecipeComponents(store, prod.id, batch.quantity);
+      rawMaterialCostTotal = totalCost;
       batch.deducted_materials = deductedMaterials;
 
       // Cálculo de Mano de Obra por Tiempo (Tarifa Horaria del Operario)
@@ -1938,7 +2126,7 @@ app.get('/api/orders', (req, res) => {
   }
 });
 
-app.put('/api/orders/:id/status', (req, res) => {
+app.put('/api/orders/:id/status', async (req, res) => {
   try {
     const { id } = req.params;
     const { status, delivered_at } = req.body;
@@ -2001,16 +2189,9 @@ app.put('/api/orders/:id/status', (req, res) => {
     if (status === 'en_preparacion' && existingOrder.status !== 'en_preparacion') {
       const orderItems = typeof existingOrder.items === 'string' ? JSON.parse(existingOrder.items) : existingOrder.items;
       if (Array.isArray(orderItems)) {
-        orderItems.forEach(item => {
-          const recipes = store.product_recipes.filter(r => r.product_id === item.id);
-          recipes.forEach(r => {
-            const rawMat = store.raw_materials.find(m => m.id === r.raw_material_id);
-            if (rawMat) {
-              const discountQty = (r.qty_per_portion || 0) * (item.qty || 1);
-              rawMat.current_stock = Math.max(0, (rawMat.current_stock || 0) - discountQty);
-            }
-          });
-        });
+        for (const item of orderItems) {
+          await deductProductRecipeComponents(store, item.id, item.qty || 1);
+        }
       }
     }
 
@@ -2083,16 +2264,9 @@ app.post('/api/orders/:id/cancel', async (req, res) => {
     if (statusesConDescuentoDeStock.includes(existingOrder.status)) {
       const orderItems = typeof existingOrder.items === 'string' ? JSON.parse(existingOrder.items) : existingOrder.items;
       if (Array.isArray(orderItems)) {
-        orderItems.forEach(item => {
-          const recipes = store.product_recipes.filter(r => r.product_id === item.id);
-          recipes.forEach(r => {
-            const rawMat = store.raw_materials.find(m => m.id === r.raw_material_id);
-            if (rawMat) {
-              const restoreQty = (r.qty_per_portion || 0) * (item.qty || 1);
-              rawMat.current_stock = (rawMat.current_stock || 0) + restoreQty;
-            }
-          });
-        });
+        for (const item of orderItems) {
+          await restoreProductRecipeComponents(store, item.id, item.qty || 1);
+        }
       }
     }
 
@@ -2109,6 +2283,36 @@ app.post('/api/orders/:id/cancel', async (req, res) => {
         account.balance = Math.max(0, (account.balance || 0) - existingOrder.total);
         reversedAccount = account;
       }
+    }
+
+    // BUG REAL REPORTADO: un pedido anulado seguía "quedándose" con los
+    // puntos de Club que se le habían sumado al Socio al CREARSE el pedido
+    // (ver POST /api/orders). Acá se revierten esos puntos y se descuenta el
+    // pedido de sus estadísticas, para que anular una venta también anule
+    // los puntos que esa venta le había generado al cliente.
+    if (existingOrder.points_earned > 0) {
+      const strDniLookup = (existingOrder.customer_dni || '').trim();
+      let customerObj = null;
+      if (strDniLookup) {
+        customerObj = (store.customers || []).find(c => String(c.dni).trim() === strDniLookup);
+      }
+      if (!customerObj && existingOrder.customer_phone) {
+        customerObj = (store.customers || []).find(c => String(c.phone).trim() === String(existingOrder.customer_phone).trim());
+      }
+      if (customerObj) {
+        customerObj.points = Math.max(0, (customerObj.points || 0) - existingOrder.points_earned);
+        customerObj.total_orders = Math.max(0, (customerObj.total_orders || 0) - 1);
+        customerObj.total_spent = Math.max(0, (customerObj.total_spent || 0) - existingOrder.total);
+        if (!customerObj.history) customerObj.history = [];
+        customerObj.history.unshift({
+          date: new Date().toISOString(),
+          description: `🚫 Puntos revertidos por Anulación del Pedido ${existingOrder.order_number}`,
+          points_change: -existingOrder.points_earned,
+          type: 'cancellation'
+        });
+      }
+      existingOrder.points_reversed = existingOrder.points_earned;
+      existingOrder.points_earned = 0;
     }
 
     const previousStatus = existingOrder.status;
@@ -2570,10 +2774,13 @@ app.post('/api/admin/customers/adjust-points', (req, res) => {
 app.get('/api/admin/stock', async (req, res) => {
   try {
     const store = db.getStore();
-    const [suppliers, supplierProducts, supplierPurchases] = await Promise.all([
+    const [suppliers, supplierProducts, supplierPurchases, semiElaborados, semiRecipes, semiProductionEntries] = await Promise.all([
       dbSuppliers.listSuppliers(),
       dbSuppliers.listSupplierProducts(),
-      dbSuppliers.listSupplierPurchases()
+      dbSuppliers.listSupplierPurchases(),
+      dbSemi.listSemiElaborados(),
+      dbSemi.listAllSemiElaboradoRecipes(),
+      dbSemi.listSemiProductionEntries(100)
     ]);
     res.json({
       success: true,
@@ -2584,7 +2791,10 @@ app.get('/api/admin/stock', async (req, res) => {
       stock_adjustments: store.stock_adjustments || [],
       production_entries: store.production_entries || [],
       supplier_products: supplierProducts,
-      supplier_purchases: supplierPurchases
+      supplier_purchases: supplierPurchases,
+      semi_elaborados: semiElaborados,
+      semi_elaborado_recipes: semiRecipes,
+      semi_production_entries: semiProductionEntries
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -3222,23 +3432,16 @@ app.post('/api/pos/sale', async (req, res) => {
       updated_at: new Date().toISOString()
     };
 
-    // Descontar materias primas / stock de comida preparada si aplica
-    items.forEach(item => {
+    // Descontar materias primas, Pre-Armados y/o stock de comida preparada si aplica
+    for (const item of items) {
       const qtySold = parseFloat(item.qty || 1);
       const prod = store.products.find(p => p.id === item.id);
       if (prod && prod.stock_prepared !== undefined) {
         prod.stock_prepared = Math.max(0, parseFloat((prod.stock_prepared - qtySold).toFixed(3)));
       }
 
-      const recipes = (store.product_recipes || []).filter(r => r.product_id === item.id);
-      recipes.forEach(r => {
-        const rawMat = (store.raw_materials || []).find(m => m.id === r.raw_material_id);
-        if (rawMat) {
-          const discountQty = (r.qty_per_portion || 0) * qtySold;
-          rawMat.current_stock = Math.max(0, parseFloat(((rawMat.current_stock || 0) - discountQty).toFixed(3)));
-        }
-      });
-    });
+      await deductProductRecipeComponents(store, item.id, qtySold);
+    }
 
     store.orders.unshift(newOrder);
     // Guardado CON confirmación (ver nota en POST /api/orders): una venta de
@@ -3894,7 +4097,7 @@ const PORT = process.env.PORT || 3000;
 // Esperamos a que las bases de datos (la general y la de proveedores, cada
 // una por separado) terminen de cargar antes de aceptar pedidos, para no
 // arrancar con datos a medio cargar.
-Promise.all([db.ready, dbSuppliers.ready, dbFacturacion.ready])
+Promise.all([db.ready, dbSuppliers.ready, dbSemi.ready, dbFacturacion.ready])
   .then(() => {
     server.listen(PORT, '0.0.0.0', () => {
       console.log(`

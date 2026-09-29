@@ -5,6 +5,12 @@ let cashOrders = [];
 let customerAccounts = [];
 let rawMaterials = [];
 let suppliers = [];
+// PRE-ARMADOS / SEMIELABORADOS: viven en su propia base separada
+// (db_semielaborados.js), igual que Proveedores vive en db_suppliers.js.
+// Estos arrays son solo la copia en memoria del lado del cliente.
+let semiElaborados = [];
+let semiElaboradoRecipes = [];
+let semiProductionEntries = [];
 let staffUsers = [];
 let selectedAdminCat = 'all';
 let currentActiveShift = null;
@@ -602,6 +608,9 @@ async function loadStockMaterials() {
       rawMaterials = data.raw_materials || [];
       suppliers = data.suppliers || [];
       productionEntriesList = data.production_entries || [];
+      semiElaborados = data.semi_elaborados || [];
+      semiElaboradoRecipes = data.semi_elaborado_recipes || [];
+      semiProductionEntries = data.semi_production_entries || [];
       renderMaterialsTable();
       populateAdjustStockSelect();
       renderProductionEntriesHistory();
@@ -618,12 +627,14 @@ function renderMaterialsTable() {
   tbody.innerHTML = '';
 
   if (rawMaterials.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-400">No hay insumos registrados en el stock general.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-400">No hay insumos registrados en el stock general.</td></tr>`;
     return;
   }
 
   rawMaterials.forEach(m => {
     const isLow = (m.current_stock || 0) <= (m.min_stock || 0);
+    const suggestedMin = computeSuggestedMinForInsumo(m.id);
+    const suggestionAlert = suggestedMin > 0 && suggestedMin > (m.min_stock || 0);
     const tr = document.createElement('tr');
     tr.className = 'hover:bg-slate-50 transition';
 
@@ -640,11 +651,15 @@ function renderMaterialsTable() {
       <td class="p-4 text-xs font-bold text-slate-600 uppercase">
         ${m.unit}
       </td>
+      <td class="p-4 font-mono text-xs text-slate-700 font-bold">
+        ${m.cost_per_unit ? formatCurrency(m.cost_per_unit) : '<span class="text-slate-300">—</span>'}
+      </td>
       <td class="p-4 font-mono font-black text-slate-900 text-base">
         ${m.current_stock !== undefined ? m.current_stock : 0} ${m.unit}
       </td>
       <td class="p-4 font-mono text-xs text-slate-500 font-bold">
         ${m.min_stock || 0} ${m.unit}
+        ${suggestionAlert ? `<div class="mt-0.5 text-[10px] font-black text-amber-700 bg-amber-100 border border-amber-300 px-1.5 py-0.5 rounded-md inline-block" title="Suma de los mínimos de los Pre-Armados que usan este insumo, llevado a la unidad del insumo">🔗 Sugerido por Pre-Armados: ${suggestedMin.toFixed(2)} ${m.unit}</div>` : ''}
       </td>
       <td class="p-4 text-right space-x-2">
         <button onclick="openAdjustStockModal(${m.id})" class="px-2.5 py-1.5 bg-purple-100 hover:bg-purple-200 text-purple-900 font-extrabold rounded-lg text-xs transition" title="Conciliar Stock Real (Exclusivo Nivel 3)">
@@ -660,6 +675,24 @@ function renderMaterialsTable() {
   });
 
   lucide.createIcons();
+}
+
+// Suma, para un insumo dado, los mínimos de stock de todos los Pre-Armados /
+// Semielaborados que lo usan en su propia Ficha Técnica (cada mínimo del
+// Pre-Armado multiplicado por cuánto de este insumo lleva producir 1 unidad
+// de ese Pre-Armado). Es solo un VALOR SUGERIDO e informativo - nunca pisa el
+// mínimo que cargó el usuario a mano - para poder detectar a tiempo que no
+// alcanza el insumo genérico para seguir reponiendo los Pre-Armados.
+function computeSuggestedMinForInsumo(rawMaterialId) {
+  if (!semiElaboradoRecipes || semiElaboradoRecipes.length === 0) return 0;
+  let total = 0;
+  semiElaboradoRecipes.forEach(r => {
+    if (r.raw_material_id !== rawMaterialId) return;
+    const semi = (semiElaborados || []).find(s => s.id === r.semi_elaborado_id);
+    if (!semi) return;
+    total += (semi.min_stock || 0) * (r.qty_per_unit || 0);
+  });
+  return parseFloat(total.toFixed(4));
 }
 
 function populateAdjustStockSelect() {
@@ -1172,12 +1205,14 @@ function openRawMaterialModal(mat = null) {
     document.getElementById('mat-unit').value = mat.unit || 'kg';
     document.getElementById('mat-min').value = mat.min_stock || 5;
     document.getElementById('mat-current').value = mat.current_stock !== undefined ? mat.current_stock : 0;
+    document.getElementById('mat-cost').value = mat.cost_per_unit || '';
   } else {
     title.textContent = 'Nuevo Insumo de Stock (Nivel 2)';
     document.getElementById('mat-id').value = '';
     document.getElementById('mat-code').value = '';
     document.getElementById('mat-min').value = '10';
     document.getElementById('mat-current').value = '';
+    document.getElementById('mat-cost').value = '';
   }
 
   modal.classList.remove('opacity-0', 'pointer-events-none');
@@ -1258,6 +1293,7 @@ async function saveRawMaterial(e) {
   const unit = document.getElementById('mat-unit').value;
   const min_stock = document.getElementById('mat-min').value;
   const current_stock = document.getElementById('mat-current').value;
+  const cost_per_unit = document.getElementById('mat-cost').value.trim();
   const pin = document.getElementById('mat-pin').value.trim();
 
   if (!code) {
@@ -1290,7 +1326,7 @@ async function saveRawMaterial(e) {
     const res = await fetch('/api/admin/materials', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: id ? parseInt(id) : null, code, name, unit, min_stock, current_stock, pin })
+      body: JSON.stringify({ id: id ? parseInt(id) : null, code, name, unit, min_stock, current_stock, cost_per_unit, pin })
     });
     const data = await res.json();
     if (data.success) {
@@ -2454,6 +2490,7 @@ function switchTab(tab) {
   const cSection = document.getElementById('tab-cash');
   const aSection = document.getElementById('tab-accounts');
   const kSection = document.getElementById('tab-stock');
+  const semiSection = document.getElementById('tab-semi');
   const pSection = document.getElementById('tab-products');
   const usrSection = document.getElementById('tab-users');
   const uSection = document.getElementById('tab-audit');
@@ -2466,6 +2503,7 @@ function switchTab(tab) {
   const cBtn = document.getElementById('tab-btn-cash');
   const aBtn = document.getElementById('tab-btn-accounts');
   const kBtn = document.getElementById('tab-btn-stock');
+  const semiBtn = document.getElementById('tab-btn-semi');
   const pBtn = document.getElementById('tab-btn-products');
   const usrBtn = document.getElementById('tab-btn-users');
   const uBtn = document.getElementById('tab-btn-audit');
@@ -2478,6 +2516,7 @@ function switchTab(tab) {
   if (cSection) cSection.classList.add('hidden');
   if (aSection) aSection.classList.add('hidden');
   if (kSection) kSection.classList.add('hidden');
+  if (semiSection) semiSection.classList.add('hidden');
   if (pSection) pSection.classList.add('hidden');
   if (usrSection) usrSection.classList.add('hidden');
   if (uSection) uSection.classList.add('hidden');
@@ -2490,6 +2529,7 @@ function switchTab(tab) {
   if (cBtn) cBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
   if (aBtn) aBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
   if (kBtn) kBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
+  if (semiBtn) semiBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
   if (pBtn) pBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
   if (usrBtn) usrBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
   if (uBtn) uBtn.className = 'tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold';
@@ -2512,6 +2552,10 @@ function switchTab(tab) {
     if (kBtn) kBtn.className = 'tab-btn pb-3 border-b-2 border-orange-500 text-orange-600 flex items-center gap-2 font-bold';
     loadStockMaterials();
     loadPreparedStock();
+  } else if (tab === 'semi') {
+    if (semiSection) semiSection.classList.remove('hidden');
+    if (semiBtn) semiBtn.className = 'tab-btn pb-3 border-b-2 border-orange-500 text-orange-600 flex items-center gap-2 font-bold';
+    loadSemiElaborados();
   } else if (tab === 'products') {
     if (pSection) pSection.classList.remove('hidden');
     if (pBtn) pBtn.className = 'tab-btn pb-3 border-b-2 border-orange-500 text-orange-600 flex items-center gap-2 font-bold';
@@ -2976,6 +3020,9 @@ async function openRecipeModal(selectedProductId = null) {
   if (!rawMaterials || rawMaterials.length === 0) {
     await loadStockMaterials();
   }
+  if (!semiElaborados || semiElaborados.length === 0) {
+    await loadStockMaterials();
+  }
 
   try {
     const res = await fetch('/api/admin/recipes');
@@ -3065,7 +3112,14 @@ function loadProductRecipeDetails() {
     addRecipeIngredientRow();
   } else {
     currentProductRecipes.forEach(r => {
-      addRecipeIngredientRow(r.raw_material_id, r.qty_per_portion);
+      // Cada renglón de la receta es O un Insumo Genérico directo O un
+      // Pre-Armado / Semielaborado (nunca los dos a la vez) - ver cuál de
+      // los dos IDs viene cargado para saber qué tipo de renglón dibujar.
+      if (r.semi_elaborado_id) {
+        addRecipeSemiRow(r.semi_elaborado_id, r.qty_per_portion);
+      } else {
+        addRecipeIngredientRow(r.raw_material_id, r.qty_per_portion);
+      }
     });
   }
 }
@@ -3276,6 +3330,55 @@ function addRecipeIngredientRow(rawMatId = null, qtyPerPortion = null) {
   lucide.createIcons();
 }
 
+// Renglón de Pre-Armado / Semielaborado dentro de la Ficha Técnica de un
+// plato o trago (el otro tipo posible de componente, además del Insumo
+// Genérico de arriba). Usa un <select> simple en lugar del buscador de
+// insumos porque la lista de Pre-Armados suele ser mucho más chica. Se
+// agrega al MISMO contenedor que los renglones de insumo, pero con clases
+// CSS distintas (.recipe-semi-row / .rec-semi-id / .rec-semi-qty) para que
+// applyRecipePercentageScale() y saveRecipe() puedan diferenciarlos sin
+// pisar la lógica ya existente de los insumos.
+function addRecipeSemiRow(semiId = null, qtyPerPortion = null) {
+  const container = document.getElementById('recipe-ingredients-container');
+  if (!container) return;
+
+  if (!semiElaborados || semiElaborados.length === 0) {
+    alert('⚠️ Todavía no hay ningún Pre-Armado / Semielaborado cargado.\n\nPrimero creá uno desde la pestaña "🥣 Pre-Armados / Semielaborados".');
+    return;
+  }
+
+  const row = document.createElement('div');
+  row.className = 'recipe-semi-row flex gap-2 items-center bg-teal-50 p-2 rounded-xl border border-teal-200 shadow-sm';
+
+  const sortedSemis = [...semiElaborados].sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }));
+  const initialSemi = semiId !== null ? semiElaborados.find(s => s.id === semiId) : null;
+  const unitLabel = initialSemi ? `por porción (${initialSemi.unit})` : 'por porción';
+
+  row.innerHTML = `
+    <span class="text-sm">🥣</span>
+    <select class="rec-semi-id flex-1 px-2.5 py-1.5 border border-teal-300 rounded-lg text-xs font-bold bg-white text-teal-950">
+      ${sortedSemis.map(s => `<option value="${s.id}" ${semiId === s.id ? 'selected' : ''}>[${s.code}] ${s.name} (${s.unit})</option>`).join('')}
+    </select>
+    <div class="flex items-center gap-1">
+      <input type="number" step="0.001" class="rec-semi-qty w-24 px-2 py-1.5 border border-teal-300 rounded-lg text-xs font-mono font-bold text-slate-900" placeholder="Ej: 0.10" value="${qtyPerPortion !== null ? qtyPerPortion : ''}">
+      <span class="rec-semi-qty-unit-label text-[10px] text-teal-700 font-bold whitespace-nowrap">${unitLabel}</span>
+    </div>
+    <button type="button" onclick="this.parentElement.remove()" class="p-1 text-red-500 hover:bg-red-50 rounded-lg transition" title="Quitar Pre-Armado">
+      <i data-lucide="trash-2" class="w-4 h-4"></i>
+    </button>
+  `;
+
+  const selectEl = row.querySelector('.rec-semi-id');
+  selectEl.addEventListener('change', () => {
+    const s = semiElaborados.find(x => x.id === parseInt(selectEl.value));
+    const lbl = row.querySelector('.rec-semi-qty-unit-label');
+    if (lbl) lbl.textContent = `por porción (${s ? s.unit : ''})`;
+  });
+
+  container.appendChild(row);
+  lucide.createIcons();
+}
+
 function applyRecipePercentageScale() {
   const pctInput = document.getElementById('rec-pct-input');
   if (!pctInput) return;
@@ -3288,9 +3391,10 @@ function applyRecipePercentageScale() {
 
   const multiplier = 1 + (pct / 100);
   const rows = document.querySelectorAll('.recipe-ingredient-row');
+  const semiRows = document.querySelectorAll('.recipe-semi-row');
 
-  if (rows.length === 0) {
-    alert('⚠️ No hay insumos en la receta para aplicar el porcentaje.');
+  if (rows.length === 0 && semiRows.length === 0) {
+    alert('⚠️ No hay insumos ni Pre-Armados en la receta para aplicar el porcentaje.');
     return;
   }
 
@@ -3310,6 +3414,17 @@ function applyRecipePercentageScale() {
     }
   });
 
+  semiRows.forEach(row => {
+    const qtyInput = row.querySelector('.rec-semi-qty');
+    if (qtyInput && qtyInput.value) {
+      const currentQty = parseFloat(qtyInput.value);
+      if (!isNaN(currentQty) && currentQty > 0) {
+        const scaled = currentQty * multiplier;
+        qtyInput.value = parseFloat(scaled.toFixed(4));
+      }
+    }
+  });
+
   alert(`⚡ Cantidades ajustadas en un ${pct >= 0 ? '+' : ''}${pct}% correctamente!`);
   pctInput.value = '';
 }
@@ -3319,6 +3434,7 @@ async function saveRecipe(e) {
   const pid = parseInt(document.getElementById('rec-product-id').value);
   const pin = document.getElementById('rec-pin').value.trim();
   const rows = document.querySelectorAll('.recipe-ingredient-row');
+  const semiRows = document.querySelectorAll('.recipe-semi-row');
 
   const ingredients = [];
   rows.forEach(row => {
@@ -3327,6 +3443,16 @@ async function saveRecipe(e) {
     if (raw_material_id && qty_per_portion) {
       ingredients.push({
         raw_material_id: parseInt(raw_material_id),
+        qty_per_portion: parseFloat(qty_per_portion)
+      });
+    }
+  });
+  semiRows.forEach(row => {
+    const semi_elaborado_id = row.querySelector('.rec-semi-id').value;
+    const qty_per_portion = row.querySelector('.rec-semi-qty').value;
+    if (semi_elaborado_id && qty_per_portion) {
+      ingredients.push({
+        semi_elaborado_id: parseInt(semi_elaborado_id),
         qty_per_portion: parseFloat(qty_per_portion)
       });
     }
@@ -3347,6 +3473,505 @@ async function saveRecipe(e) {
     }
   } catch (err) {
     console.error('Error al guardar receta:', err);
+  }
+}
+
+// ==========================================================================
+// PRE-ARMADOS / SEMIELABORADOS: preparaciones intermedias (salsas, rellenos,
+// jarabes, masas base, etc.) que se producen a partir de Insumos Genéricos y
+// después se usan, a su vez, como un componente más dentro de la Ficha
+// Técnica de un plato o trago más complejo (ver addRecipeSemiRow más arriba).
+// Los datos viven en su propia base separada - db_semielaborados.js - por
+// eso siempre se piden/guardan contra sus propios endpoints
+// /api/admin/semi-elaborados* y /api/production/semi-add.
+// ==========================================================================
+
+async function loadSemiElaborados() {
+  try {
+    const res = await fetch('/api/admin/stock');
+    const data = await res.json();
+    if (data.success) {
+      semiElaborados = data.semi_elaborados || [];
+      semiElaboradoRecipes = data.semi_elaborado_recipes || [];
+      semiProductionEntries = data.semi_production_entries || [];
+      renderSemiTable();
+      renderSemiProductionHistory();
+    }
+  } catch (err) {
+    console.error('Error al cargar Pre-Armados / Semielaborados:', err);
+  }
+}
+
+function renderSemiTable() {
+  const tbody = document.getElementById('semi-table-body');
+  if (!tbody) return;
+
+  tbody.innerHTML = '';
+
+  if (semiElaborados.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-400">No hay Pre-Armados / Semielaborados registrados todavía.</td></tr>`;
+    return;
+  }
+
+  [...semiElaborados].sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' })).forEach(s => {
+    const isLow = (s.current_stock || 0) <= (s.min_stock || 0);
+    const tr = document.createElement('tr');
+    tr.className = 'hover:bg-slate-50 transition';
+
+    tr.innerHTML = `
+      <td class="p-4 font-mono font-bold text-slate-700 text-xs">
+        <span class="px-2 py-0.5 bg-teal-100 border border-teal-200 rounded font-black text-teal-900">
+          🥣 ${s.code}
+        </span>
+      </td>
+      <td class="p-4 font-extrabold text-slate-900 flex items-center gap-2">
+        <span>${s.name}</span>
+        ${isLow ? `<span class="bg-red-100 text-red-700 text-[10px] font-black px-2 py-0.5 rounded-md">⚠️ Stock Bajo</span>` : ''}
+      </td>
+      <td class="p-4 text-xs font-bold text-slate-600 uppercase">
+        ${s.unit}
+      </td>
+      <td class="p-4 font-mono text-xs text-slate-700 font-bold">
+        ${s.cost_per_unit ? formatCurrency(s.cost_per_unit) : '<span class="text-slate-300">—</span>'}
+      </td>
+      <td class="p-4 font-mono font-black text-slate-900 text-base">
+        ${s.current_stock !== undefined ? s.current_stock : 0} ${s.unit}
+      </td>
+      <td class="p-4 font-mono text-xs text-slate-500 font-bold">
+        ${s.min_stock || 0} ${s.unit}
+      </td>
+      <td class="p-4 text-right space-x-2">
+        <button onclick="openSemiRecipeModal(${s.id})" class="p-1.5 bg-indigo-100 hover:bg-indigo-200 rounded-lg text-indigo-800 transition" title="Ficha Técnica del Pre-Armado">
+          <i data-lucide="chef-hat" class="w-4 h-4"></i>
+        </button>
+        <button onclick="editSemiElaborado(${s.id})" class="p-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-700 transition" title="Editar Pre-Armado">
+          <i data-lucide="edit-2" class="w-4 h-4"></i>
+        </button>
+      </td>
+    `;
+
+    tbody.appendChild(tr);
+  });
+
+  lucide.createIcons();
+}
+
+function renderSemiProductionHistory() {
+  const tbody = document.getElementById('semi-production-history-tbody');
+  if (!tbody) return;
+
+  if (!semiProductionEntries || semiProductionEntries.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-slate-400 font-bold text-xs">Todavía no se cargó ninguna producción de Pre-Armados.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = semiProductionEntries.map(entry => {
+    const fecha = new Date(entry.date).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    const detalle = (entry.deducted_materials || []).map(d => `${d.material_name}: -${(d.qty_deducted || 0).toFixed(2)}${d.unit}`).join(', ');
+    return `
+      <tr class="hover:bg-slate-50 transition">
+        <td class="p-3 text-xs font-bold text-slate-600">${fecha}</td>
+        <td class="p-3 text-xs font-extrabold text-slate-900">🥣 ${entry.semi_elaborado_name}</td>
+        <td class="p-3 text-xs font-mono font-bold text-emerald-700">+${(entry.quantity || 0).toFixed(2)} ${entry.unit || ''}</td>
+        <td class="p-3 text-[11px] text-slate-500">
+          <div>${detalle || '—'}</div>
+          <div class="font-bold text-slate-700 mt-0.5">Costo total: ${formatCurrency(entry.raw_material_cost_total || 0)} · Costo x unidad resultante: ${formatCurrency(entry.cost_per_unit_result || 0)}</div>
+        </td>
+        <td class="p-3 text-right text-xs font-bold text-slate-600">${entry.registered_by || entry.operator_name || '—'}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+// -----------------------------------
+// Modal de Alta / Edición de Pre-Armado (catálogo)
+// -----------------------------------
+
+function openSemiModal(semi = null) {
+  const modal = document.getElementById('semi-modal');
+  const title = document.getElementById('semi-modal-title');
+  const form = document.getElementById('semi-form');
+  form.reset();
+
+  if (semi) {
+    title.textContent = 'Editar Pre-Armado / Semielaborado';
+    document.getElementById('semi-id').value = semi.id;
+    document.getElementById('semi-code').value = semi.code;
+    document.getElementById('semi-name').value = semi.name;
+    document.getElementById('semi-unit').value = semi.unit || 'kg';
+    document.getElementById('semi-min').value = semi.min_stock || 5;
+    document.getElementById('semi-current').value = semi.current_stock !== undefined ? semi.current_stock : 0;
+  } else {
+    title.textContent = 'Nuevo Pre-Armado / Semielaborado';
+    document.getElementById('semi-id').value = '';
+    document.getElementById('semi-code').value = '';
+    document.getElementById('semi-min').value = '5';
+    document.getElementById('semi-current').value = '0';
+  }
+
+  modal.classList.remove('opacity-0', 'pointer-events-none');
+}
+
+function closeSemiModal() {
+  const modal = document.getElementById('semi-modal');
+  modal.classList.add('opacity-0', 'pointer-events-none');
+}
+
+function editSemiElaborado(id) {
+  const semi = semiElaborados.find(s => s.id === id);
+  if (semi) openSemiModal(semi);
+}
+
+async function saveSemiElaborado(e) {
+  e.preventDefault();
+  const id = document.getElementById('semi-id').value;
+  const code = document.getElementById('semi-code').value.trim();
+  const name = document.getElementById('semi-name').value.trim();
+  const unit = document.getElementById('semi-unit').value;
+  const min_stock = document.getElementById('semi-min').value;
+  const current_stock = document.getElementById('semi-current').value;
+  const pin = document.getElementById('semi-pin').value.trim();
+
+  if (!code || !name) {
+    alert('⚠️ El código y el nombre del Pre-Armado son obligatorios.');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/admin/semi-elaborados', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: id ? parseInt(id) : null, code, name, unit, min_stock, current_stock, pin })
+    });
+    const data = await res.json();
+    if (data.success) {
+      closeSemiModal();
+      await loadSemiElaborados();
+    } else {
+      alert(`⚠️ ${data.error}`);
+    }
+  } catch (err) {
+    console.error('Error al guardar Pre-Armado:', err);
+  }
+}
+
+// -----------------------------------
+// Modal de Ficha Técnica del Pre-Armado (siempre hecha 100% de Insumos
+// Genéricos directos). Tiene su propio buscador de insumos independiente
+// del que usa la Ficha Técnica de platos, para no compartir estado global
+// entre los dos modales.
+// -----------------------------------
+
+let _semiInsumoDropdownEl = null;
+let _semiInsumoDropdownActiveRow = null;
+
+function getSemiInsumoDropdownEl() {
+  if (!_semiInsumoDropdownEl) {
+    _semiInsumoDropdownEl = document.createElement('div');
+    _semiInsumoDropdownEl.id = 'semi-insumo-search-dropdown';
+    _semiInsumoDropdownEl.className = 'fixed z-[999] max-h-56 overflow-y-auto bg-white border border-slate-300 rounded-lg shadow-2xl text-xs';
+    _semiInsumoDropdownEl.style.display = 'none';
+    document.body.appendChild(_semiInsumoDropdownEl);
+  }
+  return _semiInsumoDropdownEl;
+}
+
+function hideSemiInsumoDropdown() {
+  if (_semiInsumoDropdownEl) _semiInsumoDropdownEl.style.display = 'none';
+  _semiInsumoDropdownActiveRow = null;
+}
+
+function repositionActiveSemiInsumoDropdown() {
+  if (!_semiInsumoDropdownActiveRow || !document.body.contains(_semiInsumoDropdownActiveRow)) {
+    hideSemiInsumoDropdown();
+    return;
+  }
+  const input = _semiInsumoDropdownActiveRow.querySelector('.semi-rec-insumo-search');
+  if (!input) { hideSemiInsumoDropdown(); return; }
+  const rect = input.getBoundingClientRect();
+  const dropdown = getSemiInsumoDropdownEl();
+  dropdown.style.left = `${rect.left}px`;
+  dropdown.style.top = `${rect.bottom + 4}px`;
+  dropdown.style.width = `${rect.width}px`;
+}
+
+window.addEventListener('resize', repositionActiveSemiInsumoDropdown);
+document.addEventListener('scroll', repositionActiveSemiInsumoDropdown, true);
+
+function enforceIntegerQtyIfNeededSemi(row, unit) {
+  const qtyInput = row.querySelector('.semi-rec-qty-per-unit');
+  if (!qtyInput) return;
+
+  if (unit === 'unidades') {
+    qtyInput.step = '1';
+    qtyInput.onblur = function () {
+      const val = parseFloat(qtyInput.value);
+      if (!isNaN(val) && !Number.isInteger(val)) {
+        qtyInput.value = Math.max(0, Math.round(val));
+      }
+    };
+  } else {
+    qtyInput.step = '0.001';
+    qtyInput.onblur = null;
+  }
+}
+
+function setupSemiInsumoCombobox(row, selectedId) {
+  const searchInput = row.querySelector('.semi-rec-insumo-search');
+  const hiddenInput = row.querySelector('.semi-rec-raw-material-id');
+  let highlightedIdx = -1;
+  let currentList = [];
+
+  function renderOptions(query) {
+    const dropdown = getSemiInsumoDropdownEl();
+    const q = (query || '').trim().toLowerCase();
+    currentList = sortedRawMaterialsList().filter(m =>
+      !q || m.name.toLowerCase().includes(q) || (m.code || '').toLowerCase().includes(q)
+    );
+
+    if (currentList.length === 0) {
+      dropdown.innerHTML = `<div class="px-2.5 py-2 text-slate-400 italic">Sin resultados</div>`;
+    } else {
+      dropdown.innerHTML = currentList.map((m, i) => `
+        <div class="semi-insumo-dd-option px-2.5 py-1.5 cursor-pointer hover:bg-teal-50 ${i === highlightedIdx ? 'bg-teal-100' : ''}" data-id="${m.id}">
+          ${insumoLabel(m)}
+        </div>
+      `).join('');
+      dropdown.querySelectorAll('.semi-insumo-dd-option').forEach(opt => {
+        opt.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          selectMaterial(parseInt(opt.dataset.id));
+        });
+      });
+    }
+  }
+
+  function openDropdown() {
+    _semiInsumoDropdownActiveRow = row;
+    repositionActiveSemiInsumoDropdown();
+    renderOptions(searchInput.value);
+    getSemiInsumoDropdownEl().style.display = 'block';
+  }
+
+  function closeDropdown() {
+    if (_semiInsumoDropdownActiveRow === row) hideSemiInsumoDropdown();
+    highlightedIdx = -1;
+  }
+
+  function selectMaterial(id) {
+    const m = rawMaterials.find(x => x.id === id);
+    if (!m) return;
+    hiddenInput.value = m.id;
+    searchInput.value = insumoLabel(m);
+    const unitLabel = row.querySelector('.semi-rec-qty-unit-label');
+    if (unitLabel) unitLabel.textContent = `por unidad (${m.unit})`;
+    enforceIntegerQtyIfNeededSemi(row, m.unit);
+    closeDropdown();
+  }
+
+  searchInput.addEventListener('focus', () => { searchInput.select(); openDropdown(); });
+  searchInput.addEventListener('input', () => { hiddenInput.value = ''; highlightedIdx = -1; openDropdown(); });
+  searchInput.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (getSemiInsumoDropdownEl().style.display === 'none') { openDropdown(); return; }
+      highlightedIdx = Math.min(highlightedIdx + 1, currentList.length - 1);
+      renderOptions(searchInput.value);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      highlightedIdx = Math.max(highlightedIdx - 1, 0);
+      renderOptions(searchInput.value);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      const target = currentList[highlightedIdx] || currentList[0];
+      if (target) selectMaterial(target.id);
+    } else if (e.key === 'Escape') {
+      closeDropdown();
+    }
+  });
+  searchInput.addEventListener('blur', () => {
+    setTimeout(() => {
+      closeDropdown();
+      if (!hiddenInput.value) searchInput.value = '';
+    }, 150);
+  });
+
+  if (selectedId !== null) {
+    const m = rawMaterials.find(x => x.id === selectedId);
+    if (m) {
+      searchInput.value = insumoLabel(m);
+      enforceIntegerQtyIfNeededSemi(row, m.unit);
+    }
+  }
+}
+
+function addSemiRecipeIngredientRow(rawMatId = null, qtyPerUnit = null) {
+  const container = document.getElementById('semi-recipe-ingredients-container');
+  if (!container) return;
+
+  const row = document.createElement('div');
+  row.className = 'semi-recipe-ingredient-row flex gap-2 items-center bg-white p-2 rounded-xl border border-slate-200 shadow-sm';
+
+  const initialMat = rawMatId !== null ? rawMaterials.find(x => x.id === rawMatId) : null;
+  const initialUnitLabel = initialMat ? `por unidad (${initialMat.unit})` : 'por unidad';
+
+  row.innerHTML = `
+    <div class="relative flex-1">
+      <input type="text" class="semi-rec-insumo-search w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-bold bg-white text-slate-800" placeholder="Escribí para buscar insumo (nombre o código)..." autocomplete="off">
+      <input type="hidden" class="semi-rec-raw-material-id" value="${rawMatId !== null ? rawMatId : ''}">
+    </div>
+    <div class="flex items-center gap-1">
+      <input type="number" step="0.001" class="semi-rec-qty-per-unit w-24 px-2 py-1.5 border border-slate-300 rounded-lg text-xs font-mono font-bold text-slate-900" placeholder="Ej: 0.25" value="${qtyPerUnit !== null ? qtyPerUnit : ''}">
+      <span class="semi-rec-qty-unit-label text-[10px] text-slate-400 font-bold whitespace-nowrap">${initialUnitLabel}</span>
+    </div>
+    <button type="button" onclick="this.parentElement.remove()" class="p-1 text-red-500 hover:bg-red-50 rounded-lg transition" title="Quitar ingrediente">
+      <i data-lucide="trash-2" class="w-4 h-4"></i>
+    </button>
+  `;
+
+  container.appendChild(row);
+  setupSemiInsumoCombobox(row, rawMatId);
+  lucide.createIcons();
+}
+
+async function openSemiRecipeModal(selectedSemiId = null) {
+  const modal = document.getElementById('semi-recipe-modal');
+  const sel = document.getElementById('semi-rec-id');
+
+  if (!semiElaborados || semiElaborados.length === 0) {
+    await loadSemiElaborados();
+  }
+  if (!rawMaterials || rawMaterials.length === 0) {
+    await loadStockMaterials();
+  }
+
+  if (semiElaborados.length === 0) {
+    alert('⚠️ Todavía no hay ningún Pre-Armado / Semielaborado creado.\n\nPrimero creá uno con "➕ Nuevo Pre-Armado".');
+    return;
+  }
+
+  if (sel) {
+    sel.innerHTML = [...semiElaborados].sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' })).map(s => `
+      <option value="${s.id}" ${selectedSemiId === s.id ? 'selected' : ''}>[${s.code}] ${s.name} (${s.unit})</option>
+    `).join('');
+  }
+
+  loadSemiRecipeDetails();
+  modal.classList.remove('opacity-0', 'pointer-events-none');
+}
+
+function closeSemiRecipeModal() {
+  const modal = document.getElementById('semi-recipe-modal');
+  modal.classList.add('opacity-0', 'pointer-events-none');
+  hideSemiInsumoDropdown();
+}
+
+function loadSemiRecipeDetails() {
+  const sel = document.getElementById('semi-rec-id');
+  const container = document.getElementById('semi-recipe-ingredients-container');
+  if (!sel || !container) return;
+
+  const semiId = parseInt(sel.value);
+  const currentRecipe = (semiElaboradoRecipes || []).filter(r => r.semi_elaborado_id === semiId);
+
+  container.innerHTML = '';
+
+  if (currentRecipe.length === 0) {
+    addSemiRecipeIngredientRow();
+  } else {
+    currentRecipe.forEach(r => {
+      addSemiRecipeIngredientRow(r.raw_material_id, r.qty_per_unit);
+    });
+  }
+}
+
+async function saveSemiRecipe(e) {
+  e.preventDefault();
+  const semiId = parseInt(document.getElementById('semi-rec-id').value);
+  const pin = document.getElementById('semi-rec-pin').value.trim();
+  const rows = document.querySelectorAll('.semi-recipe-ingredient-row');
+
+  const ingredients = [];
+  rows.forEach(row => {
+    const raw_material_id = row.querySelector('.semi-rec-raw-material-id').value;
+    const qty_per_unit = row.querySelector('.semi-rec-qty-per-unit').value;
+    if (raw_material_id && qty_per_unit) {
+      ingredients.push({
+        raw_material_id: parseInt(raw_material_id),
+        qty_per_unit: parseFloat(qty_per_unit)
+      });
+    }
+  });
+
+  try {
+    const res = await fetch(`/api/admin/semi-elaborados/${semiId}/recipe`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ingredients, pin })
+    });
+    const data = await res.json();
+    if (data.success) {
+      closeSemiRecipeModal();
+      await loadSemiElaborados();
+      alert('👨‍🍳 FICHA TÉCNICA DEL PRE-ARMADO GUARDADA CORRECTAMENTE!\n\nAl cargar producción de este Pre-Armado, el sistema descontará automáticamente los insumos componentes del stock.');
+    } else {
+      alert(`⚠️ ${data.error}`);
+    }
+  } catch (err) {
+    console.error('Error al guardar la ficha técnica del Pre-Armado:', err);
+  }
+}
+
+// -----------------------------------
+// Modal de Carga de Producción de Pre-Armado
+// -----------------------------------
+
+function openSemiProductionModal(selectedId = null) {
+  const modal = document.getElementById('semi-production-modal');
+  const sel = document.getElementById('semi-prod-entry-id');
+
+  if (semiElaborados.length === 0) {
+    alert('⚠️ Todavía no hay ningún Pre-Armado / Semielaborado creado.\n\nPrimero creá uno con "➕ Nuevo Pre-Armado".');
+    return;
+  }
+
+  sel.innerHTML = [...semiElaborados].sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' })).map(s =>
+    `<option value="${s.id}" ${selectedId === s.id ? 'selected' : ''}>[${s.code}] ${s.name} (Stock actual: ${(s.current_stock || 0).toFixed(2)} ${s.unit})</option>`
+  ).join('');
+
+  document.getElementById('semi-production-form').reset();
+  modal.classList.remove('opacity-0', 'pointer-events-none');
+}
+
+function closeSemiProductionModal() {
+  const modal = document.getElementById('semi-production-modal');
+  modal.classList.add('opacity-0', 'pointer-events-none');
+}
+
+async function submitSemiProductionEntry(e) {
+  e.preventDefault();
+  const semi_elaborado_id = document.getElementById('semi-prod-entry-id').value;
+  const quantity = document.getElementById('semi-prod-entry-qty').value;
+  const operator_name = document.getElementById('semi-prod-entry-operator').value.trim();
+  const notes = document.getElementById('semi-prod-entry-notes').value.trim();
+  const pin = document.getElementById('semi-prod-entry-pin').value.trim();
+
+  try {
+    const res = await fetch('/api/production/semi-add', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ semi_elaborado_id, quantity, notes, operator_name, pin })
+    });
+    const data = await res.json();
+    if (data.success) {
+      closeSemiProductionModal();
+      alert(`🥣 Producción agregada con éxito! "${data.semi_elaborado.name}" ahora tiene ${data.semi_elaborado.current_stock} ${data.semi_elaborado.unit} disponibles.`);
+      await loadSemiElaborados();
+    } else {
+      alert(`⚠️ ${data.error}`);
+    }
+  } catch (err) {
+    console.error('Error al guardar producción de Pre-Armado:', err);
   }
 }
 

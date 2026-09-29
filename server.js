@@ -2914,41 +2914,20 @@ app.post('/api/admin/products', async (req, res) => {
     const strBarcode = barcode ? String(barcode).trim() : '';
     const strPlu = plu_code ? String(plu_code).trim() : '';
 
-    // Con PIN de Nivel 2 (Encargado) solo se puede tocar la descripción y la foto
-    // de un plato YA EXISTENTE. Crear un plato nuevo, o cambiar nombre, precio,
-    // categoría, código, disponibilidad, descuento, puntos, video, código de
-    // barras, PLU, tipo de unidad o si se vende pesado, sigue exigiendo el PIN
-    // de Gerente / Dueño (Nivel 3) — así quedó acordado con el dueño.
+    // Con PIN de Nivel 2 (Encargado) se puede editar cualquier dato de un plato
+    // YA EXISTENTE (nombre, descripción, foto, categoría, disponibilidad, etc.).
+    // Lo único que sigue exigiendo el PIN de Gerente / Dueño (Nivel 3) es tocar
+    // el PRECIO, y crear un plato nuevo desde cero — así quedó acordado con el
+    // dueño.
     if (auth.user.level < 3) {
       const existingProd = id ? store.products.find(p => p.id === parseInt(id)) : null;
       if (!existingProd) {
         return res.status(401).json({ success: false, error: 'Acceso Denegado: crear un plato nuevo requiere PIN de Gerente / Dueño (Nivel 3).' });
       }
 
-      const incomingCategoryId = parseInt(category_id);
       const incomingPrice = parseFloat(price);
-      const incomingDPct = Math.min(99, Math.max(0, parseInt(descuento_pct) || 0));
-      const incomingPointsCost = points_cost ? parseInt(points_cost) : null;
-      const incomingAvailable = available ? 1 : 0;
-      const incomingIsWeighed = is_weighed ? 1 : 0;
-
-      const restrictedChanged = (
-        (strCode || existingProd.code) !== existingProd.code ||
-        incomingCategoryId !== existingProd.category_id ||
-        name !== existingProd.name ||
-        incomingPrice !== existingProd.price ||
-        incomingDPct !== existingProd.descuento_pct ||
-        (video_url || '') !== (existingProd.video_url || '') ||
-        incomingPointsCost !== existingProd.points_cost ||
-        incomingAvailable !== existingProd.available ||
-        strBarcode !== (existingProd.barcode || '') ||
-        strPlu !== (existingProd.plu_code || '') ||
-        (unit_type || 'unidad') !== (existingProd.unit_type || 'unidad') ||
-        incomingIsWeighed !== existingProd.is_weighed
-      );
-
-      if (restrictedChanged) {
-        return res.status(401).json({ success: false, error: 'Acceso Denegado: con PIN de Nivel 2 solo se puede modificar la descripción y la foto del plato. Cualquier otro cambio (nombre, precio, categoría, código, disponibilidad, etc.) requiere PIN de Gerente / Dueño (Nivel 3).' });
+      if (incomingPrice !== existingProd.price) {
+        return res.status(401).json({ success: false, error: 'Acceso Denegado: cambiar el PRECIO de un plato requiere PIN de Gerente / Dueño (Nivel 3).' });
       }
     }
 

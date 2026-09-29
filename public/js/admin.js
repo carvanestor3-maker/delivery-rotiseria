@@ -2162,7 +2162,7 @@ async function openProductModal(prod = null) {
   populateCategorySelect();
 
   if (prod) {
-    if (title) title.textContent = 'Editar Producto / Plato (Exclusivo Nivel 3)';
+    if (title) title.textContent = 'Editar Producto / Plato';
     document.getElementById('prod-id').value = prod.id;
     document.getElementById('prod-code').value = prod.code || prod.barcode || `PROD-${String(prod.id).padStart(3, '0')}`;
     document.getElementById('prod-name').value = prod.name;

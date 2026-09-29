@@ -230,11 +230,19 @@ function createCajaCard(order) {
       </div>
     </div>
 
-    <!-- Botón Principal de Acción de Caja -->
+    <!-- Botón Principal de Acción de Caja: si la venta está anulada, no se
+         puede tocar el ingreso a caja (se deshabilita en vez de ocultarse,
+         para que quede claro por qué no se puede usar). -->
     <div>
-      <button onclick="toggleCajaPaid(${order.id}, ${!isPaid})" class="w-full font-black py-3 px-3 rounded-xl text-xs flex items-center justify-center gap-2 transition shadow-lg ${isPaid ? 'bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/40' : 'bg-emerald-600 hover:bg-emerald-500 text-white active:scale-95'}">
-        ${isPaid ? '✅ COBRADO EN CAJA (Tocar para desmarcar)' : `💰 CONFIRMAR INGRESO A CAJA (${formatCurrency(order.total)})`}
-      </button>
+      ${order.status === 'cancelado' ? `
+        <button disabled class="w-full font-black py-3 px-3 rounded-xl text-xs flex items-center justify-center gap-2 bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed opacity-60">
+          🚫 Ingreso a Caja Deshabilitado (Venta Anulada)
+        </button>
+      ` : `
+        <button onclick="toggleCajaPaid(${order.id}, ${!isPaid})" class="w-full font-black py-3 px-3 rounded-xl text-xs flex items-center justify-center gap-2 transition shadow-lg ${isPaid ? 'bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/40' : 'bg-emerald-600 hover:bg-emerald-500 text-white active:scale-95'}">
+          ${isPaid ? '✅ COBRADO EN CAJA (Tocar para desmarcar)' : `💰 CONFIRMAR INGRESO A CAJA (${formatCurrency(order.total)})`}
+        </button>
+      `}
     </div>
 
     <!-- Botones Secundarios -->
@@ -269,7 +277,13 @@ function createCajaCard(order) {
       </div>
     `}
 
-    ${order.status !== 'entregado' ? `
+    ${order.status === 'cancelado' ? `
+      <div class="pt-1">
+        <button disabled class="w-full bg-slate-800 text-slate-500 border border-slate-700 font-extrabold py-2 rounded-xl text-xs flex items-center justify-center gap-1 cursor-not-allowed opacity-60">
+          🚫 Entregado Deshabilitado (Venta Anulada)
+        </button>
+      </div>
+    ` : order.status !== 'entregado' ? `
       <div class="pt-1">
         <button onclick="markOrderDeliveredFromCaja(${order.id})" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-extrabold py-2 rounded-xl text-xs flex items-center justify-center gap-1 transition">
           ✅ Marcar como Entregado

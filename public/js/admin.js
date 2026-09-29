@@ -8,6 +8,14 @@ let suppliers = [];
 let staffUsers = [];
 let selectedAdminCat = 'all';
 let currentActiveShift = null;
+let staffSessionLevel = 0;
+
+// Pestañas del menú de arriba que son exclusivas de sesión Nivel 3
+// (Gerente/Dueño): un PIN de Encargado/Jefe (Nivel 2) ni siquiera ve el
+// botón en el menú, y switchTab() las bloquea igual por las dudas
+// (consola del navegador, atajos, etc.) aunque el botón esté oculto.
+const LEVEL3_ONLY_TABS = ['users', 'accounts', 'audit', 'production-analytics', 'settings'];
+const LEVEL3_ONLY_BTN_IDS = ['tab-btn-users', 'tab-btn-accounts', 'tab-btn-audit', 'tab-btn-production-analytics', 'tab-btn-settings'];
 
 if (typeof io !== 'undefined') {
   const socket = io();
@@ -21,7 +29,31 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function loadData() {
+  await initStaffLevelUI();
   await Promise.all([loadCashSummary(), loadProducts(), loadCategories(), loadSettings(), loadAccounts(), loadStockMaterials(), loadUsers()]);
+}
+
+// Averigua el nivel de la sesión actual (Nivel 1/2/3, según con qué PIN se
+// entró en /login.html) y oculta del menú de arriba las pestañas que son
+// exclusivas de Nivel 3 cuando la sesión es de un Encargado/Jefe (Nivel 2).
+async function initStaffLevelUI() {
+  try {
+    const res = await fetch('/api/auth/me');
+    const data = await res.json();
+    applyStaffLevelRestrictions(data.success ? (data.level || 0) : 0);
+  } catch (err) {
+    console.error('Error al verificar nivel de sesión:', err);
+    applyStaffLevelRestrictions(0);
+  }
+}
+
+function applyStaffLevelRestrictions(level) {
+  staffSessionLevel = level;
+  const isLevel3 = level >= 3;
+  LEVEL3_ONLY_BTN_IDS.forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) btn.classList.toggle('hidden', !isLevel3);
+  });
 }
 
 // Descargar Copia de Seguridad ZIP en el Disco Local (Exclusivo Nivel 3)
@@ -2412,6 +2444,13 @@ async function saveSettings(e) {
 }
 
 function switchTab(tab) {
+  // Refuerzo del lado del cliente: si por consola o algún atajo se intenta
+  // abrir una pestaña exclusiva de Nivel 3 con una sesión de Nivel 2, se
+  // redirige a Caja. El botón ya está oculto y el servidor igual rechaza
+  // las rutas de esas pestañas para sesiones que no sean Nivel 3.
+  if (LEVEL3_ONLY_TABS.includes(tab) && staffSessionLevel < 3) {
+    tab = 'cash';
+  }
   const cSection = document.getElementById('tab-cash');
   const aSection = document.getElementById('tab-accounts');
   const kSection = document.getElementById('tab-stock');

@@ -70,12 +70,27 @@ function requiredStaffLevelFor(req) {
   // ver las claves de todo el personal con solo abrir la pestaña.
   if (p === '/api/admin/users' || p.startsWith('/api/admin/users/')) return 3;
   if (p === '/api/admin/master-pin') return 3;
+  // Cuentas Corrientes (Fiado): nombre, DNI, teléfono y saldo de cada
+  // cliente. Antes el GET no pedía nada más que ser Nivel 2, así que
+  // cualquier Encargado podía ver todo el listado con solo abrir la
+  // pestaña. Ahora hace falta sesión de Nivel 3 (Gerente/Dueño).
+  if (p === '/api/admin/accounts' || p.startsWith('/api/admin/accounts/')) return 3;
+  // Bitácora de Auditoría: ya pedía un PIN de Nivel 3 aparte para mostrar
+  // el contenido, pero la pestaña en sí se podía abrir con Nivel 2. Ahora
+  // hace falta sesión de Nivel 3 para llegar siquiera a la pestaña.
+  if (p === '/api/admin/audit-logs') return 3;
+  // Costos & Rentabilidad de Producción (fichas técnicas / escandallos de
+  // cada plato): expone costos y márgenes del negocio, exclusivo Nivel 3.
+  if (p === '/api/admin/recipes' || p.startsWith('/api/admin/recipes/')) return 3;
   if (STAFF_L2_API_PREFIXES.some(prefix => p.startsWith(prefix))) return 2;
   if (STAFF_L1_API_PREFIXES.some(prefix => p.startsWith(prefix))) return 1;
   if (p === '/api/verify-pin') return 1;
   if (p === '/api/orders') return req.method === 'POST' ? 0 : 1;
   if (p.startsWith('/api/orders/')) return 1;
-  if (p === '/api/settings') return 2;
+  // Ajustes Generales (datos fiscales, WhatsApp, impresora, costo de envío,
+  // etc.): solo lo usa la pestaña de Ajustes de admin.html, así que pasa a
+  // ser exclusivo de Nivel 3 igual que el resto de pestañas sensibles.
+  if (p === '/api/settings') return 3;
   return 0;
 }
 
@@ -1913,6 +1928,17 @@ app.put('/api/orders/:id/status', (req, res) => {
       return res.status(404).json({ success: false, error: 'Pedido no encontrado' });
     }
 
+    // Un pedido ya anulado no puede volver a cambiar de estado (ni siquiera
+    // a "entregado"): la venta quedó sin efecto, así que el botón de Caja
+    // queda deshabilitado en la interfaz y acá se rechaza igual del lado
+    // del servidor por si alguien intenta el cambio directo contra la API.
+    if (existingOrder.status === 'cancelado') {
+      return res.status(400).json({
+        success: false,
+        error: `El pedido ${existingOrder.order_number} está ANULADO, no se puede cambiar su estado.`
+      });
+    }
+
     const isCuentaCorriente = existingOrder.payment_method && existingOrder.payment_method.includes('Cuenta Corriente');
 
     if (isCuentaCorriente && ['en_preparacion', 'en_camino', 'entregado'].includes(status)) {
@@ -2431,6 +2457,15 @@ app.put('/api/orders/:id/paid', (req, res) => {
     const store = db.getStore();
     const order = store.orders.find(o => o.id === parseInt(id));
     if (order) {
+      // Un pedido anulado no puede marcarse como cobrado/ingresado a caja:
+      // el botón ya queda deshabilitado en la interfaz, esto es el mismo
+      // resguardo del lado del servidor.
+      if (order.status === 'cancelado') {
+        return res.status(400).json({
+          success: false,
+          error: `El pedido ${order.order_number} está ANULADO, no se puede modificar su ingreso a Caja.`
+        });
+      }
       order.paid = paid ? 1 : 0;
       order.updated_at = new Date().toISOString();
       db.saveStore();

@@ -2543,6 +2543,16 @@ function switchTab(tab) {
     if (sSection) sSection.classList.remove('hidden');
     if (sBtn) sBtn.className = 'tab-btn pb-3 border-b-2 border-orange-500 text-orange-600 flex items-center gap-2 font-bold';
   }
+
+  // BUG REAL ENCONTRADO EN VIVO: las líneas de arriba pisan el className
+  // COMPLETO de cada botón del menú (para resetear colores de activo/
+  // inactivo), y eso borra la clase "hidden" que applyStaffLevelRestrictions
+  // le había puesto a los botones exclusivos de Nivel 3. Resultado: con una
+  // sesión de Nivel 2 el menú se veía bien recortado al cargar la página,
+  // pero apenas se tocaba CUALQUIER pestaña reaparecían todos los botones
+  // ocultos. Se vuelve a aplicar acá, después de tocar los className, para
+  // que la restricción se mantenga en cada cambio de pestaña.
+  applyStaffLevelRestrictions(staffSessionLevel);
 }
 
 async function loadProductionAnalyticsAdmin() {

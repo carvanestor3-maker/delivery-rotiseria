@@ -16,6 +16,36 @@ let selectedAdminCat = 'all';
 let currentActiveShift = null;
 let staffSessionLevel = 0;
 
+// ==========================================================================
+// BUG REAL REPORTADO: si se dejaba abierta una pantalla del panel (ej.
+// cargando una producción) sin tocar nada por un buen rato, al querer
+// guardar tiraba un alert() crudo y confuso: "No autorizado. Iniciá sesión
+// en el panel interno." - el usuario no entendía que era la SESIÓN la que
+// había vencido, no un error del sistema. Acá se intercepta esa respuesta
+// puntual (el servidor la marca con session_expired:true) para avisar una
+// sola vez, en criollo, y mandar directo a volver a iniciar sesión con el
+// PIN. No toca ningún otro tipo de error (PIN incorrecto, permisos, etc.)
+// que sigue mostrándose como siempre.
+// ==========================================================================
+let _sessionExpiredHandled = false;
+const _originalFetch = window.fetch.bind(window);
+window.fetch = async function (...args) {
+  const res = await _originalFetch(...args);
+  if (res.status === 401 && !_sessionExpiredHandled) {
+    try {
+      const data = await res.clone().json();
+      if (data && data.session_expired) {
+        _sessionExpiredHandled = true;
+        alert('🔒 Tu sesión venció por inactividad.\n\nApretá Aceptar para volver a iniciar sesión con tu PIN (lo que ya guardaste antes no se pierde).');
+        window.location.href = '/login.html?next=' + encodeURIComponent(window.location.pathname);
+      }
+    } catch (e) {
+      // El cuerpo de la respuesta no era JSON: no es este caso, seguimos normal.
+    }
+  }
+  return res;
+};
+
 // Pestañas del menú de arriba que son exclusivas de sesión Nivel 3
 // (Gerente/Dueño): un PIN de Encargado/Jefe (Nivel 2) ni siquiera ve el
 // botón en el menú, y switchTab() las bloquea igual por las dudas
@@ -3598,7 +3628,12 @@ function openSemiModal(semi = null) {
     document.getElementById('semi-id').value = semi.id;
     document.getElementById('semi-code').value = semi.code;
     document.getElementById('semi-name').value = semi.name;
-    document.getElementById('semi-unit').value = semi.unit || 'kg';
+    // Los Pre-Armados solo se manejan en Gramos o Unidades (a pedido del
+    // dueño, para no confundir kilos/litros con el resto del sistema). Si
+    // un registro viejo quedó con otra unidad, se muestra Gramos por
+    // defecto al editar, y se corrige al guardar.
+    const semiUnitVal = (semi.unit === 'unidades') ? 'unidades' : 'gramos';
+    document.getElementById('semi-unit').value = semiUnitVal;
     document.getElementById('semi-min').value = semi.min_stock || 5;
     document.getElementById('semi-current').value = semi.current_stock !== undefined ? semi.current_stock : 0;
   } else {

@@ -55,7 +55,19 @@ if (db.USE_POSTGRES && db.pool) {
   sessionStore = new pgSession({
     pool: db.pool,
     tableName: 'user_sessions',
-    createTableIfMissing: true
+    createTableIfMissing: true,
+    // BUG REAL REPORTADO: si se dejaba una pantalla del panel abierta (ej.
+    // cargando una producción) sin tocar nada por un rato largo, al rato
+    // tiraba "No autorizado. Iniciá sesión en el panel interno." aunque la
+    // pestaña nunca se hubiera cerrado. Causa: como la cookie de sesión NO
+    // tiene maxAge (a propósito, ver más abajo), connect-pg-simple usaba su
+    // propio "ttl" por defecto de solo 1 día de INACTIVIDAD para borrar la
+    // sesión del lado del servidor - algo fácil de superar en un local que
+    // trabaja 24hs y puede quedar una pantalla sin usarse un buen rato. Se
+    // sube ese ttl a 7 días: la sesión del navegador se sigue borrando sola
+    // al cerrar el navegador del todo (eso no cambia), pero el servidor ya
+    // no "olvida" una sesión todavía abierta tan rápido.
+    ttl: 60 * 60 * 24 * 7
   });
 }
 
@@ -126,7 +138,7 @@ app.use((req, res, next) => {
   if (wantsHtml) {
     return res.redirect(`/login.html?next=${encodeURIComponent(req.originalUrl)}`);
   }
-  return res.status(401).json({ success: false, error: 'No autorizado. Iniciá sesión en el panel interno.' });
+  return res.status(401).json({ success: false, error: 'No autorizado. Iniciá sesión en el panel interno.', session_expired: true });
 });
 
 app.post('/api/auth/login', (req, res) => {

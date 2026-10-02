@@ -516,7 +516,10 @@ function renderAuditEntries(entries) {
       <td class="p-4 text-xs font-mono text-slate-500">${dateStr}</td>
       <td class="p-4 font-bold text-slate-900">${e.supplier_name}</td>
       <td class="p-4 font-bold text-blue-900">${e.raw_material_name}</td>
-      <td class="p-4 font-mono font-black text-emerald-600">+${e.quantity} ${e.unit}</td>
+      <td class="p-4 font-mono font-black text-emerald-600">
+        +${e.quantity} ${e.unit}
+        ${e.pack_breakdown ? `<div class="text-[10px] text-slate-400 font-bold">(${e.pack_breakdown})</div>` : ''}
+      </td>
       <td class="p-4 text-xs font-bold text-blue-700">🔑 ${e.registered_by || 'Encargado'}</td>
     `;
 
@@ -680,6 +683,7 @@ function renderMaterialsTable() {
       </td>
       <td class="p-4 text-xs font-bold text-slate-600 uppercase">
         ${m.unit}
+        ${m.units_per_pack ? `<div class="text-[10px] text-slate-400 font-bold normal-case">📦 pack x${m.units_per_pack}</div>` : ''}
       </td>
       <td class="p-4 font-mono text-xs text-slate-700 font-bold">
         ${m.cost_per_unit ? formatCurrency(m.cost_per_unit) : '<span class="text-slate-300">—</span>'}
@@ -1236,6 +1240,7 @@ function openRawMaterialModal(mat = null) {
     document.getElementById('mat-min').value = mat.min_stock || 5;
     document.getElementById('mat-current').value = mat.current_stock !== undefined ? mat.current_stock : 0;
     document.getElementById('mat-cost').value = mat.cost_per_unit || '';
+    document.getElementById('mat-pack-size').value = mat.units_per_pack || '';
   } else {
     title.textContent = 'Nuevo Insumo de Stock (Nivel 2)';
     document.getElementById('mat-id').value = '';
@@ -1243,6 +1248,7 @@ function openRawMaterialModal(mat = null) {
     document.getElementById('mat-min').value = '10';
     document.getElementById('mat-current').value = '';
     document.getElementById('mat-cost').value = '';
+    document.getElementById('mat-pack-size').value = '';
   }
 
   modal.classList.remove('opacity-0', 'pointer-events-none');
@@ -1324,6 +1330,7 @@ async function saveRawMaterial(e) {
   const min_stock = document.getElementById('mat-min').value;
   const current_stock = document.getElementById('mat-current').value;
   const cost_per_unit = document.getElementById('mat-cost').value.trim();
+  const units_per_pack = document.getElementById('mat-pack-size').value.trim();
   const pin = document.getElementById('mat-pin').value.trim();
 
   if (!code) {
@@ -1356,7 +1363,7 @@ async function saveRawMaterial(e) {
     const res = await fetch('/api/admin/materials', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: id ? parseInt(id) : null, code, name, unit, min_stock, current_stock, cost_per_unit, pin })
+      body: JSON.stringify({ id: id ? parseInt(id) : null, code, name, unit, min_stock, current_stock, cost_per_unit, units_per_pack, pin })
     });
     const data = await res.json();
     if (data.success) {
@@ -2951,20 +2958,28 @@ function loadFoodWasteAuditLogs(wasteLogs = []) {
 // FORMULARIO DE INGRESO DE MERCADERÍA DE PROVEEDOR CON ESCÁNER SKU
 // ==========================================
 
+// Modo activo del formulario de Ingreso de Mercadería: 'unit' (cantidad en
+// la unidad propia del insumo) o 'pack' (cantidad de packs/cajas recibidas,
+// el sistema multiplica por las unidades que trae cada pack).
+let _stockEntryMode = 'unit';
+
 function openStockEntryModal() {
   const modal = document.getElementById('stock-entry-modal');
   const sel = document.getElementById('entry-raw-material-id');
   const form = document.getElementById('stock-entry-form');
-  
+
   if (form) form.reset();
 
   if (sel) {
     sel.innerHTML = rawMaterials.map(m => `
       <option value="${m.id}" data-sku="${m.code || ''}">
-        [${m.code || `INS-${String(m.id).padStart(3, '0')}`}] ${m.name} (Stock Actual: ${m.current_stock || 0} ${m.unit})
+        [${m.code || `INS-${String(m.id).padStart(3, '0')}`}] ${m.name} (Stock Actual: ${m.current_stock || 0} ${m.unit}${m.units_per_pack ? ` · pack x${m.units_per_pack}` : ''})
       </option>
     `).join('');
   }
+
+  setStockEntryMode('unit');
+  handleEntryMaterialChange();
 
   modal.classList.remove('opacity-0', 'pointer-events-none');
   setTimeout(() => {
@@ -2988,11 +3003,11 @@ function handleEntrySkuKeydown(e) {
 function searchRawMaterialBySku() {
   const input = document.getElementById('entry-sku-input');
   if (!input) return;
-  
+
   const query = input.value.trim().toLowerCase();
   if (!query) return;
 
-  const mat = rawMaterials.find(m => 
+  const mat = rawMaterials.find(m =>
     (m.code && m.code.toLowerCase() === query) ||
     String(m.id) === query ||
     m.name.toLowerCase().includes(query)
@@ -3001,25 +3016,125 @@ function searchRawMaterialBySku() {
   if (mat) {
     const sel = document.getElementById('entry-raw-material-id');
     if (sel) sel.value = mat.id;
-    document.getElementById('entry-qty').focus();
+    handleEntryMaterialChange();
+    const qtyInput = _stockEntryMode === 'pack' ? document.getElementById('entry-pack-count') : document.getElementById('entry-qty');
+    if (qtyInput) qtyInput.focus();
   } else {
     alert(`⚠️ No se encontró ningún insumo con el código o nombre "${query}".`);
+  }
+}
+
+// Al cambiar el insumo seleccionado, si ese insumo tiene cargado "Unidades
+// por Pack" en su ficha (ver #material-modal), se precarga ese valor acá
+// para no tener que volver a escribirlo cada vez que llega el mismo
+// producto (ej: siempre que entra la caja de bandejitas, siempre trae 100).
+function handleEntryMaterialChange() {
+  const sel = document.getElementById('entry-raw-material-id');
+  if (!sel) return;
+  const mat = rawMaterials.find(m => m.id === parseInt(sel.value));
+  const packSizeInput = document.getElementById('entry-pack-size');
+  if (mat && mat.units_per_pack && packSizeInput && !packSizeInput.value) {
+    packSizeInput.value = mat.units_per_pack;
+  }
+  updateStockEntryPackPreview();
+}
+
+// Alterna entre cargar la cantidad recibida directamente en la unidad del
+// insumo (kg, gramos, unidades sueltas...) o cargarla como "tantos packs/
+// cajas de tantas unidades cada una" (ej: 5 cajas de bandejitas x 100,
+// 3 maples de huevos x 30) - en ese caso el total se calcula solo.
+function setStockEntryMode(mode) {
+  _stockEntryMode = mode;
+  const unitBtn = document.getElementById('entry-mode-btn-unit');
+  const packBtn = document.getElementById('entry-mode-btn-pack');
+  const unitBlock = document.getElementById('entry-qty-unit-block');
+  const packBlock = document.getElementById('entry-qty-pack-block');
+  const costLabel = document.getElementById('entry-cost-label');
+  const qtyInput = document.getElementById('entry-qty');
+  const packCountInput = document.getElementById('entry-pack-count');
+  const packSizeInput = document.getElementById('entry-pack-size');
+
+  const activeClass = 'flex-1 px-3 py-2 rounded-xl text-xs font-extrabold border-2 border-emerald-600 bg-emerald-600 text-white transition';
+  const inactiveClass = 'flex-1 px-3 py-2 rounded-xl text-xs font-extrabold border-2 border-slate-300 bg-white text-slate-600 transition';
+
+  if (mode === 'pack') {
+    if (unitBtn) unitBtn.className = inactiveClass;
+    if (packBtn) packBtn.className = activeClass;
+    if (unitBlock) unitBlock.classList.add('hidden');
+    if (packBlock) packBlock.classList.remove('hidden');
+    if (qtyInput) qtyInput.removeAttribute('required');
+    if (packCountInput) packCountInput.setAttribute('required', 'required');
+    if (packSizeInput) packSizeInput.setAttribute('required', 'required');
+    if (costLabel) costLabel.textContent = 'Costo del Pack / Caja ($) (Opcional)';
+  } else {
+    if (unitBtn) unitBtn.className = activeClass;
+    if (packBtn) packBtn.className = inactiveClass;
+    if (unitBlock) unitBlock.classList.remove('hidden');
+    if (packBlock) packBlock.classList.add('hidden');
+    if (qtyInput) qtyInput.setAttribute('required', 'required');
+    if (packCountInput) packCountInput.removeAttribute('required');
+    if (packSizeInput) packSizeInput.removeAttribute('required');
+    if (costLabel) costLabel.textContent = 'Costo Unitario ($) (Opcional)';
+  }
+  updateStockEntryPackPreview();
+}
+
+function updateStockEntryPackPreview() {
+  const preview = document.getElementById('entry-pack-total-preview');
+  if (!preview) return;
+  if (_stockEntryMode !== 'pack') { preview.classList.add('hidden'); return; }
+
+  const packs = parseFloat(document.getElementById('entry-pack-count').value || 0);
+  const size = parseFloat(document.getElementById('entry-pack-size').value || 0);
+  const sel = document.getElementById('entry-raw-material-id');
+  const mat = sel ? rawMaterials.find(m => m.id === parseInt(sel.value)) : null;
+  const unitLabel = mat ? mat.unit : 'unidades';
+
+  if (packs > 0 && size > 0) {
+    const total = packs * size;
+    let text = `= ${total.toFixed(2)} ${unitLabel} en total`;
+    const packCost = parseFloat(document.getElementById('entry-unit-cost').value || 0);
+    if (packCost > 0) {
+      const perUnit = packCost / size;
+      text += ` · Costo por ${mat ? mat.unit.replace(/s$/, '') : 'unidad'}: ${formatCurrency(perUnit)}`;
+    }
+    preview.textContent = text;
+    preview.classList.remove('hidden');
+  } else {
+    preview.classList.add('hidden');
   }
 }
 
 async function submitStockEntry(e) {
   e.preventDefault();
   const raw_material_id = document.getElementById('entry-raw-material-id').value;
-  const quantity = document.getElementById('entry-qty').value;
-  const unit_cost = document.getElementById('entry-unit-cost').value;
-  const notes = document.getElementById('entry-notes').value.trim();
+  const notesBase = document.getElementById('entry-notes').value.trim();
   const pin = document.getElementById('entry-pin').value.trim();
+
+  let quantity, unit_cost, packs = null, units_per_pack = null, notes = notesBase;
+
+  if (_stockEntryMode === 'pack') {
+    packs = parseFloat(document.getElementById('entry-pack-count').value || 0);
+    units_per_pack = parseFloat(document.getElementById('entry-pack-size').value || 0);
+    if (!(packs > 0) || !(units_per_pack > 0)) {
+      alert('⚠️ Ingresá la cantidad de packs/cajas recibidas y cuántas unidades trae cada uno (los dos mayores a 0).');
+      return;
+    }
+    quantity = parseFloat((packs * units_per_pack).toFixed(4));
+    const packCost = parseFloat(document.getElementById('entry-unit-cost').value || 0);
+    unit_cost = packCost > 0 ? parseFloat((packCost / units_per_pack).toFixed(4)) : 0;
+    const packNote = `📦 ${packs} pack${packs === 1 ? '' : 's'}/caja${packs === 1 ? '' : 's'} x ${units_per_pack} u/pack`;
+    notes = notesBase ? `${notesBase} (${packNote})` : packNote;
+  } else {
+    quantity = document.getElementById('entry-qty').value;
+    unit_cost = document.getElementById('entry-unit-cost').value;
+  }
 
   try {
     const res = await fetch('/api/stock/entry', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ raw_material_id, quantity, unit_cost, notes, pin })
+      body: JSON.stringify({ raw_material_id, quantity, unit_cost, notes, pin, packs, units_per_pack })
     });
     const data = await res.json();
     if (data.success) {

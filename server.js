@@ -749,7 +749,7 @@ app.post('/api/production/register', async (req, res) => {
 // Ingreso de Mercadería al Stock General con Nombre de Usuario (Requiere PIN Nivel 2)
 app.post('/api/stock/entry', async (req, res) => {
   try {
-    const { pin, supplier_id, raw_material_id, quantity, unit_cost, notes } = req.body;
+    const { pin, supplier_id, raw_material_id, quantity, unit_cost, notes, packs, units_per_pack } = req.body;
 
     const auth = verifyUserPin(pin, 2);
     if (!auth.isValid) {
@@ -772,6 +772,16 @@ app.post('/api/stock/entry', async (req, res) => {
     // Los proveedores viven en su propia base separada (db_suppliers.js).
     const supplier = supplier_id ? await dbSuppliers.getSupplier(parseInt(supplier_id)) : null;
 
+    // Ingreso por Pack/Caja (ej: 5 cajas de bandejitas x 100 unidades cada
+    // una, un maple de huevos de 30): el front ya manda "quantity" convertida
+    // al total en la unidad del insumo, pero acá se guarda también el
+    // desglose packs x unidades_por_pack para mostrarlo en la Bitácora.
+    const packsNum = parseFloat(packs || 0);
+    const unitsPerPackNum = parseFloat(units_per_pack || 0);
+    const packBreakdown = (packsNum > 0 && unitsPerPackNum > 0)
+      ? `${packsNum} pack${packsNum === 1 ? '' : 's'}/caja${packsNum === 1 ? '' : 's'} x ${unitsPerPackNum} u/pack`
+      : null;
+
     const nextId = store.stock_entries.length > 0 ? Math.max(...store.stock_entries.map(e => e.id)) + 1 : 1;
     store.stock_entries.unshift({
       id: nextId,
@@ -783,6 +793,7 @@ app.post('/api/stock/entry', async (req, res) => {
       unit_cost: parseFloat(unit_cost || 0),
       total_cost: qtyAdd * parseFloat(unit_cost || 0),
       notes: notes || '',
+      pack_breakdown: packBreakdown,
       registered_by: `${auth.user.name} (Nivel ${auth.user.level})`
     });
 
@@ -798,7 +809,7 @@ app.post('/api/stock/entry', async (req, res) => {
 // Guardar Insumo / Materia Prima (Requiere PIN Nivel 2)
 app.post('/api/admin/materials', (req, res) => {
   try {
-    const { id, code, name, unit, min_stock, current_stock, cost_per_unit, pin } = req.body;
+    const { id, code, name, unit, min_stock, current_stock, cost_per_unit, units_per_pack, pin } = req.body;
 
     const auth = verifyUserPin(pin, 2);
     if (!auth.isValid) {
@@ -830,6 +841,11 @@ app.post('/api/admin/materials', (req, res) => {
         mat.min_stock = parseFloat(min_stock || 5);
         if (current_stock !== undefined) mat.current_stock = parseFloat(current_stock);
         if (cost_per_unit !== undefined && cost_per_unit !== '') mat.cost_per_unit = parseFloat(cost_per_unit);
+        // Insumos que se compran por pack/caja (ej: bandejitas descartables
+        // que vienen de a 100, maple de huevos de a 30): acá se guarda
+        // cuántas unidades trae cada pack, para que "Ingresar Mercadería"
+        // pueda calcular el total solo a partir de la cantidad de packs.
+        mat.units_per_pack = (units_per_pack !== undefined && units_per_pack !== '' && parseFloat(units_per_pack) > 0) ? parseFloat(units_per_pack) : null;
       }
     } else {
       const nextId = store.raw_materials.length > 0 ? Math.max(...store.raw_materials.map(m => m.id)) + 1 : 1;
@@ -840,7 +856,8 @@ app.post('/api/admin/materials', (req, res) => {
         unit: unit || 'kg',
         current_stock: parseFloat(current_stock || 0),
         min_stock: parseFloat(min_stock || 5),
-        cost_per_unit: parseFloat(cost_per_unit || 0)
+        cost_per_unit: parseFloat(cost_per_unit || 0),
+        units_per_pack: (units_per_pack !== undefined && units_per_pack !== '' && parseFloat(units_per_pack) > 0) ? parseFloat(units_per_pack) : null
       });
     }
     db.saveStore();

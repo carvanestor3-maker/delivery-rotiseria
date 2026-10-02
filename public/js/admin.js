@@ -1081,15 +1081,27 @@ function closeSupplierPurchaseModal() {
 function addPurchaseItemRow() {
   const container = document.getElementById('purchase-items-container');
   const rowId = purchaseItemRowCount++;
-  const matOptions = rawMaterials.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
+  const matOptions = rawMaterials.map(m => `<option value="${m.id}" data-units-per-pack="${m.units_per_pack || ''}" data-unit="${m.unit}">${m.name}</option>`).join('');
   const row = document.createElement('div');
-  row.className = 'flex gap-1.5 items-center bg-slate-50 border border-slate-200 rounded-xl p-2';
+  row.className = 'bg-slate-50 border border-slate-200 rounded-xl p-2 space-y-1';
   row.id = `purchase-item-row-${rowId}`;
   row.innerHTML = `
-    <select class="purchase-item-material flex-1 px-2 py-1.5 border border-slate-300 rounded-lg text-xs bg-white font-bold" onchange="updatePurchaseTotal()">${matOptions}</select>
-    <input type="number" step="0.01" min="0" placeholder="Cant." class="purchase-item-qty w-20 px-2 py-1.5 border border-slate-300 rounded-lg text-xs font-mono" oninput="updatePurchaseTotal()">
-    <input type="number" step="0.01" min="0" placeholder="Precio Unit." class="purchase-item-price w-24 px-2 py-1.5 border border-slate-300 rounded-lg text-xs font-mono" oninput="updatePurchaseTotal()">
-    <button type="button" onclick="removePurchaseItemRow(${rowId})" class="p-1.5 text-red-500 hover:bg-red-100 rounded-lg transition"><i data-lucide="x" class="w-4 h-4"></i></button>
+    <div class="flex gap-1.5 items-center">
+      <select class="purchase-item-material flex-1 px-2 py-1.5 border border-slate-300 rounded-lg text-xs bg-white font-bold" onchange="updatePurchaseTotal()">${matOptions}</select>
+      <button type="button" onclick="togglePurchaseItemPackMode(${rowId})" id="purchase-item-pack-btn-${rowId}" class="px-2 py-1.5 rounded-lg text-xs font-bold border border-slate-300 bg-white text-slate-500 transition" title="Cargar por Pack/Caja en vez de a mano">📦</button>
+      <input type="number" step="0.01" min="0" placeholder="Cant." class="purchase-item-qty w-20 px-2 py-1.5 border border-slate-300 rounded-lg text-xs font-mono" oninput="updatePurchaseTotal()">
+      <input type="number" step="0.01" min="0" placeholder="Precio Unit." class="purchase-item-price w-24 px-2 py-1.5 border border-slate-300 rounded-lg text-xs font-mono" oninput="updatePurchaseTotal()">
+      <button type="button" onclick="removePurchaseItemRow(${rowId})" class="p-1.5 text-red-500 hover:bg-red-100 rounded-lg transition"><i data-lucide="x" class="w-4 h-4"></i></button>
+    </div>
+    <div id="purchase-item-pack-block-${rowId}" class="hidden flex gap-1.5 items-center pl-1">
+      <span class="text-[10px] text-slate-400 font-bold whitespace-nowrap">📦 Packs</span>
+      <input type="number" step="1" min="1" placeholder="Ej: 5" class="purchase-item-packs w-16 px-2 py-1 border border-emerald-300 rounded-lg text-xs font-mono" oninput="updatePurchaseItemPackCalc(${rowId})">
+      <span class="text-[10px] text-slate-400 whitespace-nowrap">x u/pack</span>
+      <input type="number" step="1" min="1" placeholder="Ej: 100" class="purchase-item-pack-size w-16 px-2 py-1 border border-emerald-300 rounded-lg text-xs font-mono" oninput="updatePurchaseItemPackCalc(${rowId})">
+      <span class="text-[10px] text-slate-400 whitespace-nowrap">$ x pack</span>
+      <input type="number" step="0.01" min="0" placeholder="Ej: 4500" class="purchase-item-pack-price w-20 px-2 py-1 border border-emerald-300 rounded-lg text-xs font-mono" oninput="updatePurchaseItemPackCalc(${rowId})">
+      <span id="purchase-item-pack-total-${rowId}" class="text-[10px] text-emerald-700 font-bold whitespace-nowrap"></span>
+    </div>
   `;
   container.appendChild(row);
   lucide.createIcons();
@@ -1098,6 +1110,71 @@ function addPurchaseItemRow() {
 function removePurchaseItemRow(rowId) {
   const row = document.getElementById(`purchase-item-row-${rowId}`);
   if (row) row.remove();
+  updatePurchaseTotal();
+}
+
+// Alterna, por renglón, entre cargar la Cantidad/Precio a mano (en la
+// unidad propia del insumo) o cargarla como packs/cajas (ej: 5 cajas de
+// bandejitas x 100 c/u, a $4500 la caja). Cuando está activo, los campos
+// "Cant." y "Precio Unit." de siempre quedan en solo lectura y se
+// completan solos a partir de los packs - el resto del formulario
+// (updatePurchaseTotal / saveSupplierPurchase) sigue leyendo esos mismos
+// campos de siempre, sin cambios.
+function togglePurchaseItemPackMode(rowId) {
+  const row = document.getElementById(`purchase-item-row-${rowId}`);
+  if (!row) return;
+  const packBlock = document.getElementById(`purchase-item-pack-block-${rowId}`);
+  const btn = document.getElementById(`purchase-item-pack-btn-${rowId}`);
+  const qtyInput = row.querySelector('.purchase-item-qty');
+  const priceInput = row.querySelector('.purchase-item-price');
+  const isActive = packBlock && !packBlock.classList.contains('hidden');
+
+  const activeClass = 'px-2 py-1.5 rounded-lg text-xs font-bold border border-emerald-600 bg-emerald-600 text-white transition';
+  const inactiveClass = 'px-2 py-1.5 rounded-lg text-xs font-bold border border-slate-300 bg-white text-slate-500 transition';
+
+  if (isActive) {
+    packBlock.classList.add('hidden');
+    if (btn) btn.className = inactiveClass;
+    if (qtyInput) qtyInput.removeAttribute('readonly');
+    if (priceInput) priceInput.removeAttribute('readonly');
+  } else {
+    packBlock.classList.remove('hidden');
+    if (btn) btn.className = activeClass;
+    if (qtyInput) qtyInput.setAttribute('readonly', 'readonly');
+    if (priceInput) priceInput.setAttribute('readonly', 'readonly');
+
+    // Si el insumo elegido ya tiene cargado "Unidades por Pack" en su
+    // ficha, se precarga acá para no tener que volver a escribirlo.
+    const matSel = row.querySelector('.purchase-item-material');
+    const selectedOption = matSel ? matSel.options[matSel.selectedIndex] : null;
+    const packSizeInput = row.querySelector('.purchase-item-pack-size');
+    if (selectedOption && selectedOption.dataset.unitsPerPack && packSizeInput && !packSizeInput.value) {
+      packSizeInput.value = selectedOption.dataset.unitsPerPack;
+    }
+    updatePurchaseItemPackCalc(rowId);
+  }
+}
+
+function updatePurchaseItemPackCalc(rowId) {
+  const row = document.getElementById(`purchase-item-row-${rowId}`);
+  if (!row) return;
+
+  const matSel = row.querySelector('.purchase-item-material');
+  const selectedOption = matSel ? matSel.options[matSel.selectedIndex] : null;
+  const unitLabel = selectedOption ? (selectedOption.dataset.unit || 'u') : 'u';
+
+  const packs = parseFloat(row.querySelector('.purchase-item-packs')?.value || 0);
+  const size = parseFloat(row.querySelector('.purchase-item-pack-size')?.value || 0);
+  const packPrice = parseFloat(row.querySelector('.purchase-item-pack-price')?.value || 0);
+  const qtyInput = row.querySelector('.purchase-item-qty');
+  const priceInput = row.querySelector('.purchase-item-price');
+  const totalLabel = document.getElementById(`purchase-item-pack-total-${rowId}`);
+
+  const totalUnits = (packs > 0 && size > 0) ? parseFloat((packs * size).toFixed(4)) : 0;
+  if (qtyInput) qtyInput.value = totalUnits > 0 ? totalUnits : '';
+  if (priceInput) priceInput.value = (totalUnits > 0 && packPrice > 0) ? parseFloat((packPrice / size).toFixed(4)) : '';
+  if (totalLabel) totalLabel.textContent = totalUnits > 0 ? `= ${totalUnits} ${unitLabel}` : '';
+
   updatePurchaseTotal();
 }
 
@@ -3290,8 +3367,26 @@ function getInsumoDropdownEl() {
   return _insumoDropdownEl;
 }
 
+// Texto del renglón de cantidad en la Ficha Técnica (de un plato o de un
+// Pre-Armado): aclara, cuando el insumo se compra por pack/caja, que la
+// cantidad siempre se carga en la unidad suelta (la misma que muestra Stock
+// Virtual) y NUNCA en cantidad de packs - así se evita que alguien ponga
+// "2" pensando en "2 cajas" y el sistema descuente solo 2 unidades sueltas
+// de stock en vez de las 200 que realmente corresponden.
+function recipeQtyUnitLabel(mat, prefix) {
+  if (!mat) return prefix;
+  const packWarning = mat.units_per_pack ? ` ⚠️ en unidades sueltas, no packs (packs de ${mat.units_per_pack})` : '';
+  return `${prefix} (${mat.unit})${packWarning}`;
+}
+
 function insumoLabel(m) {
-  return `[${m.code || `INS-${String(m.id).padStart(3, '0')}`}] ${m.name} (${m.unit})`;
+  // Si el insumo se compra por pack/caja, se lo recuerda acá mismo: la
+  // Ficha Técnica SIEMPRE se carga en la unidad suelta del insumo (la que
+  // se ve en Stock Virtual), nunca en cantidad de packs - esto es solo
+  // para que quien arma la receta no se confunda y ponga "2" pensando en
+  // "2 cajas" cuando el sistema va a descontar "2 unidades sueltas".
+  const packHint = m.units_per_pack ? ` · 📦 viene en pack x${m.units_per_pack}` : '';
+  return `[${m.code || `INS-${String(m.id).padStart(3, '0')}`}] ${m.name} (${m.unit}${packHint})`;
 }
 
 function sortedRawMaterialsList() {
@@ -3395,7 +3490,7 @@ function setupInsumoCombobox(row, selectedId) {
     hiddenInput.value = m.id;
     searchInput.value = insumoLabel(m);
     const unitLabel = row.querySelector('.rec-qty-unit-label');
-    if (unitLabel) unitLabel.textContent = `por porción (${m.unit})`;
+    if (unitLabel) unitLabel.textContent = recipeQtyUnitLabel(m, 'por porción');
     enforceIntegerQtyIfNeeded(row, m.unit);
     closeDropdown();
   }
@@ -3454,7 +3549,7 @@ function addRecipeIngredientRow(rawMatId = null, qtyPerPortion = null) {
   row.className = 'recipe-ingredient-row flex gap-2 items-center bg-white p-2 rounded-xl border border-slate-200 shadow-sm';
 
   const initialMat = rawMatId !== null ? rawMaterials.find(x => x.id === rawMatId) : null;
-  const initialUnitLabel = initialMat ? `por porción (${initialMat.unit})` : 'por porción';
+  const initialUnitLabel = initialMat ? recipeQtyUnitLabel(initialMat, 'por porción') : 'por porción';
 
   row.innerHTML = `
     <div class="relative flex-1">
@@ -3914,7 +4009,7 @@ function setupSemiInsumoCombobox(row, selectedId) {
     hiddenInput.value = m.id;
     searchInput.value = insumoLabel(m);
     const unitLabel = row.querySelector('.semi-rec-qty-unit-label');
-    if (unitLabel) unitLabel.textContent = `por unidad (${m.unit})`;
+    if (unitLabel) unitLabel.textContent = recipeQtyUnitLabel(m, 'por unidad');
     enforceIntegerQtyIfNeededSemi(row, m.unit);
     closeDropdown();
   }
@@ -3963,7 +4058,7 @@ function addSemiRecipeIngredientRow(rawMatId = null, qtyPerUnit = null) {
   row.className = 'semi-recipe-ingredient-row flex gap-2 items-center bg-white p-2 rounded-xl border border-slate-200 shadow-sm';
 
   const initialMat = rawMatId !== null ? rawMaterials.find(x => x.id === rawMatId) : null;
-  const initialUnitLabel = initialMat ? `por unidad (${initialMat.unit})` : 'por unidad';
+  const initialUnitLabel = initialMat ? recipeQtyUnitLabel(initialMat, 'por unidad') : 'por unidad';
 
   row.innerHTML = `
     <div class="relative flex-1">

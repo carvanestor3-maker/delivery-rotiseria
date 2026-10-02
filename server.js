@@ -1163,7 +1163,7 @@ app.delete('/api/admin/supplier-products/:id', async (req, res) => {
 // deja constancia en el historial de ingresos, igual que una carga manual.
 app.post('/api/admin/supplier-purchases', async (req, res) => {
   try {
-    const { supplier_id, items, status, notes, pin } = req.body;
+    const { id, supplier_id, items, status, notes, pin } = req.body;
 
     const auth = verifyUserPin(pin, 2);
     if (!auth.isValid) {
@@ -1206,7 +1206,77 @@ app.post('/api/admin/supplier-purchases', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Ningún insumo cargado es válido (revisá cantidades y precios).' });
     }
 
-    const registeredBy = `${auth.user.name} (Nivel ${auth.user.level})`;
+    const actingUser = `${auth.user.name} (Nivel ${auth.user.level})`;
+    const purchaseId = parseInt(id || 0);
+    if (!store.stock_entries) store.stock_entries = [];
+
+    // ---------- EDITAR una compra/pedido ya existente ----------
+    if (purchaseId) {
+      const existing = await dbSuppliers.getSupplierPurchase(purchaseId);
+      if (!existing) {
+        return res.status(404).json({ success: false, error: 'Compra no encontrada.' });
+      }
+      // Una vez Recibida ya sumó el stock - desde la edición no se puede
+      // volver a "Pendiente" (para eso ya está el flujo normal). Sólo se
+      // pueden corregir insumos, cantidades, proveedor o notas.
+      if (existing.status === 'recibido' && strStatus !== 'recibido') {
+        return res.status(400).json({ success: false, error: 'Esta compra ya fue marcada como recibida: no se puede volver a "Pendiente" desde la edición.' });
+      }
+
+      let stockTouched = false;
+
+      // Si ya estaba Recibida, su stock ya se sumó antes con los insumos
+      // viejos - se descuenta esa cantidad antes de sumar la nueva, para
+      // que el stock termine igual que si la compra siempre hubiera
+      // tenido estos insumos/cantidades (sin duplicar ni perder stock).
+      if (existing.status === 'recibido') {
+        stockTouched = true;
+        (existing.items || []).forEach(oldIt => {
+          const rawMat = store.raw_materials.find(m => m.id === oldIt.raw_material_id);
+          if (rawMat) rawMat.current_stock = (rawMat.current_stock || 0) - oldIt.quantity;
+        });
+      }
+      if (strStatus === 'recibido') {
+        stockTouched = true;
+        cleanItems.forEach(it => {
+          const rawMat = store.raw_materials.find(m => m.id === it.raw_material_id);
+          if (rawMat) rawMat.current_stock = (rawMat.current_stock || 0) + it.quantity;
+
+          const entryId = store.stock_entries.length > 0 ? Math.max(...store.stock_entries.map(e => e.id)) + 1 : 1;
+          store.stock_entries.unshift({
+            id: entryId,
+            date: new Date().toISOString(),
+            supplier_name: supplier.name,
+            raw_material_name: it.raw_material_name,
+            unit: it.unit,
+            quantity: it.quantity,
+            unit_cost: it.unit_price,
+            total_cost: it.subtotal,
+            notes: `Ajuste por edición de compra a proveedor #${purchaseId}${notes ? ' - ' + notes : ''}`,
+            registered_by: actingUser
+          });
+        });
+      }
+
+      const updated = await dbSuppliers.updateSupplierPurchase(purchaseId, {
+        supplier_id: supId,
+        supplier_name: supplier.name,
+        status: strStatus,
+        items: cleanItems,
+        total,
+        notes: (notes || '').trim(),
+        edited_by: actingUser
+      });
+
+      if (stockTouched) {
+        db.saveStore();
+        io.emit('stock_updated');
+      }
+
+      return res.json({ success: true, purchase: updated });
+    }
+
+    // ---------- Crear una compra/pedido nueva ----------
     const purchase = await dbSuppliers.createSupplierPurchase({
       supplier_id: supId,
       supplier_name: supplier.name,
@@ -1214,11 +1284,10 @@ app.post('/api/admin/supplier-purchases', async (req, res) => {
       items: cleanItems,
       total,
       notes: (notes || '').trim(),
-      registered_by: registeredBy
+      registered_by: actingUser
     });
 
     if (strStatus === 'recibido') {
-      if (!store.stock_entries) store.stock_entries = [];
       cleanItems.forEach(it => {
         const rawMat = store.raw_materials.find(m => m.id === it.raw_material_id);
         if (rawMat) rawMat.current_stock = (rawMat.current_stock || 0) + it.quantity;
@@ -1234,7 +1303,7 @@ app.post('/api/admin/supplier-purchases', async (req, res) => {
           unit_cost: it.unit_price,
           total_cost: it.subtotal,
           notes: `Compra a proveedor #${purchase.id}${notes ? ' - ' + notes : ''}`,
-          registered_by: registeredBy
+          registered_by: actingUser
         });
       });
       db.saveStore();

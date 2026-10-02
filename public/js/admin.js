@@ -1047,17 +1047,21 @@ function renderSupplierPurchasesTable() {
             ${p.status === 'recibido' ? '✅ Recibido' : '⏳ Pendiente'}
           </span>
         </td>
-        <td class="p-3 text-center">
-          ${p.status !== 'recibido' ? `<button onclick="receiveSupplierPurchase(${p.id})" class="px-2.5 py-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-extrabold text-[11px] rounded-lg transition">Marcar Recibido</button>` : '<span class="text-slate-300 text-[11px]">-</span>'}
+        <td class="p-3 text-center space-x-1 whitespace-nowrap">
+          ${p.status !== 'recibido' ? `<button onclick="receiveSupplierPurchase(${p.id})" class="px-2.5 py-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-extrabold text-[11px] rounded-lg transition">Marcar Recibido</button>` : ''}
+          <button onclick="openSupplierPurchaseModal(${p.id})" class="p-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-700 transition" title="Editar">
+            <i data-lucide="edit-2" class="w-4 h-4"></i>
+          </button>
         </td>
       </tr>
     `;
   }).join('');
+  lucide.createIcons();
 }
 
 let purchaseItemRowCount = 0;
 
-function openSupplierPurchaseModal() {
+function openSupplierPurchaseModal(id = null) {
   if (suppliers.length === 0) {
     alert('⚠️ Primero cargá al menos un proveedor.');
     return;
@@ -1066,9 +1070,44 @@ function openSupplierPurchaseModal() {
   const modal = document.getElementById('supplier-purchase-modal');
   const form = document.getElementById('supplier-purchase-form');
   form.reset();
+  document.getElementById('pur-id').value = '';
   document.getElementById('purchase-items-container').innerHTML = '';
   purchaseItemRowCount = 0;
-  addPurchaseItemRow();
+
+  const titleEl = document.getElementById('supplier-purchase-modal-title');
+  const submitBtn = document.getElementById('supplier-purchase-submit-btn');
+  const statusSelect = document.getElementById('pur-status');
+  const lockedNote = document.getElementById('pur-status-locked-note');
+
+  const purchase = id ? supplierPurchases.find(p => p.id === id) : null;
+
+  if (purchase) {
+    titleEl.textContent = `✏️ Editar Compra / Pedido #${purchase.id}`;
+    submitBtn.textContent = 'Guardar Cambios';
+    document.getElementById('pur-id').value = purchase.id;
+    document.getElementById('pur-supplier-id').value = purchase.supplier_id;
+    document.getElementById('pur-status').value = purchase.status;
+    document.getElementById('pur-notes').value = purchase.notes || '';
+    (purchase.items || []).forEach(it => addPurchaseItemRow(it));
+
+    // Una vez Recibida, el stock ya se sumó - desde la edición no se puede
+    // volver a "Pendiente" (eso es responsabilidad del botón "Marcar
+    // Recibido", que sólo suma una vez), así que se bloquea esa opción.
+    if (purchase.status === 'recibido') {
+      statusSelect.setAttribute('disabled', 'disabled');
+      lockedNote.classList.remove('hidden');
+    } else {
+      statusSelect.removeAttribute('disabled');
+      lockedNote.classList.add('hidden');
+    }
+  } else {
+    titleEl.textContent = '🧾 Registrar Compra / Pedido a Proveedor';
+    submitBtn.textContent = 'Guardar Compra';
+    statusSelect.removeAttribute('disabled');
+    lockedNote.classList.add('hidden');
+    addPurchaseItemRow();
+  }
+
   updatePurchaseTotal();
   modal.classList.remove('opacity-0', 'pointer-events-none');
   lucide.createIcons();
@@ -1076,12 +1115,16 @@ function openSupplierPurchaseModal() {
 
 function closeSupplierPurchaseModal() {
   document.getElementById('supplier-purchase-modal').classList.add('opacity-0', 'pointer-events-none');
+  document.getElementById('pur-status').removeAttribute('disabled');
 }
 
-function addPurchaseItemRow() {
+// prefill (opcional): { raw_material_id, quantity, unit_price } de un
+// insumo ya cargado - se usa al abrir el modal en modo Editar, para que
+// cada renglón aparezca con sus datos de siempre en vez de vacío.
+function addPurchaseItemRow(prefill = null) {
   const container = document.getElementById('purchase-items-container');
   const rowId = purchaseItemRowCount++;
-  const matOptions = rawMaterials.map(m => `<option value="${m.id}" data-units-per-pack="${m.units_per_pack || ''}" data-unit="${m.unit}">${m.name}</option>`).join('');
+  const matOptions = rawMaterials.map(m => `<option value="${m.id}" data-units-per-pack="${m.units_per_pack || ''}" data-unit="${m.unit}" ${prefill && m.id === prefill.raw_material_id ? 'selected' : ''}>${m.name}</option>`).join('');
   const row = document.createElement('div');
   row.className = 'bg-slate-50 border border-slate-200 rounded-xl p-2 space-y-1';
   row.id = `purchase-item-row-${rowId}`;
@@ -1089,8 +1132,8 @@ function addPurchaseItemRow() {
     <div class="flex gap-1.5 items-center">
       <select class="purchase-item-material flex-1 px-2 py-1.5 border border-slate-300 rounded-lg text-xs bg-white font-bold" onchange="updatePurchaseTotal()">${matOptions}</select>
       <button type="button" onclick="togglePurchaseItemPackMode(${rowId})" id="purchase-item-pack-btn-${rowId}" class="px-2 py-1.5 rounded-lg text-xs font-bold border border-slate-300 bg-white text-slate-500 transition" title="Cargar por Pack/Caja en vez de a mano">📦</button>
-      <input type="number" step="0.01" min="0" placeholder="Cant." class="purchase-item-qty w-20 px-2 py-1.5 border border-slate-300 rounded-lg text-xs font-mono" oninput="updatePurchaseTotal()">
-      <input type="number" step="0.01" min="0" placeholder="Precio Unit." class="purchase-item-price w-24 px-2 py-1.5 border border-slate-300 rounded-lg text-xs font-mono" oninput="updatePurchaseTotal()">
+      <input type="number" step="0.01" min="0" placeholder="Cant." value="${prefill ? prefill.quantity : ''}" class="purchase-item-qty w-20 px-2 py-1.5 border border-slate-300 rounded-lg text-xs font-mono" oninput="updatePurchaseTotal()">
+      <input type="number" step="0.01" min="0" placeholder="Precio Unit." value="${prefill ? prefill.unit_price : ''}" class="purchase-item-price w-24 px-2 py-1.5 border border-slate-300 rounded-lg text-xs font-mono" oninput="updatePurchaseTotal()">
       <button type="button" onclick="removePurchaseItemRow(${rowId})" class="p-1.5 text-red-500 hover:bg-red-100 rounded-lg transition"><i data-lucide="x" class="w-4 h-4"></i></button>
     </div>
     <div id="purchase-item-pack-block-${rowId}" class="hidden flex gap-1.5 items-center pl-1">
@@ -1206,9 +1249,15 @@ async function saveSupplierPurchase(e) {
     return;
   }
 
+  const purId = document.getElementById('pur-id').value;
   const payload = {
+    id: purId || null,
     supplier_id: document.getElementById('pur-supplier-id').value,
-    status: document.getElementById('pur-status').value,
+    // El select de Estado se deshabilita cuando la compra ya fue Recibida
+    // (no se puede "desrecibir" desde la edición) - al estar disabled, su
+    // .value no viaja en el form normal, así que forzamos 'recibido' en
+    // ese caso para no perder el dato.
+    status: document.getElementById('pur-status').disabled ? 'recibido' : document.getElementById('pur-status').value,
     items,
     notes: document.getElementById('pur-notes').value.trim(),
     pin: document.getElementById('pur-pin').value

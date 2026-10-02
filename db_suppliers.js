@@ -113,6 +113,11 @@ async function ensureTables() {
       received_at TIMESTAMPTZ
     );
   `);
+  // Migración: estas dos columnas se agregaron después (para poder editar
+  // una compra ya guardada) - en una base que ya tenía la tabla creada de
+  // antes, el CREATE TABLE IF NOT EXISTS de arriba no las agrega solo.
+  await pool.query(`ALTER TABLE supplier_purchases ADD COLUMN IF NOT EXISTS edited_by TEXT;`);
+  await pool.query(`ALTER TABLE supplier_purchases ADD COLUMN IF NOT EXISTS edited_at TIMESTAMPTZ;`);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS supplier_purchase_items (
       id SERIAL PRIMARY KEY,
@@ -412,6 +417,60 @@ async function createSupplierPurchase(data) {
   return purchase;
 }
 
+// Edita una compra/pedido ya existente: proveedor, estado, insumos y
+// notas. Los insumos se REEMPLAZAN enteros (se borran los viejos y se
+// insertan los nuevos) - el ajuste de stock por si ya estaba Recibida se
+// calcula en server.js antes de llamar a esta función, acá sólo se
+// persisten los datos nuevos de la compra.
+async function updateSupplierPurchase(id, data) {
+  const status = data.status === 'recibido' ? 'recibido' : 'pendiente';
+  if (USE_POSTGRES) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const { rows } = await client.query(
+        `UPDATE supplier_purchases SET supplier_id=$1, supplier_name=$2, status=$3, total=$4, notes=$5, edited_by=$6, edited_at=now()
+         WHERE id=$7 RETURNING *`,
+        [data.supplier_id, data.supplier_name, status, data.total, data.notes || '', data.edited_by, id]
+      );
+      const purchase = rows[0];
+      if (!purchase) {
+        await client.query('ROLLBACK');
+        return null;
+      }
+      await client.query('DELETE FROM supplier_purchase_items WHERE purchase_id = $1', [id]);
+      const insertedItems = [];
+      for (const it of data.items) {
+        const { rows: itemRows } = await client.query(
+          `INSERT INTO supplier_purchase_items (purchase_id, raw_material_id, raw_material_name, unit, quantity, unit_price, subtotal)
+           VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+          [id, it.raw_material_id, it.raw_material_name, it.unit, it.quantity, it.unit_price, it.subtotal]
+        );
+        insertedItems.push(numify(itemRows[0], ['quantity', 'unit_price', 'subtotal']));
+      }
+      await client.query('COMMIT');
+      return { ...numify(purchase, ['total']), items: insertedItems };
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
+    }
+  }
+  const purchase = local.supplier_purchases.find(p => p.id === id);
+  if (!purchase) return null;
+  purchase.supplier_id = data.supplier_id;
+  purchase.supplier_name = data.supplier_name;
+  purchase.status = status;
+  purchase.total = data.total;
+  purchase.notes = data.notes || '';
+  purchase.items = data.items;
+  purchase.edited_by = data.edited_by;
+  purchase.edited_at = new Date().toISOString();
+  saveLocal();
+  return purchase;
+}
+
 async function markPurchaseReceived(id) {
   if (USE_POSTGRES) {
     const client = await pool.connect();
@@ -455,5 +514,6 @@ module.exports = {
   listSupplierPurchases,
   getSupplierPurchase,
   createSupplierPurchase,
+  updateSupplierPurchase,
   markPurchaseReceived
 };

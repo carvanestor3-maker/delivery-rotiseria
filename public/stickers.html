@@ -45,8 +45,11 @@
     .tile small { font-weight: 600; color: #64748b; font-size: 10px; }
 
     /* mini íconos de los botones */
-    .ico-round { width: 34px; height: 34px; border-radius: 50%; background: #1f2023; border: 3px solid #d4a017; }
-    .ico-rect { width: 28px; height: 38px; border-radius: 5px; background: #1f2023; border: 3px solid #d4a017; }
+    .ico-round { width: 34px; height: 34px; border-radius: 50%; background: #565a62; border: 3px solid #d4a017; }
+    .ico-rect { width: 28px; height: 38px; border-radius: 5px; background: #565a62; border: 3px solid #d4a017; }
+    .ico-ped { width: 28px; height: 38px; border-radius: 5px; background: #565a62; border: 3px solid #d4a017;
+      display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 2px; padding-bottom: 3px; }
+    .ico-ped i { display: block; height: 2px; background: #fff; border-radius: 1px; }
     .ico-grid { display: grid; gap: 2px; width: 40px; }
     .ico-grid i { display: block; aspect-ratio: 1; background: #94a3b8; border-radius: 2px; }
     .tile.active .ico-grid i { background: #d97706; }
@@ -79,7 +82,7 @@
     /* Sticker redondo: círculo oscuro (el del logo) con el emblema adentro */
     .st-round {
       border-radius: 50%; overflow: hidden;
-      background: radial-gradient(circle at 50% 42%, #34363b 0%, #1e1f22 70%, #17181a 100%);
+      background: radial-gradient(circle at 50% 42%, #6d7179 0%, #565a62 70%, #4a4d54 100%);
     }
     /* Sticker rectangular: marco dorado + fondo oscuro + línea fina dorada interior */
     .st-rect {
@@ -88,15 +91,32 @@
     }
     .st-rect-in {
       position: relative; width: 100%; height: 100%; border-radius: 1.3mm; overflow: hidden;
-      background: radial-gradient(circle at 50% 42%, #34363b 0%, #1e1f22 70%, #17181a 100%);
+      background: radial-gradient(circle at 50% 42%, #6d7179 0%, #565a62 70%, #4a4d54 100%);
     }
     .st-rect-in::after {
       content: ''; position: absolute; inset: 1.3mm; border: .25mm solid rgba(226, 184, 64, .9);
       border-radius: 1mm; pointer-events: none;
     }
+    /* Sticker rectangular 4 x 5,5 cm con "Pedidos al ...": logo pegado arriba y el texto abajo */
+    .st-ped .st-rect-in { background: radial-gradient(circle at 50% 30%, #6d7179 0%, #565a62 70%, #4a4d54 100%); }
+    .ped-text {
+      position: absolute; left: 0; right: 0; z-index: 2;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      color: #fff; text-align: center; line-height: 1.1; white-space: nowrap;
+      font-family: 'Arial Black', 'Arial Bold', Arial, Helvetica, sans-serif; font-weight: 900;
+    }
+    /* --pk se ajusta solo (JS) si la tipografía real (Arial Black es más ancha) no entra en el sticker */
+    .ped-text .l1 { font-size: calc(9pt * var(--pk, 1)); }
+    .ped-text .l2 { font-size: calc(12.5pt * var(--pk, 1)); }
+    .ped-text .l3 { font-size: calc(7pt * var(--pk, 1)); }
+    .ped-text .l4 { font-size: calc(8pt * var(--pk, 1)); }
+    /* un poco más de brillo en el logo: gasta menos tinta */
+    .st img.emb { filter: brightness(1.22) saturate(1.05); }
+    .tiles.disabled { opacity: .4; pointer-events: none; }
     /* Guías de corte (opcionales): línea fina gris pegada al borde del sticker */
     .guides .st { outline: .2mm solid #8b8b8b; outline-offset: .5mm; }
     .guides .st-round { outline-offset: .5mm; }
+    .guides .st-ped { outline-offset: 0; }
 
     /* ------------------------------------------------------------------
        Impresión: solo sale la hoja, a tamaño real, sin márgenes del navegador
@@ -129,14 +149,15 @@
     <aside class="panel no-print">
       <div>
         <h2>1. Formato del sticker</h2>
-        <div class="tiles two" id="formatTiles">
+        <div class="tiles three" id="formatTiles">
           <button type="button" class="tile" data-format="round"><span class="ico-round"></span>Redondo<small>solo el círculo</small></button>
           <button type="button" class="tile" data-format="rect"><span class="ico-rect"></span>Rectángulo dorado<small>logo adentro</small></button>
+          <button type="button" class="tile" data-format="ped"><span class="ico-ped"><i style="width:14px"></i><i style="width:18px"></i><i style="width:16px"></i></span>4 x 5,5 cm<small>con "Pedidos al…"</small></button>
         </div>
       </div>
 
       <div>
-        <h2>2. Cuántos por hoja A4</h2>
+        <h2>2. Cuántos por hoja A4 <span id="countNote" style="text-transform:none;letter-spacing:0;font-weight:600;color:#92400e;"></span></h2>
         <div class="tiles three" id="countTiles">
           <button type="button" class="tile" data-count="9">
             <span class="ico-grid" style="grid-template-columns:repeat(3,1fr)"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
@@ -178,8 +199,11 @@
     const LAYOUTS = {
       9:  { cols: 3, rows: 3 },
       12: { cols: 3, rows: 4 },
-      16: { cols: 4, rows: 4 }
+      16: { cols: 4, rows: 4 },
+      25: { cols: 5, rows: 5 }   // solo para el sticker 4 x 5,5 cm (5 x 40 = 200 mm de ancho, 5 x 55 = 275 mm de alto)
     };
+    // Sticker rectangular con texto de pedidos (medidas en mm). Para cambiar el teléfono o la web, editá estas dos líneas.
+    const PED = { w: 40, h: 55, phone: '351 230-7121', web1: 'spressgastro-ar.com', web2: '/pedidos' };
     const SHEET = { w: 210, h: 296, mx: 8, my: 8, gap: 2 }; // mm (alto 296 para evitar una 2da hoja en blanco)
     // El emblema va EMBEBIDO en esta misma página (así se ve igual abriéndola desde el servidor
     // o directo desde el Explorador de archivos, sin depender de ninguna ruta).
@@ -191,7 +215,7 @@
     const state = { format: 'round', count: 9, guides: true };
     try {
       const saved = JSON.parse(localStorage.getItem('stickersPrefs') || '{}');
-      if (saved.format === 'round' || saved.format === 'rect') state.format = saved.format;
+      if (saved.format === 'round' || saved.format === 'rect' || saved.format === 'ped') state.format = saved.format;
       if (LAYOUTS[saved.count]) state.count = saved.count;
       if (typeof saved.guides === 'boolean') state.guides = saved.guides;
     } catch (e) { /* sin almacenamiento: se usan los valores por defecto */ }
@@ -199,19 +223,50 @@
     const fmt = (n) => (Math.round(n * 10) / 10).toString().replace('.', ',');
 
     function render() {
-      const { cols, rows } = LAYOUTS[state.count];
+      const isPed = state.format === 'ped';
+      const count = isPed ? 25 : state.count;
+      const { cols, rows } = LAYOUTS[count];
       const sheet = document.getElementById('sheet');
       const cellW = (SHEET.w - 2 * SHEET.mx) / cols;
       const cellH = (SHEET.h - 2 * SHEET.my) / rows;
 
-      sheet.style.padding = `${SHEET.my}mm ${SHEET.mx}mm`;
-      sheet.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
-      sheet.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+      if (isPed) {
+        // celdas de tamaño exacto (40 x 55 mm), pegadas entre sí y centradas en la hoja
+        sheet.style.padding = '0';
+        sheet.style.gridTemplateColumns = `repeat(${cols}, ${PED.w}mm)`;
+        sheet.style.gridTemplateRows = `repeat(${rows}, ${PED.h}mm)`;
+        sheet.style.justifyContent = 'center';
+        sheet.style.alignContent = 'center';
+      } else {
+        sheet.style.padding = `${SHEET.my}mm ${SHEET.mx}mm`;
+        sheet.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+        sheet.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+        sheet.style.justifyContent = '';
+        sheet.style.alignContent = '';
+      }
       sheet.classList.toggle('guides', state.guides);
 
       let html = '';
       let infoText = '';
-      if (state.format === 'round') {
+      if (isPed) {
+        const FR = 1.2;                              // marco dorado
+        const innerW = PED.w - 2 * FR;
+        const visible = 29.5;                        // ancho del emblema (con las puntas de la cinta)
+        const imgW = visible * (EMB_FULL / EMB_VISIBLE);
+        const ringH = imgW * (1460 / EMB_FULL);      // alto del aro dorado
+        const ringTop = 3.2;                         // el logo queda pegado al borde de arriba
+        const imgTop = ringTop - (imgW - ringH) / 2;
+        const textTop = ringTop + ringH + 1.2;
+        const innerH = PED.h - 2 * FR;
+        const textBottom = 2.6;
+        let one = `<div class="st st-rect st-ped" style="width:${PED.w}mm;height:${PED.h}mm"><div class="st-rect-in">` +
+          `<img class="emb" alt="" style="width:${imgW}mm;left:50%;top:${imgTop}mm;transform:translateX(-50%)">` +
+          `<div class="ped-text" style="top:${textTop}mm;bottom:${textBottom}mm">` +
+          `<span class="l1">PEDIDOS AL</span><span class="l2">${PED.phone}</span><span class="l3">o</span>` +
+          `<span class="l4">${PED.web1}</span><span class="l4">${PED.web2}</span></div></div></div>`;
+        for (let i = 0; i < 25; i++) html += one;
+        infoText = `Sticker <b>rectangular de ${fmt(PED.w / 10)} x ${fmt(PED.h / 10)} cm</b> con "Pedidos al ${PED.phone}"<br><b>25</b> por hoja (5 columnas x 5 hileras), pegados entre sí: cortá por las líneas guía`;
+      } else if (state.format === 'round') {
         const d = Math.min(cellW, cellH) - SHEET.gap;
         // el aro dorado ocupa el 92% del círculo (como en el logo); las puntas de la cinta quedan recortadas por el borde
         const imgW = d * RING_RATIO * (EMB_FULL / (EMB_VISIBLE - 20));
@@ -231,10 +286,23 @@
       }
       sheet.innerHTML = html;
       sheet.querySelectorAll('img.emb').forEach(img => { img.src = EMB_SRC; });
+      if (isPed) {
+        // si alguna línea de texto no entra en el ancho del sticker, se achica todo el texto en proporción
+        sheet.style.setProperty('--pk', 1);
+        const box = sheet.querySelector('.st-ped .st-rect-in').clientWidth;
+        let k = 1;
+        sheet.querySelectorAll('.st-ped:first-child .ped-text span').forEach(sp => {
+          const need = sp.scrollWidth, avail = box * 0.92;
+          if (need > avail) k = Math.min(k, avail / need);
+        });
+        sheet.style.setProperty('--pk', k.toFixed(3));
+      }
       document.getElementById('sizeInfo').innerHTML = infoText;
 
       document.querySelectorAll('#formatTiles .tile').forEach(t => t.classList.toggle('active', t.dataset.format === state.format));
-      document.querySelectorAll('#countTiles .tile').forEach(t => t.classList.toggle('active', Number(t.dataset.count) === state.count));
+      document.querySelectorAll('#countTiles .tile').forEach(t => t.classList.toggle('active', !isPed && Number(t.dataset.count) === state.count));
+      document.getElementById('countTiles').classList.toggle('disabled', isPed);
+      document.getElementById('countNote').textContent = isPed ? '(fijo: 25)' : '';
       document.getElementById('guidesCheck').checked = state.guides;
 
       try { localStorage.setItem('stickersPrefs', JSON.stringify(state)); } catch (e) {}

@@ -3493,8 +3493,83 @@ function attachQtyFractionInput(qtyInput, unit) {
   };
 }
 
-function enforceIntegerQtyIfNeeded(row, unit) {
-  attachQtyFractionInput(row.querySelector('.rec-qty-per-portion'), unit);
+// Conversión de gramos / mililitros: la Ficha Técnica se puede cargar en la unidad
+// chica (g, ml) con números enteros y la app la pasa sola a la unidad del insumo
+// (kg, litros) al guardar. Ej: insumo en kg, 200 g -> se descuentan 0,2 kg.
+const QTY_UNIT_OPTIONS = {
+  kg:     [{ key: 'g',  label: 'g',      factor: 0.001 }, { key: 'kg',     label: 'kg',     factor: 1 }],
+  gramos: [{ key: 'g',  label: 'g',      factor: 1     }, { key: 'kg',     label: 'kg',     factor: 1000 }],
+  litros: [{ key: 'ml', label: 'ml',     factor: 0.001 }, { key: 'litros', label: 'litros', factor: 1 }]
+};
+
+function updateQtyConvPreview(qtyInput) {
+  const wrap = qtyInput.parentElement;
+  const sel = wrap.querySelector('.qty-unit-sel');
+  const prev = wrap.querySelector('.qty-conv-preview');
+  if (!sel || !prev) return;
+  const factor = parseFloat(sel.selectedOptions[0].dataset.factor);
+  const v = parseQtyFraction(qtyInput.value);
+  if (isNaN(v) || factor === 1) { prev.textContent = ''; return; }
+  const base = parseFloat((v * factor).toFixed(6));
+  prev.textContent = '= ' + base.toLocaleString('es-AR', { maximumFractionDigits: 6 }) + ' ' + (sel.dataset.baseUnit || '');
+}
+
+function setupQtyUnitSelector(qtyInput, mat) {
+  if (!qtyInput) return;
+  const wrap = qtyInput.parentElement;
+  let sel = wrap.querySelector('.qty-unit-sel');
+  let prev = wrap.querySelector('.qty-conv-preview');
+  const opts = mat ? QTY_UNIT_OPTIONS[mat.unit] : null;
+  if (!opts) { // unidades u otro: sin conversión
+    if (sel) sel.remove();
+    if (prev) prev.remove();
+    return;
+  }
+  const hasValue = qtyInput.value.trim() !== '';
+  const firstSetup = !sel;
+  const prevKey = sel ? sel.value : null;
+  if (!sel) {
+    sel = document.createElement('select');
+    sel.className = 'qty-unit-sel px-1 py-1.5 border border-slate-300 rounded-lg text-xs font-bold bg-white text-slate-900';
+    qtyInput.insertAdjacentElement('afterend', sel);
+    prev = document.createElement('span');
+    prev.className = 'qty-conv-preview text-[10px] font-bold text-emerald-700 whitespace-nowrap';
+    sel.insertAdjacentElement('afterend', prev);
+    sel.addEventListener('change', () => updateQtyConvPreview(qtyInput));
+    qtyInput.addEventListener('input', () => updateQtyConvPreview(qtyInput));
+  }
+  sel.innerHTML = opts.map(o => '<option value="' + o.key + '" data-factor="' + o.factor + '">' + o.label + '</option>').join('');
+  sel.dataset.baseUnit = mat.unit === 'gramos' ? 'gramos' : mat.unit;
+  const small = opts[0];
+  const base = opts.find(o => o.factor === 1) || opts[0];
+  let chosen = opts.find(o => o.key === prevKey) || (hasValue ? base : small);
+  // Receta ya guardada (viene en la unidad del insumo): si es menor a 1 kg / 1 litro
+  // se muestra en gramos / ml para verla como número entero (0,2 kg -> 200 g).
+  if (firstSetup && hasValue && small.factor < 1 && base.factor === 1) {
+    const v = parseQtyFraction(qtyInput.value);
+    if (!isNaN(v) && v > 0 && v < 1) {
+      qtyInput.value = parseFloat((v / small.factor).toFixed(4));
+      chosen = small;
+    }
+  }
+  sel.value = chosen.key;
+  updateQtyConvPreview(qtyInput);
+}
+
+// Cantidad de un renglón ya convertida a la unidad del insumo (NaN si no se entiende)
+function getRowQtyBase(row, qtySelector) {
+  const input = row.querySelector(qtySelector);
+  const v = parseQtyFraction(input.value);
+  if (isNaN(v)) return NaN;
+  const sel = row.querySelector('.qty-unit-sel');
+  const factor = sel ? parseFloat(sel.selectedOptions[0].dataset.factor) : 1;
+  return parseFloat((v * factor).toFixed(6));
+}
+
+function enforceIntegerQtyIfNeeded(row, unit, mat) {
+  const qtyInput = row.querySelector('.rec-qty-per-portion');
+  attachQtyFractionInput(qtyInput, unit);
+  setupQtyUnitSelector(qtyInput, mat);
 }
 
 function hideInsumoDropdown() {
@@ -3570,7 +3645,7 @@ function setupInsumoCombobox(row, selectedId) {
     searchInput.value = insumoLabel(m);
     const unitLabel = row.querySelector('.rec-qty-unit-label');
     if (unitLabel) unitLabel.textContent = recipeQtyUnitLabel(m, 'por porción');
-    enforceIntegerQtyIfNeeded(row, m.unit);
+    enforceIntegerQtyIfNeeded(row, m.unit, m);
     closeDropdown();
   }
 
@@ -3615,7 +3690,7 @@ function setupInsumoCombobox(row, selectedId) {
     const m = rawMaterials.find(x => x.id === selectedId);
     if (m) {
       searchInput.value = insumoLabel(m);
-      enforceIntegerQtyIfNeeded(row, m.unit);
+      enforceIntegerQtyIfNeeded(row, m.unit, m);
     }
   }
 }
@@ -3756,7 +3831,7 @@ async function saveRecipe(e) {
   rows.forEach(row => {
     const raw_material_id = row.querySelector('.rec-raw-material-id').value;
     const rawQty = row.querySelector('.rec-qty-per-portion').value;
-    const qty_per_portion = parseQtyFraction(rawQty);
+    const qty_per_portion = getRowQtyBase(row, '.rec-qty-per-portion');
     if (raw_material_id && rawQty.trim() !== '') {
       if (isNaN(qty_per_portion)) { badQty = rawQty; return; }
       ingredients.push({
@@ -4027,8 +4102,10 @@ function repositionActiveSemiInsumoDropdown() {
 window.addEventListener('resize', repositionActiveSemiInsumoDropdown);
 document.addEventListener('scroll', repositionActiveSemiInsumoDropdown, true);
 
-function enforceIntegerQtyIfNeededSemi(row, unit) {
-  attachQtyFractionInput(row.querySelector('.semi-rec-qty-per-unit'), unit);
+function enforceIntegerQtyIfNeededSemi(row, unit, mat) {
+  const qtyInput = row.querySelector('.semi-rec-qty-per-unit');
+  attachQtyFractionInput(qtyInput, unit);
+  setupQtyUnitSelector(qtyInput, mat);
 }
 
 function setupSemiInsumoCombobox(row, selectedId) {
@@ -4080,7 +4157,7 @@ function setupSemiInsumoCombobox(row, selectedId) {
     searchInput.value = insumoLabel(m);
     const unitLabel = row.querySelector('.semi-rec-qty-unit-label');
     if (unitLabel) unitLabel.textContent = recipeQtyUnitLabel(m, 'por unidad');
-    enforceIntegerQtyIfNeededSemi(row, m.unit);
+    enforceIntegerQtyIfNeededSemi(row, m.unit, m);
     closeDropdown();
   }
 
@@ -4115,7 +4192,7 @@ function setupSemiInsumoCombobox(row, selectedId) {
     const m = rawMaterials.find(x => x.id === selectedId);
     if (m) {
       searchInput.value = insumoLabel(m);
-      enforceIntegerQtyIfNeededSemi(row, m.unit);
+      enforceIntegerQtyIfNeededSemi(row, m.unit, m);
     }
   }
 }
@@ -4211,7 +4288,7 @@ async function saveSemiRecipe(e) {
   rows.forEach(row => {
     const raw_material_id = row.querySelector('.semi-rec-raw-material-id').value;
     const rawQty = row.querySelector('.semi-rec-qty-per-unit').value;
-    const qty_per_unit = parseQtyFraction(rawQty);
+    const qty_per_unit = getRowQtyBase(row, '.semi-rec-qty-per-unit');
     if (raw_material_id && rawQty.trim() !== '') {
       if (isNaN(qty_per_unit)) { badQty = rawQty; return; }
       ingredients.push({

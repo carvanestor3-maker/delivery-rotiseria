@@ -2731,6 +2731,7 @@ function switchTab(tab) {
   } else if (tab === 'products') {
     if (pSection) pSection.classList.remove('hidden');
     if (pBtn) pBtn.className = 'tab-btn pb-3 border-b-2 border-orange-500 text-orange-600 flex items-center gap-2 font-bold';
+    if (typeof window.loadPromosAdmin === 'function') window.loadPromosAdmin();
   } else if (tab === 'users') {
     if (usrSection) usrSection.classList.remove('hidden');
     if (usrBtn) usrBtn.className = 'tab-btn pb-3 border-b-2 border-purple-600 text-purple-700 flex items-center gap-2 font-bold';

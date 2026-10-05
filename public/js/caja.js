@@ -791,6 +791,7 @@ async function submitCloseShift(e) {
 
 let posProducts = [];
 let posCategories = [];
+let posPromos = [];
 let posCart = [];
 let selectedPosCategory = 'all';
 
@@ -816,6 +817,7 @@ async function openPosModal() {
     if (data.success) {
       posProducts = data.products || [];
       posCategories = data.categories || [];
+      posPromos = data.promos || [];
     }
   } catch (err) {
     console.error('Error al cargar catálogo POS:', err);
@@ -881,7 +883,7 @@ let selectedPosSector = 'scanned'; // 'scanned' | 'all' | 'bar' | 'packaged' | '
 function setPosSector(sec) {
   selectedPosSector = sec;
 
-  ['all', 'bar', 'packaged', 'kitchen', 'weighed'].forEach(s => {
+  ['all', 'bar', 'packaged', 'kitchen', 'weighed', 'promos'].forEach(s => {
     const btn = document.getElementById(`pos-sec-${s}`);
     if (btn) {
       if (s === sec) {
@@ -945,6 +947,19 @@ function renderPosProductsGrid() {
     return;
   }
 
+  // Promos armables: en su pestaña, y también arriba en "Ver Todo"
+  if (selectedPosSector === 'promos') {
+    if (posPromos.length === 0) {
+      grid.innerHTML = `<div class="col-span-full p-6 text-center text-slate-400 font-bold">No hay promos armables activas. Se crean en Admin → Productos → Promos armables.</div>`;
+    } else {
+      appendPosPromoCards(grid);
+    }
+    return;
+  }
+  if (selectedPosSector === 'all' && selectedPosCategory === 'all') {
+    appendPosPromoCards(grid);
+  }
+
   let filtered = posProducts.filter(p => p.available === 1);
 
   if (selectedPosSector === 'bar') {
@@ -962,7 +977,7 @@ function renderPosProductsGrid() {
   }
 
   if (filtered.length === 0) {
-    grid.innerHTML = `<div class="col-span-full p-6 text-center text-slate-400 font-bold">No hay productos activos en esta categoría.</div>`;
+    grid.insertAdjacentHTML('beforeend', `<div class="col-span-full p-6 text-center text-slate-400 font-bold">No hay productos activos en esta categoría.</div>`);
     return;
   }
 
@@ -991,6 +1006,40 @@ function renderPosProductsGrid() {
 
     grid.appendChild(card);
   });
+}
+
+function appendPosPromoCards(grid) {
+  posPromos.forEach(promo => {
+    const card = document.createElement('div');
+    card.onclick = () => openPromoBuilder(promo, addPromoToPosCart);
+    card.className = 'bg-orange-50 p-3 rounded-2xl border border-orange-300 shadow-sm hover:border-orange-500 hover:shadow-md cursor-pointer transition flex flex-col justify-between space-y-2 group';
+    const resumen = promo.slots.map(sl => `${sl.qty} ${sl.label}`).join(' + ');
+    const esc = (t) => String(t == null ? '' : t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    card.innerHTML = `
+      <div class="space-y-1">
+        <span class="inline-block bg-orange-200 text-orange-900 font-black text-[9px] px-1.5 py-0.5 rounded">🎁 PROMO</span>
+        <div class="font-extrabold text-slate-900 text-xs line-clamp-2">${esc(promo.name)}</div>
+        <div class="text-[10px] text-slate-500 font-semibold">${esc(resumen)}</div>
+      </div>
+      <div class="flex justify-between items-center pt-1 border-t border-orange-200">
+        <span class="font-mono font-black text-slate-900 text-sm">${formatCurrency(promo.price)}</span>
+        <span class="p-1 bg-orange-200 group-hover:bg-orange-500 text-orange-900 rounded-lg text-xs font-black transition">Armar</span>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+function addPromoToPosCart(item) {
+  const existing = posCart.find(i => i.id === item.id);
+  if (existing) {
+    existing.qty += 1;
+    existing.total = parseFloat((existing.qty * existing.price).toFixed(2));
+  } else {
+    posCart.push({ ...item, unit_type: 'unidad', total: parseFloat(item.price.toFixed(2)) });
+  }
+  renderPosCart();
+  playBeepSound();
 }
 
 function handlePosProductClick(prodId) {
@@ -1055,7 +1104,8 @@ function renderPosCart() {
 
     tr.innerHTML = `
       <div class="flex-1 min-w-0">
-        <div class="font-extrabold text-slate-900 truncate">${item.name}</div>
+        <div class="font-extrabold text-slate-900 ${item.detail ? '' : 'truncate'}">${item.promo_id ? '🎁 ' : ''}${item.name}</div>
+        ${item.detail ? `<div class="text-[10px] text-slate-500 leading-snug">${String(item.detail).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]))}</div>` : ''}
         <div class="text-[11px] font-mono text-slate-400">${formatCurrency(item.price)} x ${qtyStr}</div>
       </div>
       <div class="flex items-center gap-2">

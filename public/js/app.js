@@ -1,6 +1,7 @@
 const state = {
   categories: [],
   products: [],
+  promos: [],
   settings: {},
   cart: [],
   selectedCategory: 'all',
@@ -119,6 +120,7 @@ async function loadMenuData() {
       // plato pausado seguía apareciendo y se podía seguir pidiendo igual.
       state.products = (data.products || []).filter(p => p.available !== 0);
       state.settings = data.settings || {};
+      state.promos = data.promos || [];
 
       const restTitleEl = document.getElementById('restaurant-title');
       if (restTitleEl && state.settings.restaurant_name) {
@@ -159,6 +161,15 @@ function renderCategoryTabs() {
     </button>
   `;
 
+  if ((state.promos || []).length > 0) {
+    const isPromos = state.selectedCategory === 'promos';
+    html += `
+    <button type="button" onclick="selectCategory('promos')" class="category-tab px-3.5 py-2 rounded-xl text-xs font-black transition-all shadow-xs cursor-pointer ${isPromos ? 'bg-orange-500 text-white shadow-md scale-105' : 'bg-white text-slate-700 hover:bg-slate-200 border border-slate-200'}">
+      🎁 Promos
+    </button>
+    `;
+  }
+
   (state.categories || []).forEach(cat => {
     const isActive = String(state.selectedCategory) === String(cat.id);
     html += `
@@ -182,6 +193,29 @@ function renderMenuSections() {
   if (!container) return;
 
   container.innerHTML = '';
+
+  // Promos armables (combos con cupos): arriba de todo y en su propia pestaña
+  let promosRendered = false;
+  if ((state.selectedCategory === 'all' || state.selectedCategory === 'promos') && (state.promos || []).length > 0) {
+    const promoSection = document.createElement('div');
+    promoSection.className = 'space-y-3';
+    promoSection.innerHTML = `
+      <h2 class="font-black text-slate-900 text-base flex items-center gap-2 border-b border-slate-200 pb-2">
+        <span class="text-xl">🎁</span>
+        <span>Promos para armar a tu gusto</span>
+        <span class="text-xs font-bold text-slate-400 font-mono ml-auto">(${state.promos.length})</span>
+      </h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+        ${state.promos.map(pr => renderPromoCard(pr)).join('')}
+      </div>
+    `;
+    container.appendChild(promoSection);
+    promosRendered = true;
+  }
+  if (state.selectedCategory === 'promos') {
+    if (!promosRendered) container.innerHTML = `<p class="text-center py-8 text-slate-400 text-sm font-bold">No hay promos disponibles por ahora.</p>`;
+    return;
+  }
 
   let filteredCategories = state.categories || [];
   if (state.selectedCategory !== 'all') {
@@ -221,6 +255,46 @@ function renderMenuSections() {
   if (totalSectionsRendered === 0) {
     container.innerHTML = `<p class="text-center py-8 text-slate-400 text-sm font-bold">No hay platos registrados en esta categoría aún.</p>`;
   }
+}
+
+function escPromoHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function renderPromoCard(promo) {
+  const resumen = promo.slots.map(sl => `${sl.qty} ${escPromoHtml(sl.label)}`).join(' + ');
+  return `
+    <div class="bg-white rounded-2xl p-3 shadow-xs border border-orange-200 flex flex-col justify-between hover:shadow-md transition">
+      <div class="space-y-1">
+        <span class="inline-block bg-orange-100 text-orange-700 text-[10px] font-black px-2 py-0.5 rounded-md">🎁 ARMÁ TU PROMO</span>
+        <h3 class="font-extrabold text-slate-900 text-sm leading-tight">${escPromoHtml(promo.name)}</h3>
+        ${promo.description ? `<p class="text-slate-500 text-[11px] leading-snug">${escPromoHtml(promo.description)}</p>` : ''}
+        <p class="text-slate-600 text-[11px] font-semibold">${resumen}</p>
+      </div>
+      <div class="pt-2 mt-2 border-t border-slate-100 flex items-center justify-between gap-1">
+        <div class="font-black text-slate-950 text-sm font-mono tracking-tight">${formatCurrency(promo.price)}</div>
+        <button type="button" onclick="openPromoFromMenu(${promo.id})" class="bg-orange-500 hover:bg-orange-600 active:scale-95 text-white font-extrabold text-xs px-3 py-1.5 rounded-xl shadow-xs transition cursor-pointer">Armar</button>
+      </div>
+    </div>
+  `;
+}
+
+function openPromoFromMenu(promoId) {
+  const promo = (state.promos || []).find(p => String(p.id) === String(promoId));
+  if (!promo) return;
+  openPromoBuilder(promo, addPromoToCart);
+}
+
+function addPromoToCart(item) {
+  const existing = state.cart.find(i => String(i.id) === String(item.id));
+  if (existing) {
+    existing.qty += 1;
+  } else {
+    state.cart.push(item);
+  }
+  saveCartToStorage();
+  updateCartUI();
+  showCartToastNotification(`✅ ${item.name} agregada al carrito`);
 }
 
 // Devuelve el precio final a cobrar por un producto, aplicando el
@@ -483,14 +557,15 @@ function updateCartUI() {
   itemsContainer.innerHTML = state.cart.map(item => `
     <div class="py-2.5 flex justify-between items-center text-xs sm:text-sm">
       <div class="flex-1 min-w-0 pr-2">
-        <div class="font-extrabold text-slate-800 truncate">${item.name}</div>
+        <div class="font-extrabold text-slate-800 ${item.detail ? '' : 'truncate'}">${item.promo_id ? '🎁 ' : ''}${item.name}</div>
+        ${item.detail ? `<div class="text-slate-500 text-[11px] leading-snug">${escPromoHtml(item.detail)}</div>` : ''}
         <div class="text-slate-400 text-xs font-mono font-semibold">${formatCurrency(item.price)} x ${item.qty}</div>
       </div>
       <div class="flex items-center gap-2">
         <div class="flex items-center bg-slate-100 rounded-lg border border-slate-200">
-          <button onclick="updateItemQty(${item.id}, -1)" class="px-2 py-1 text-slate-600 font-bold hover:bg-slate-200 rounded-l-lg">-</button>
+          <button onclick="updateItemQty('${item.id}', -1)" class="px-2 py-1 text-slate-600 font-bold hover:bg-slate-200 rounded-l-lg">-</button>
           <span class="px-2 font-black font-mono text-slate-800">${item.qty}</span>
-          <button onclick="updateItemQty(${item.id}, 1)" class="px-2 py-1 text-slate-600 font-bold hover:bg-slate-200 rounded-r-lg">+</button>
+          <button onclick="updateItemQty('${item.id}', 1)" class="px-2 py-1 text-slate-600 font-bold hover:bg-slate-200 rounded-r-lg">+</button>
         </div>
         <span class="font-mono font-black text-slate-900 w-16 text-right">${formatCurrency(item.price * item.qty)}</span>
       </div>
@@ -690,7 +765,7 @@ async function submitOrderToWhatsApp() {
 
     const orderNumber = data.order.order_number;
 
-    let itemsText = state.cart.map(i => `• ${i.qty}x ${i.name} ($${i.price * i.qty})`).join('\n');
+    let itemsText = state.cart.map(i => `• ${i.qty}x ${i.name} ($${i.price * i.qty})${i.detail ? '\n   ↳ ' + i.detail : ''}`).join('\n');
     let message = `🛒 *NUEVO PEDIDO DE COMIDA* (${orderNumber})\n\n`;
     message += `👤 *Cliente:* ${name}\n`;
     message += `📞 *Teléfono:* ${rawPhone}\n`;

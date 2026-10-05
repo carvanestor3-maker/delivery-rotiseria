@@ -865,6 +865,10 @@ app.post('/api/admin/stock/adjust', (req, res) => {
 async function deductProductRecipeComponents(store, productId, qtyMultiplier) {
   const recipes = (store.product_recipes || []).filter(r => r.product_id === productId);
   const deducted = [];
+  // ledger: lo que REALMENTE salió del stock (puede ser menos que lo pedido si
+  // el stock no alcanzaba: el descuento no baja de 0). Sirve para que al anular
+  // se reponga exactamente eso y no más.
+  const ledger = [];
   let totalCost = 0;
 
   for (const r of recipes) {
@@ -872,8 +876,12 @@ async function deductProductRecipeComponents(store, productId, qtyMultiplier) {
     if (!(qty > 0)) continue;
 
     if (r.semi_elaborado_id) {
+      const before = await dbSemi.getSemiElaborado(r.semi_elaborado_id);
+      const beforeStock = before ? (before.current_stock || 0) : 0;
       const semi = await dbSemi.deductSemiStock(r.semi_elaborado_id, qty);
       if (semi) {
+        const actual = parseFloat((beforeStock - (semi.current_stock || 0)).toFixed(4));
+        if (actual > 0) ledger.push({ kind: 'semi', id: r.semi_elaborado_id, qty: actual });
         const unitCost = parseFloat(semi.cost_per_unit || 0);
         const cost = parseFloat((qty * unitCost).toFixed(2));
         totalCost += cost;
@@ -882,7 +890,10 @@ async function deductProductRecipeComponents(store, productId, qtyMultiplier) {
     } else if (r.raw_material_id) {
       const mat = (store.raw_materials || []).find(m => m.id === r.raw_material_id);
       if (mat) {
-        mat.current_stock = parseFloat(Math.max(0, (mat.current_stock || 0) - qty).toFixed(4));
+        const beforeStock = mat.current_stock || 0;
+        mat.current_stock = parseFloat(Math.max(0, beforeStock - qty).toFixed(4));
+        const actual = parseFloat((beforeStock - mat.current_stock).toFixed(4));
+        if (actual > 0) ledger.push({ kind: 'insumo', id: r.raw_material_id, qty: actual });
         const unitCost = parseFloat(mat.cost_per_unit || mat.cost || 0);
         const cost = parseFloat((qty * unitCost).toFixed(2));
         totalCost += cost;
@@ -891,7 +902,31 @@ async function deductProductRecipeComponents(store, productId, qtyMultiplier) {
     }
   }
 
-  return { deducted, totalCost };
+  return { deducted, totalCost, ledger };
+}
+
+// Repone EXACTAMENTE lo que un pedido descontó de verdad (order.stock_ledger).
+async function restoreFromLedger(store, ledger) {
+  for (const l of (ledger || [])) {
+    const qty = parseFloat(l.qty) || 0;
+    if (!(qty > 0)) continue;
+    if (l.kind === 'semi') {
+      await dbSemi.restoreSemiStock(l.id, qty);
+    } else if (l.kind === 'insumo') {
+      const mat = (store.raw_materials || []).find(m => m.id === l.id);
+      if (mat) mat.current_stock = parseFloat(((mat.current_stock || 0) + qty).toFixed(4));
+    }
+  }
+}
+
+// Marca desde cuándo los pedidos llevan registro de lo descontado. Los pedidos
+// anteriores a esa fecha no tienen registro y se anulan con la regla vieja.
+function ensureStockLedgerSince(store) {
+  if (!store.stock_ledger_since) {
+    store.stock_ledger_since = new Date().toISOString();
+    return true;
+  }
+  return false;
 }
 
 async function restoreProductRecipeComponents(store, productId, qtyMultiplier) {
@@ -907,6 +942,163 @@ async function restoreProductRecipeComponents(store, productId, qtyMultiplier) {
       const mat = (store.raw_materials || []).find(m => m.id === r.raw_material_id);
       if (mat) mat.current_stock = parseFloat(((mat.current_stock || 0) + qty).toFixed(4));
     }
+  }
+}
+
+// ==========================================================================
+// PROMOS ARMABLES (combos): una promo se define UNA vez con "cupos" (ej. 1
+// pizza + 12 empanadas, o 2 hamburguesas + 1 guarnición). Cada cupo tiene una
+// cantidad y las opciones permitidas (una categoría completa o una lista de
+// platos ya cargados). Quien compra elige los gustos y al descontar stock se
+// usa la ficha técnica de CADA plato elegido: no hay que cargar la promo como
+// plato nuevo ni repetir insumos.
+// ==========================================================================
+function getPromoList(store) {
+  if (!store.promos) store.promos = [];
+  return store.promos;
+}
+
+// Platos que se pueden elegir en un cupo (solo los que no están pausados)
+function resolvePromoSlotProducts(store, slot) {
+  const prods = (store.products || []).filter(p => p.available !== 0);
+  if (Array.isArray(slot.product_ids) && slot.product_ids.length > 0) {
+    const ids = new Set(slot.product_ids.map(Number));
+    return prods.filter(p => ids.has(p.id));
+  }
+  if (slot.category_id !== null && slot.category_id !== undefined && slot.category_id !== '') {
+    // Al elegir una categoría completa no se ofrecen los artículos que ya son una
+    // promo o combo cargados como producto (su nombre empieza con "Promo" o "Combo").
+    return prods.filter(p => p.category_id === Number(slot.category_id) && !/^\s*(promo|combo)\b/i.test(p.name || ''));
+  }
+  return [];
+}
+
+function buildPublicPromo(store, promo) {
+  return {
+    id: promo.id,
+    name: promo.name,
+    description: promo.description || '',
+    price: promo.price,
+    image_url: promo.image_url || '',
+    slots: promo.slots.map((slot, index) => ({
+      index,
+      label: slot.label,
+      qty: slot.qty,
+      options: resolvePromoSlotProducts(store, slot).map(p => ({ id: p.id, name: p.name }))
+    }))
+  };
+}
+
+function getPublicPromos(store) {
+  return getPromoList(store)
+    .filter(pr => pr.available !== 0)
+    .map(pr => buildPublicPromo(store, pr))
+    .filter(pr => pr.slots.every(sl => sl.options.length > 0));
+}
+
+function promoDetailText(selections) {
+  const bySlot = [];
+  (selections || []).forEach(sel => {
+    let g = bySlot.find(x => x.slot === sel.slot);
+    if (!g) { g = { slot: sel.slot, label: sel.label, parts: [] }; bySlot.push(g); }
+    g.parts.push(sel.qty > 1 ? `${sel.qty} ${sel.name}` : sel.name);
+  });
+  return bySlot.map(g => `${g.label}: ${g.parts.join(', ')}`).join(' | ');
+}
+
+// Valida los ítems "promo" de un pedido o venta y los deja normalizados.
+// Devuelve { items } o { error }.
+function normalizePromoSaleItems(store, items) {
+  if (!Array.isArray(items)) return { items };
+  const out = [];
+  for (const item of items) {
+    if (!item || !item.promo_id) { out.push(item); continue; }
+
+    const promo = getPromoList(store).find(pr => pr.id === Number(item.promo_id));
+    if (!promo || promo.available === 0) {
+      return { error: `La promo "${item.name || item.promo_id}" ya no está disponible. Actualizá el menú y volvé a armarla.` };
+    }
+    const qty = Number(item.qty || 1);
+    if (!Number.isInteger(qty) || qty < 1 || qty > 99) {
+      return { error: `Cantidad inválida para la promo "${promo.name}".` };
+    }
+    if (Math.abs(parseFloat(item.price) - promo.price) > 0.01) {
+      return { error: `El precio de la promo "${promo.name}" cambió. Actualizá el menú y volvé a armarla.` };
+    }
+
+    const selections = Array.isArray(item.selections) ? item.selections : [];
+    if (selections.some(sel => !Number.isInteger(Number(sel.slot)) || Number(sel.slot) < 0 || Number(sel.slot) >= promo.slots.length)) {
+      return { error: `La selección de la promo "${promo.name}" no es válida.` };
+    }
+
+    const normSel = [];
+    for (let si = 0; si < promo.slots.length; si++) {
+      const slot = promo.slots[si];
+      const allowed = resolvePromoSlotProducts(store, slot);
+      let sum = 0;
+      for (const sel of selections.filter(x => Number(x.slot) === si)) {
+        const q = Number(sel.qty);
+        if (!Number.isInteger(q) || q <= 0) {
+          return { error: `Cantidad inválida en "${slot.label}" de la promo "${promo.name}".` };
+        }
+        const prod = allowed.find(pp => pp.id === Number(sel.product_id));
+        if (!prod) {
+          return { error: `Uno de los platos elegidos en "${slot.label}" ya no está disponible. Armá la promo de nuevo.` };
+        }
+        sum += q;
+        const prev = normSel.find(x => x.slot === si && x.product_id === prod.id);
+        if (prev) prev.qty += q;
+        else normSel.push({ slot: si, label: slot.label, product_id: prod.id, name: prod.name, qty: q });
+      }
+      if (sum !== slot.qty) {
+        return { error: `En la promo "${promo.name}" hay que elegir ${slot.qty} en "${slot.label}" (elegiste ${sum}).` };
+      }
+    }
+
+    const detail = promoDetailText(normSel);
+    const normalized = {
+      ...item,
+      id: `promo-${promo.id}`,
+      promo_id: promo.id,
+      name: `${promo.name} — ${detail}`,
+      price: promo.price,
+      qty,
+      selections: normSel,
+      detail,
+      category_name: 'Promos',
+      unit_type: item.unit_type || 'unidad'
+    };
+    if (item.total !== undefined) normalized.total = parseFloat((promo.price * qty).toFixed(2));
+    out.push(normalized);
+  }
+  return { items: out };
+}
+
+// Convierte un ítem vendido en la lista de platos reales que hay que descontar.
+// Un plato común es él mismo; una promo son los platos elegidos en sus cupos.
+function expandOrderItemComponents(item, qtyMultiplier) {
+  const m = (qtyMultiplier === undefined || qtyMultiplier === null) ? 1 : qtyMultiplier;
+  if (item && item.promo_id && Array.isArray(item.selections)) {
+    return item.selections.map(sel => ({ product_id: sel.product_id, qty: sel.qty * m }));
+  }
+  return [{ product_id: item.id, qty: m }];
+}
+
+// Venta POS de un plato: si ya estaba producido (stock preparado), los insumos
+// ya se descontaron al producirlo; solo se descuenta la receta de lo que se
+// hace al momento.
+async function consumeProductForPosSale(store, productId, qtySold, ledger) {
+  const prod = store.products.find(p => p.id === productId);
+  let qtyFromRecipe = qtySold;
+  if (prod && prod.stock_prepared !== undefined) {
+    const available = Math.max(0, parseFloat(prod.stock_prepared) || 0);
+    const covered = Math.min(qtySold, available);
+    qtyFromRecipe = parseFloat((qtySold - covered).toFixed(3));
+    prod.stock_prepared = Math.max(0, parseFloat((prod.stock_prepared - qtySold).toFixed(3)));
+  }
+  if (qtyFromRecipe > 0) {
+    const r = await deductProductRecipeComponents(store, productId, qtyFromRecipe);
+    ledger.push(...r.ledger);
   }
 }
 
@@ -2018,6 +2210,92 @@ app.post('/api/cash/shift/reconcile-food', (req, res) => {
 });
 
 // RUTAS API DE MENÚ Y CLIENTE
+// PROMOS ARMABLES: administración (Nivel 2 para crear/editar, igual que el menú)
+function cleanPromoPayload(store, body) {
+  const name = String(body.name || '').trim();
+  if (!name) return { error: 'El nombre de la promo es obligatorio.' };
+  const price = parseFloat(body.price);
+  if (!(price > 0)) return { error: 'El precio de la promo tiene que ser mayor a 0.' };
+  const rawSlots = Array.isArray(body.slots) ? body.slots : [];
+  if (rawSlots.length === 0) return { error: 'La promo necesita al menos un cupo (ej. 1 pizza).' };
+  if (rawSlots.length > 8) return { error: 'Máximo 8 cupos por promo.' };
+
+  const slots = [];
+  for (const sl of rawSlots) {
+    const label = String(sl.label || '').trim();
+    const qty = Number(sl.qty);
+    if (!label) return { error: 'Cada cupo necesita un nombre (ej. "Pizza", "Empanadas").' };
+    if (!Number.isInteger(qty) || qty < 1 || qty > 60) return { error: `La cantidad del cupo "${label}" tiene que ser un número entero entre 1 y 60.` };
+    const productIds = Array.isArray(sl.product_ids) ? sl.product_ids.map(Number).filter(n => Number.isInteger(n)) : [];
+    const validIds = productIds.filter(id => (store.products || []).some(p => p.id === id));
+    let categoryId = null;
+    if (validIds.length === 0) {
+      categoryId = (sl.category_id === null || sl.category_id === undefined || sl.category_id === '') ? null : Number(sl.category_id);
+      if (categoryId === null || !(store.categories || []).some(c => c.id === categoryId)) {
+        return { error: `El cupo "${label}" tiene que tener una categoría o una lista de platos.` };
+      }
+    }
+    slots.push({ label, qty, category_id: validIds.length === 0 ? categoryId : null, product_ids: validIds });
+  }
+  return { value: { name, description: String(body.description || '').trim(), price, image_url: String(body.image_url || '').trim(), available: body.available === 0 || body.available === '0' || body.available === false ? 0 : 1, slots } };
+}
+
+app.get('/api/admin/promos', (req, res) => {
+  try {
+    const store = db.getStore();
+    res.json({ success: true, promos: getPromoList(store), public_view: getPromoList(store).map(pr => buildPublicPromo(store, pr)) });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/admin/promos', async (req, res) => {
+  try {
+    const auth = verifyUserPin(req.body.pin, 2);
+    if (!auth.isValid) {
+      return res.status(401).json({ success: false, error: 'Acceso Denegado: crear o editar promos requiere PIN de Encargado (Nivel 2) o superior.' });
+    }
+    const store = db.getStore();
+    const cleaned = cleanPromoPayload(store, req.body);
+    if (cleaned.error) return res.status(400).json({ success: false, error: cleaned.error });
+
+    const list = getPromoList(store);
+    const now = new Date().toISOString();
+    let promo;
+    if (req.body.id) {
+      promo = list.find(pr => pr.id === Number(req.body.id));
+      if (!promo) return res.status(404).json({ success: false, error: 'Promo no encontrada.' });
+      Object.assign(promo, cleaned.value, { updated_at: now });
+    } else {
+      promo = { id: list.length > 0 ? Math.max(...list.map(pr => pr.id)) + 1 : 1, ...cleaned.value, created_at: now, updated_at: now };
+      list.push(promo);
+    }
+    await db.saveStoreAndConfirm();
+    io.emit('stock_updated');
+    res.json({ success: true, promo, user_name: auth.user.name });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/admin/promos/:id', async (req, res) => {
+  try {
+    const auth = verifyUserPin((req.body && req.body.pin) || req.query.pin, 2);
+    if (!auth.isValid) {
+      return res.status(401).json({ success: false, error: 'Acceso Denegado: borrar promos requiere PIN de Encargado (Nivel 2) o superior.' });
+    }
+    const store = db.getStore();
+    const list = getPromoList(store);
+    const idx = list.findIndex(pr => pr.id === parseInt(req.params.id));
+    if (idx === -1) return res.status(404).json({ success: false, error: 'Promo no encontrada.' });
+    list.splice(idx, 1);
+    await db.saveStoreAndConfirm();
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.get('/api/menu', (req, res) => {
   try {
     const store = db.getStore();
@@ -2029,6 +2307,7 @@ app.get('/api/menu', (req, res) => {
       success: true,
       categories,
       products,
+      promos: getPublicPromos(store),
       settings
     });
   } catch (err) {
@@ -2312,7 +2591,14 @@ app.post('/api/orders', async (req, res) => {
     const totalOrders = store.orders.length;
     const orderNumber = `#${101 + totalOrders}`;
 
-    const itemsJson = typeof items === 'string' ? items : JSON.stringify(items);
+    // Promos armables: se validan los gustos elegidos y el precio contra la regla
+    let itemsToSave = items;
+    if (Array.isArray(items)) {
+      const np = normalizePromoSaleItems(store, items);
+      if (np.error) return res.status(400).json({ success: false, error: np.error });
+      itemsToSave = np.items;
+    }
+    const itemsJson = typeof itemsToSave === 'string' ? itemsToSave : JSON.stringify(itemsToSave);
 
     if (payment_method && payment_method.includes('Cuenta Corriente')) {
       const account = store.customer_accounts.find(a => 
@@ -2490,11 +2776,16 @@ app.put('/api/orders/:id/status', async (req, res) => {
 
     if (status === 'en_preparacion' && existingOrder.status !== 'en_preparacion') {
       const orderItems = typeof existingOrder.items === 'string' ? JSON.parse(existingOrder.items) : existingOrder.items;
+      const orderLedger = Array.isArray(existingOrder.stock_ledger) ? existingOrder.stock_ledger.slice() : [];
       if (Array.isArray(orderItems)) {
         for (const item of orderItems) {
-          await deductProductRecipeComponents(store, item.id, item.qty || 1);
+          for (const comp of expandOrderItemComponents(item, item.qty || 1)) {
+            const r = await deductProductRecipeComponents(store, comp.product_id, comp.qty);
+            orderLedger.push(...r.ledger);
+          }
         }
       }
+      existingOrder.stock_ledger = orderLedger;
     }
 
     if (status === 'entregado' && isCuentaCorriente && existingOrder.status !== 'entregado') {
@@ -2562,12 +2853,23 @@ app.post('/api/orders/:id/cancel', async (req, res) => {
     }
 
     // Si la comanda ya había entrado a cocina (descontando insumos), se revierte el stock consumido
+    // - Pedido con registro (stock_ledger): se repone exactamente lo que se descontó
+    //   (si nunca descontó nada, el registro está vacío y no se repone nada; si el
+    //   stock no alcanzó y quedó en 0, se repone solo lo que realmente salió).
+    // - Pedido anterior a que existiera el registro: se mantiene la regla de antes.
+    // - Pedido nuevo sin registro: nunca pasó por "En preparación", no descontó nada.
     const statusesConDescuentoDeStock = ['en_preparacion', 'en_camino', 'ready', 'bar_despachado', 'en_proceso', 'entregado'];
-    if (statusesConDescuentoDeStock.includes(existingOrder.status)) {
-      const orderItems = typeof existingOrder.items === 'string' ? JSON.parse(existingOrder.items) : existingOrder.items;
-      if (Array.isArray(orderItems)) {
-        for (const item of orderItems) {
-          await restoreProductRecipeComponents(store, item.id, item.qty || 1);
+    if (Array.isArray(existingOrder.stock_ledger)) {
+      await restoreFromLedger(store, existingOrder.stock_ledger);
+      existingOrder.stock_ledger = [];
+    } else if (statusesConDescuentoDeStock.includes(existingOrder.status)) {
+      const esAnteriorAlRegistro = !store.stock_ledger_since || !existingOrder.created_at || existingOrder.created_at < store.stock_ledger_since;
+      if (esAnteriorAlRegistro) {
+        const orderItems = typeof existingOrder.items === 'string' ? JSON.parse(existingOrder.items) : existingOrder.items;
+        if (Array.isArray(orderItems)) {
+          for (const item of orderItems) {
+            await restoreProductRecipeComponents(store, item.id, item.qty || 1);
+          }
         }
       }
     }
@@ -3670,7 +3972,7 @@ app.delete('/api/admin/categories/:id', (req, res) => {
 // RUTA API POS: VENTA DIRECTA EN MOSTRADOR POR ESCÁNER / BALANZA
 app.post('/api/pos/sale', async (req, res) => {
   try {
-    const { items, payment_method, payment_note, payments, cashier_name, box_number, total } = req.body;
+    let { items, payment_method, payment_note, payments, cashier_name, box_number, total } = req.body;
 
     if (!items || !Array.isArray(items) || items.length === 0 || !total) {
       return res.status(400).json({ success: false, error: 'El carrito de venta directa no puede estar vacío.' });
@@ -3710,6 +4012,13 @@ app.post('/api/pos/sale', async (req, res) => {
       return res.status(400).json({ success: false, error: `⚠️ NO HAY TURNO DE CAJA ABIERTO: Debe abrir la Caja N° ${numBox} antes de realizar cobros directos.` });
     }
 
+    // Promos armables: validar gustos elegidos y precio contra la regla
+    const promoCheck = normalizePromoSaleItems(store, items);
+    if (promoCheck.error) {
+      return res.status(400).json({ success: false, error: promoCheck.error });
+    }
+    items = promoCheck.items;
+
     const totalOrders = store.orders.length;
     const orderNumber = `#POS-${101 + totalOrders}`;
 
@@ -3735,15 +4044,17 @@ app.post('/api/pos/sale', async (req, res) => {
     };
 
     // Descontar materias primas, Pre-Armados y/o stock de comida preparada si aplica
+    // Si el producto ya estaba producido (stock preparado), los insumos ya se
+    // descontaron al producirlo: solo se descuenta la receta de lo que NO
+    // salió del stock preparado (lo que se hace al momento).
+    const posLedger = [];
     for (const item of items) {
       const qtySold = parseFloat(item.qty || 1);
-      const prod = store.products.find(p => p.id === item.id);
-      if (prod && prod.stock_prepared !== undefined) {
-        prod.stock_prepared = Math.max(0, parseFloat((prod.stock_prepared - qtySold).toFixed(3)));
+      for (const comp of expandOrderItemComponents(item, qtySold)) {
+        await consumeProductForPosSale(store, comp.product_id, comp.qty, posLedger);
       }
-
-      await deductProductRecipeComponents(store, item.id, qtySold);
     }
+    newOrder.stock_ledger = posLedger;
 
     store.orders.unshift(newOrder);
     // Guardado CON confirmación (ver nota en POST /api/orders): una venta de
@@ -4401,6 +4712,11 @@ const PORT = process.env.PORT || 3000;
 // arrancar con datos a medio cargar.
 Promise.all([db.ready, dbSuppliers.ready, dbSemi.ready, dbFacturacion.ready])
   .then(() => {
+    try {
+      if (ensureStockLedgerSince(db.getStore())) db.saveStore();
+    } catch (e) {
+      console.error('No se pudo marcar el inicio del registro de stock por pedido:', e.message);
+    }
     server.listen(PORT, '0.0.0.0', () => {
       console.log(`
 🚀 Servidor Delivery, Descarga de Backup ZIP & Auditoría en ejecución:

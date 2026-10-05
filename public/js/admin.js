@@ -3451,29 +3451,50 @@ function sortedRawMaterialsList() {
   return [...rawMaterials].sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }));
 }
 
-// Los insumos que se cargan "por Unidades" (ej: vasitos de salsa, cajas de
-// delivery, tapas, medialunas) no admiten fracciones: fuerza a número entero.
-function enforceIntegerQtyIfNeeded(row, unit) {
-  const qtyInput = row.querySelector('.rec-qty-per-portion');
-  if (!qtyInput) return;
-
-  if (unit === 'unidades') {
-    qtyInput.step = '1';
-    qtyInput.title = 'Este insumo se carga por Unidades: solo se permiten números enteros (1, 2, 3...)';
-    qtyInput.onblur = function () {
-      const val = parseFloat(qtyInput.value);
-      if (!isNaN(val) && !Number.isInteger(val)) {
-        const rounded = Math.max(0, Math.round(val));
-        const searchInput = row.querySelector('.rec-insumo-search');
-        alert(`⚠️ "${searchInput ? searchInput.value : 'Este insumo'}" se carga por Unidades: la cantidad debe ser un número entero.\n\nSe redondeó ${val} a ${rounded}.`);
-        qtyInput.value = rounded;
-      }
-    };
-  } else {
-    qtyInput.step = '0.001';
-    qtyInput.title = '';
-    qtyInput.onblur = null;
+// Cantidades de una Ficha Técnica: aceptan decimales con punto o coma (0.5, 0,5)
+// y fracciones (1/3, 1/4, "1 1/2"), también para los insumos por "unidades"
+// (ej: 1/3 de un pan, medio vasito de salsa). Devuelve un número, o NaN si no
+// se entiende lo escrito. Una fracción se guarda con 6 decimales (1/3 = 0.333333).
+function parseQtyFraction(text) {
+  const t = String(text === null || text === undefined ? '' : text).trim().replace(',', '.');
+  if (t === '') return NaN;
+  let m = t.match(/^(\d+)\s+(\d+)\s*\/\s*(\d+)$/); // mixto: 1 1/2
+  if (m) {
+    const den = parseFloat(m[3]);
+    if (den === 0) return NaN;
+    return parseFloat((parseFloat(m[1]) + parseFloat(m[2]) / den).toFixed(6));
   }
+  m = t.match(/^(\d*\.?\d+)\s*\/\s*(\d*\.?\d+)$/); // fracción: 1/3
+  if (m) {
+    const den = parseFloat(m[2]);
+    if (den === 0) return NaN;
+    return parseFloat((parseFloat(m[1]) / den).toFixed(6));
+  }
+  if (/^\d*\.?\d+$/.test(t)) return parseFloat(t); // decimal o entero
+  return NaN;
+}
+
+// Al salir del campo, una fracción escrita ("1/3") se convierte a su decimal
+// para que lo guardado sea siempre un número; si no se entiende, se avisa.
+function attachQtyFractionInput(qtyInput, unit) {
+  if (!qtyInput) return;
+  qtyInput.title = unit === 'unidades'
+    ? 'Admite decimales (0,5) y fracciones (1/3, 1 1/2)'
+    : 'Admite decimales y fracciones (1/3)';
+  qtyInput.onblur = function () {
+    const raw = qtyInput.value.trim();
+    if (raw === '') return;
+    const val = parseQtyFraction(raw);
+    if (isNaN(val)) {
+      alert('⚠️ No entiendo la cantidad "' + raw + '". Escribí un número (0.5 o 0,5) o una fracción (1/3).');
+      return;
+    }
+    qtyInput.value = val;
+  };
+}
+
+function enforceIntegerQtyIfNeeded(row, unit) {
+  attachQtyFractionInput(row.querySelector('.rec-qty-per-portion'), unit);
 }
 
 function hideInsumoDropdown() {
@@ -3615,7 +3636,7 @@ function addRecipeIngredientRow(rawMatId = null, qtyPerPortion = null) {
       <input type="hidden" class="rec-raw-material-id" value="${rawMatId !== null ? rawMatId : ''}">
     </div>
     <div class="flex items-center gap-1">
-      <input type="number" step="0.001" class="rec-qty-per-portion w-24 px-2 py-1.5 border border-slate-300 rounded-lg text-xs font-mono font-bold text-slate-900" placeholder="Ej: 0.25 o 1" value="${qtyPerPortion !== null ? qtyPerPortion : ''}">
+      <input type="text" inputmode="decimal" class="rec-qty-per-portion w-24 px-2 py-1.5 border border-slate-300 rounded-lg text-xs font-mono font-bold text-slate-900" placeholder="Ej: 0.25, 1 o 1/3" value="${qtyPerPortion !== null ? qtyPerPortion : ''}">
       <span class="rec-qty-unit-label text-[10px] text-slate-400 font-bold whitespace-nowrap">${initialUnitLabel}</span>
     </div>
     <button type="button" onclick="this.parentElement.remove()" class="p-1 text-red-500 hover:bg-red-50 rounded-lg transition" title="Quitar ingrediente">
@@ -3658,7 +3679,7 @@ function addRecipeSemiRow(semiId = null, qtyPerPortion = null) {
       ${sortedSemis.map(s => `<option value="${s.id}" ${semiId === s.id ? 'selected' : ''}>[${s.code}] ${s.name} (${s.unit})</option>`).join('')}
     </select>
     <div class="flex items-center gap-1">
-      <input type="number" step="0.001" class="rec-semi-qty w-24 px-2 py-1.5 border border-teal-300 rounded-lg text-xs font-mono font-bold text-slate-900" placeholder="Ej: 0.10" value="${qtyPerPortion !== null ? qtyPerPortion : ''}">
+      <input type="text" inputmode="decimal" class="rec-semi-qty w-24 px-2 py-1.5 border border-teal-300 rounded-lg text-xs font-mono font-bold text-slate-900" placeholder="Ej: 0.10 o 1/3" value="${qtyPerPortion !== null ? qtyPerPortion : ''}">
       <span class="rec-semi-qty-unit-label text-[10px] text-teal-700 font-bold whitespace-nowrap">${unitLabel}</span>
     </div>
     <button type="button" onclick="this.parentElement.remove()" class="p-1 text-red-500 hover:bg-red-50 rounded-lg transition" title="Quitar Pre-Armado">
@@ -3700,14 +3721,10 @@ function applyRecipePercentageScale() {
     const qtyInput = row.querySelector('.rec-qty-per-portion');
     const hiddenInput = row.querySelector('.rec-raw-material-id');
     if (qtyInput && qtyInput.value) {
-      const currentQty = parseFloat(qtyInput.value);
+      const currentQty = parseQtyFraction(qtyInput.value);
       if (!isNaN(currentQty) && currentQty > 0) {
-        const matId = hiddenInput && hiddenInput.value ? parseInt(hiddenInput.value) : null;
-        const mat = matId ? rawMaterials.find(m => m.id === matId) : null;
         const scaled = currentQty * multiplier;
-        // Los insumos por Unidades no admiten fracciones: se redondean al aplicar el %
-        const newQty = (mat && mat.unit === 'unidades') ? Math.max(0, Math.round(scaled)) : parseFloat(scaled.toFixed(4));
-        qtyInput.value = newQty;
+        qtyInput.value = parseFloat(scaled.toFixed(4));
       }
     }
   });
@@ -3715,7 +3732,7 @@ function applyRecipePercentageScale() {
   semiRows.forEach(row => {
     const qtyInput = row.querySelector('.rec-semi-qty');
     if (qtyInput && qtyInput.value) {
-      const currentQty = parseFloat(qtyInput.value);
+      const currentQty = parseQtyFraction(qtyInput.value);
       if (!isNaN(currentQty) && currentQty > 0) {
         const scaled = currentQty * multiplier;
         qtyInput.value = parseFloat(scaled.toFixed(4));
@@ -3735,26 +3752,35 @@ async function saveRecipe(e) {
   const semiRows = document.querySelectorAll('.recipe-semi-row');
 
   const ingredients = [];
+  let badQty = null;
   rows.forEach(row => {
     const raw_material_id = row.querySelector('.rec-raw-material-id').value;
-    const qty_per_portion = row.querySelector('.rec-qty-per-portion').value;
-    if (raw_material_id && qty_per_portion) {
+    const rawQty = row.querySelector('.rec-qty-per-portion').value;
+    const qty_per_portion = parseQtyFraction(rawQty);
+    if (raw_material_id && rawQty.trim() !== '') {
+      if (isNaN(qty_per_portion)) { badQty = rawQty; return; }
       ingredients.push({
         raw_material_id: parseInt(raw_material_id),
-        qty_per_portion: parseFloat(qty_per_portion)
+        qty_per_portion
       });
     }
   });
   semiRows.forEach(row => {
     const semi_elaborado_id = row.querySelector('.rec-semi-id').value;
-    const qty_per_portion = row.querySelector('.rec-semi-qty').value;
-    if (semi_elaborado_id && qty_per_portion) {
+    const rawQty = row.querySelector('.rec-semi-qty').value;
+    const qty_per_portion = parseQtyFraction(rawQty);
+    if (semi_elaborado_id && rawQty.trim() !== '') {
+      if (isNaN(qty_per_portion)) { badQty = rawQty; return; }
       ingredients.push({
         semi_elaborado_id: parseInt(semi_elaborado_id),
-        qty_per_portion: parseFloat(qty_per_portion)
+        qty_per_portion
       });
     }
   });
+  if (badQty !== null) {
+    alert('⚠️ No entiendo la cantidad "' + badQty + '". Escribí un número (0.5 o 0,5) o una fracción (1/3).');
+    return;
+  }
 
   try {
     const res = await fetch('/api/admin/recipes/save', {
@@ -4002,21 +4028,7 @@ window.addEventListener('resize', repositionActiveSemiInsumoDropdown);
 document.addEventListener('scroll', repositionActiveSemiInsumoDropdown, true);
 
 function enforceIntegerQtyIfNeededSemi(row, unit) {
-  const qtyInput = row.querySelector('.semi-rec-qty-per-unit');
-  if (!qtyInput) return;
-
-  if (unit === 'unidades') {
-    qtyInput.step = '1';
-    qtyInput.onblur = function () {
-      const val = parseFloat(qtyInput.value);
-      if (!isNaN(val) && !Number.isInteger(val)) {
-        qtyInput.value = Math.max(0, Math.round(val));
-      }
-    };
-  } else {
-    qtyInput.step = '0.001';
-    qtyInput.onblur = null;
-  }
+  attachQtyFractionInput(row.querySelector('.semi-rec-qty-per-unit'), unit);
 }
 
 function setupSemiInsumoCombobox(row, selectedId) {
@@ -4124,7 +4136,7 @@ function addSemiRecipeIngredientRow(rawMatId = null, qtyPerUnit = null) {
       <input type="hidden" class="semi-rec-raw-material-id" value="${rawMatId !== null ? rawMatId : ''}">
     </div>
     <div class="flex items-center gap-1">
-      <input type="number" step="0.001" class="semi-rec-qty-per-unit w-24 px-2 py-1.5 border border-slate-300 rounded-lg text-xs font-mono font-bold text-slate-900" placeholder="Ej: 0.25" value="${qtyPerUnit !== null ? qtyPerUnit : ''}">
+      <input type="text" inputmode="decimal" class="semi-rec-qty-per-unit w-24 px-2 py-1.5 border border-slate-300 rounded-lg text-xs font-mono font-bold text-slate-900" placeholder="Ej: 0.25, 1 o 1/3" value="${qtyPerUnit !== null ? qtyPerUnit : ''}">
       <span class="semi-rec-qty-unit-label text-[10px] text-slate-400 font-bold whitespace-nowrap">${initialUnitLabel}</span>
     </div>
     <button type="button" onclick="this.parentElement.remove()" class="p-1 text-red-500 hover:bg-red-50 rounded-lg transition" title="Quitar ingrediente">
@@ -4195,16 +4207,23 @@ async function saveSemiRecipe(e) {
   const rows = document.querySelectorAll('.semi-recipe-ingredient-row');
 
   const ingredients = [];
+  let badQty = null;
   rows.forEach(row => {
     const raw_material_id = row.querySelector('.semi-rec-raw-material-id').value;
-    const qty_per_unit = row.querySelector('.semi-rec-qty-per-unit').value;
-    if (raw_material_id && qty_per_unit) {
+    const rawQty = row.querySelector('.semi-rec-qty-per-unit').value;
+    const qty_per_unit = parseQtyFraction(rawQty);
+    if (raw_material_id && rawQty.trim() !== '') {
+      if (isNaN(qty_per_unit)) { badQty = rawQty; return; }
       ingredients.push({
         raw_material_id: parseInt(raw_material_id),
-        qty_per_unit: parseFloat(qty_per_unit)
+        qty_per_unit
       });
     }
   });
+  if (badQty !== null) {
+    alert('⚠️ No entiendo la cantidad "' + badQty + '". Escribí un número (0.5 o 0,5) o una fracción (1/3).');
+    return;
+  }
 
   try {
     const res = await fetch(`/api/admin/semi-elaborados/${semiId}/recipe`, {

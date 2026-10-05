@@ -560,6 +560,8 @@ function openOpenShiftModal() {
     }
   }
 
+  if (typeof prepareOpenShiftStockCheck === 'function') prepareOpenShiftStockCheck();
+
   const modal = document.getElementById('open-shift-modal');
   modal.classList.remove('opacity-0', 'pointer-events-none');
 }
@@ -578,11 +580,17 @@ async function submitOpenShift(e) {
   const initial_cash = document.getElementById('shift-initial-cash').value;
   const pin = document.getElementById('shift-open-pin').value.trim();
 
+  const stockCheck = typeof collectOpenShiftStockCheck === 'function' ? collectOpenShiftStockCheck() : { ok: true };
+  if (!stockCheck.ok) {
+    alert(`⚠️ ${stockCheck.error}`);
+    return;
+  }
+
   try {
     const res = await fetch('/api/cash/shift/open', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ box_number, cashier_name, shift_type, initial_cash, pin })
+      body: JSON.stringify({ box_number, cashier_name, shift_type, initial_cash, pin, stock_check: stockCheck.payload })
     });
     const data = await res.json();
     if (data.success) {
@@ -590,7 +598,7 @@ async function submitOpenShift(e) {
       const typeLabel = data.shift.shift_type === 'weighed_food' 
         ? '✅ Standard + ⚖️ Mostrador de Comida a la Balanza por Kilo' 
         : '✅ Standard (🍕 Comandas/Delivery + ☕ Ticket de Bar + 📦 Escáner Envasados)';
-      alert(`✅ Caja N° ${data.box_number} Abierta con éxito:\n\nCajero Asignado: ${data.cashier_name}\nOperatorias Habilitadas: ${typeLabel}\nAutorizado por: ${data.user_name}\nCambio Inicial: ${formatCurrency(initial_cash)}`);
+      alert(`✅ Caja N° ${data.box_number} Abierta con éxito:\n\nCajero Asignado: ${data.cashier_name}\nOperatorias Habilitadas: ${typeLabel}\nAutorizado por: ${data.user_name}\nCambio Inicial: ${formatCurrency(initial_cash)}${typeof describeStockCheckResult === 'function' ? describeStockCheckResult(data.stock_check) : ''}`);
       await loadCashSummary();
     } else {
       alert(`⚠️ ${data.error}`);
@@ -767,6 +775,7 @@ async function submitCloseShift(e) {
     if (data.success) {
       closeCloseShiftModal();
       alert(`🔒 Caja N° ${data.box_number} Cerrada por "${data.user_name}" con saldo final de ${formatCurrency(final_cash)}.${eanLogText}`);
+      if (typeof showStockSheetPrompt === 'function') showStockSheetPrompt(data.stock_snapshot_id);
       await loadCashSummary();
     } else {
       alert(`⚠️ ${data.error}`);

@@ -89,7 +89,7 @@ app.use(session({
   }
 }));
 
-const STAFF_L1_PAGES = ['/caja', '/caja.html', '/cocina', '/cocina.html', '/bar', '/bar.html', '/produccion', '/produccion.html', '/portales', '/portales.html', '/manual.html'];
+const STAFF_L1_PAGES = ['/caja', '/caja.html', '/cocina', '/cocina.html', '/bar', '/bar.html', '/produccion', '/produccion.html', '/portales', '/portales.html', '/manual.html', '/stock_planilla.html'];
 const STAFF_L2_PAGES = ['/admin', '/admin.html'];
 const STAFF_L2_API_PREFIXES = ['/api/admin', '/api/facturacion'];
 const STAFF_L1_API_PREFIXES = ['/api/cash', '/api/production', '/api/stock', '/api/pos', '/api/bar', '/api/attendance'];
@@ -395,10 +395,191 @@ app.delete('/api/admin/users/:id', (req, res) => {
   }
 });
 
+// ==========================================================================
+// PLANILLA DE STOCK AL CIERRE DE CAJA Y CONTROL FÍSICO AL ABRIR LA SIGUIENTE
+// Al cerrar una caja se guarda una "foto" del stock que figura en el sistema
+// (insumos + pre-armados) para imprimirla en una planilla. La persona que abre
+// la próxima caja cuenta el stock físico y carga las diferencias: el sistema
+// solo las REGISTRA (no modifica el stock cargado).
+// ==========================================================================
+const MAX_STOCK_SNAPSHOTS = 90;
+
+function roundStockQty(n) {
+  return parseFloat((parseFloat(n) || 0).toFixed(4));
+}
+
+// Lista el stock vigente en el sistema: insumos (store) + pre-armados (db_semielaborados)
+async function buildCurrentStockItems(store) {
+  const items = [];
+  (store.raw_materials || []).forEach(m => {
+    items.push({ type: 'insumo', id: m.id, code: m.code || '', name: m.name || '', unit: m.unit || '', system_stock: roundStockQty(m.current_stock) });
+  });
+  try {
+    const semis = await dbSemi.listSemiElaborados();
+    semis.forEach(s => {
+      items.push({ type: 'semi', id: s.id, code: s.code || '', name: s.name || '', unit: s.unit || '', system_stock: roundStockQty(s.current_stock) });
+    });
+  } catch (err) {
+    console.error('No se pudieron leer los pre-armados para la planilla de stock:', err.message);
+  }
+  const typeOrder = { insumo: 0, semi: 1 };
+  items.sort((a, b) => (typeOrder[a.type] - typeOrder[b.type]) || a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }));
+  return items;
+}
+
+async function createStockSnapshot(store, shift, user) {
+  if (!store.stock_snapshots) store.stock_snapshots = [];
+  const items = await buildCurrentStockItems(store);
+  const nextId = store.stock_snapshots.length > 0 ? Math.max(...store.stock_snapshots.map(s => s.id)) + 1 : 1;
+  const snapshot = {
+    id: nextId,
+    created_at: new Date().toISOString(),
+    shift_id: shift.id,
+    box_number: shift.box_number || 1,
+    cashier_name: shift.cashier_name || '',
+    closed_by: `${user.name} (Nivel ${user.level})`,
+    status: 'pending', // pending | verified
+    verified_at: null,
+    verified_by: null,
+    verified_shift_id: null,
+    check_mode: null,
+    differences: 0,
+    items
+  };
+  store.stock_snapshots.unshift(snapshot);
+  if (store.stock_snapshots.length > MAX_STOCK_SNAPSHOTS) store.stock_snapshots.length = MAX_STOCK_SNAPSHOTS;
+  return snapshot;
+}
+
+// Valida lo que mandó el cajero al abrir (sin tocar nada todavía). Devuelve { error } o { snapshot, mode, counts }
+function validateStockCheckPayload(store, stockCheck) {
+  if (!stockCheck) return { skip: true };
+  const mode = String(stockCheck.mode || '');
+  if (!['ok', 'diff', 'skip'].includes(mode)) {
+    return { error: '⚠️ Elegí una opción en el control de stock (coincide / hay diferencias / omitir).' };
+  }
+  const snapshot = (store.stock_snapshots || []).find(s => s.id === parseInt(stockCheck.snapshot_id));
+  if (!snapshot) return { error: '⚠️ La planilla de stock indicada ya no existe. Recargá la pantalla e intentá de nuevo.' };
+  const counts = [];
+  if (mode === 'diff') {
+    const raw = Array.isArray(stockCheck.counts) ? stockCheck.counts : [];
+    for (const c of raw) {
+      if (c.counted === '' || c.counted === null || c.counted === undefined) continue;
+      const counted = parseFloat(c.counted);
+      if (!Number.isFinite(counted) || counted < 0) {
+        return { error: `⚠️ Cantidad física inválida para "${c.name || c.id}". Usá números iguales o mayores a 0.` };
+      }
+      if (!['insumo', 'semi'].includes(c.type)) continue;
+      counts.push({ type: c.type, id: parseInt(c.id), counted: roundStockQty(counted) });
+    }
+  }
+  return { snapshot, mode, counts };
+}
+
+// Registra el control: SOLO anota las diferencias informadas. NO modifica el stock
+// del sistema (ni insumos, ni pre-armados, ni el historial de ajustes): el ajuste,
+// si hace falta, se hace después a mano desde Admin.
+async function applyStockCheck(store, check, shift, user) {
+  const { snapshot, mode, counts } = check;
+  const result = { snapshot_id: snapshot.id, mode, differences: 0, differences_list: [] };
+  const who = `${user.name} (Nivel ${user.level})`;
+
+  if (mode === 'skip') {
+    shift.stock_check = { snapshot_id: snapshot.id, mode: 'skip', at: new Date().toISOString(), by: who };
+    return result;
+  }
+
+  if (!store.stock_check_diffs) store.stock_check_diffs = [];
+  if (!snapshot.diff_items) snapshot.diff_items = [];
+
+  for (const c of counts) {
+    let name, unit, systemNow;
+    if (c.type === 'insumo') {
+      const mat = (store.raw_materials || []).find(m => m.id === c.id);
+      if (!mat) continue;
+      name = mat.name; unit = mat.unit; systemNow = roundStockQty(mat.current_stock);
+    } else {
+      const semi = await dbSemi.getSemiElaborado(c.id); // solo lectura
+      if (!semi) continue;
+      name = semi.name; unit = semi.unit; systemNow = roundStockQty(semi.current_stock);
+    }
+    if (systemNow === c.counted) continue;
+    const snapItem = (snapshot.items || []).find(i => i.type === c.type && i.id === c.id);
+    const diff = roundStockQty(c.counted - systemNow);
+    const nextId = store.stock_check_diffs.length > 0 ? Math.max(...store.stock_check_diffs.map(d => d.id)) + 1 : 1;
+    const rec = {
+      id: nextId,
+      date: new Date().toISOString(),
+      snapshot_id: snapshot.id,
+      shift_id: shift.id,
+      box_number: shift.box_number || 1,
+      item_type: c.type,
+      item_id: c.id,
+      name,
+      unit,
+      snapshot_stock: snapItem ? snapItem.system_stock : null,
+      system_stock: systemNow,
+      counted_stock: c.counted,
+      difference: diff,
+      stock_modified: false,
+      registered_by: who
+    };
+    store.stock_check_diffs.unshift(rec);
+    snapshot.diff_items.push({ name, unit, system_stock: systemNow, counted_stock: c.counted, difference: diff });
+    result.differences_list.push({ name, unit, system_stock: systemNow, counted_stock: c.counted, difference: diff });
+  }
+
+  result.differences = result.differences_list.length;
+  snapshot.status = 'verified';
+  snapshot.verified_at = new Date().toISOString();
+  snapshot.verified_by = who;
+  snapshot.verified_shift_id = shift.id;
+  snapshot.check_mode = mode;
+  snapshot.differences = result.differences;
+  shift.stock_check = { snapshot_id: snapshot.id, mode, differences: result.differences, at: snapshot.verified_at, by: who };
+  return result;
+}
+
+// Última planilla guardada al cerrar (con su estado: pending / verified)
+app.get('/api/cash/stock-snapshot/latest', (req, res) => {
+  try {
+    const store = db.getStore();
+    const snapshot = (store.stock_snapshots || [])[0] || null;
+    res.json({ success: true, snapshot });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Stock actual en vivo (sin guardar nada): sirve para imprimir la planilla en cualquier momento
+app.get('/api/cash/stock-snapshot/current', async (req, res) => {
+  try {
+    const store = db.getStore();
+    const items = await buildCurrentStockItems(store);
+    res.json({
+      success: true,
+      snapshot: { id: null, live: true, created_at: new Date().toISOString(), box_number: null, closed_by: null, status: 'live', items }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/cash/stock-snapshot/:id', (req, res) => {
+  try {
+    const store = db.getStore();
+    const snapshot = (store.stock_snapshots || []).find(s => s.id === parseInt(req.params.id));
+    if (!snapshot) return res.status(404).json({ success: false, error: 'Planilla de stock no encontrada.' });
+    res.json({ success: true, snapshot });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // APERTURA DE TURNO DE CAJA POR NÚMERO DE CAJA, CAJERO ASIGNADO Y AUTORIZANTE (REQUERIDO NIVEL 2 O 3)
 app.post('/api/cash/shift/open', async (req, res) => {
   try {
-    const { box_number, cashier_name, initial_cash, shift_type, pin } = req.body;
+    const { box_number, cashier_name, initial_cash, shift_type, pin, stock_check } = req.body;
     const numBox = parseInt(box_number || 1);
     const strShiftType = shift_type || 'comandas'; // 'comandas' | 'pre_packaged' | 'weighed_food'
 
@@ -441,6 +622,12 @@ app.post('/api/cash/shift/open', async (req, res) => {
       });
     }
 
+    // 4. Control de stock físico vs. planilla del cierre anterior (si lo mandaron)
+    const stockCheckValidated = validateStockCheckPayload(store, stock_check);
+    if (stockCheckValidated.error) {
+      return res.status(400).json({ success: false, error: stockCheckValidated.error });
+    }
+
     const nextId = store.cash_shifts.length > 0 ? Math.max(...store.cash_shifts.map(s => s.id)) + 1 : 1;
     const newShift = {
       id: nextId,
@@ -457,13 +644,19 @@ app.post('/api/cash/shift/open', async (req, res) => {
     };
 
     store.cash_shifts.unshift(newShift);
+
+    let stockCheckResult = null;
+    if (!stockCheckValidated.skip) {
+      stockCheckResult = await applyStockCheck(store, stockCheckValidated, newShift, auth.user);
+    }
+
     // Guardado CON confirmación: la apertura de caja registra el efectivo
     // inicial declarado por el cajero -> si no queda grabado, tiene que
     // saberse antes de seguir cobrando, no perderse en silencio.
     await db.saveStoreAndConfirm();
     io.emit('cash_shift_updated');
 
-    res.json({ success: true, shift: newShift, user_name: auth.user.name, cashier_name: strCashierName, box_number: numBox });
+    res.json({ success: true, shift: newShift, user_name: auth.user.name, cashier_name: strCashierName, box_number: numBox, stock_check: stockCheckResult });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -505,6 +698,17 @@ app.post('/api/cash/shift/close', async (req, res) => {
     activeShift.status = 'closed';
     activeShift.closed_by = `${auth.user.name} (Nivel ${auth.user.level})`;
 
+    // Foto del stock del sistema al cierre -> planilla para que quien abra la
+    // próxima caja la compare con el stock físico. Si falla, no frena el cierre.
+    let stockSnapshotId = null;
+    try {
+      const snap = await createStockSnapshot(store, activeShift, auth.user);
+      activeShift.stock_snapshot_id = snap.id;
+      stockSnapshotId = snap.id;
+    } catch (snapErr) {
+      console.error('No se pudo guardar la planilla de stock al cierre:', snapErr.message);
+    }
+
     // REGLA DE NEGOCIO DEL BAR:
     // Si se cierra la última caja abierta de la sucursal, el Bar se cierra automáticamente.
     const remainingOpenCashShifts = store.cash_shifts.filter(s => s.status === 'open');
@@ -526,7 +730,7 @@ app.post('/api/cash/shift/close', async (req, res) => {
     await db.saveStoreAndConfirm();
     io.emit('cash_shift_updated');
 
-    res.json({ success: true, shift: activeShift, user_name: auth.user.name, box_number: activeShift.box_number || 1, bar_auto_closed: barAutoClosed });
+    res.json({ success: true, shift: activeShift, user_name: auth.user.name, box_number: activeShift.box_number || 1, bar_auto_closed: barAutoClosed, stock_snapshot_id: stockSnapshotId });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

@@ -39,6 +39,9 @@
       <button id="btn-open-shift-caja" onclick="openOpenShiftModal()" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition flex items-center gap-1">
         🔓 Abrir
       </button>
+      <button onclick="openStockSheet('latest')" class="px-2.5 py-1 bg-sky-700 hover:bg-sky-600 text-white rounded-lg text-xs font-bold border border-sky-500 transition flex items-center gap-1" title="Imprimir la planilla de stock del último cierre">
+        📋 Planilla Stock
+      </button>
       <button id="btn-close-shift-caja" onclick="openCloseShiftModal()" class="px-2.5 py-1 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-xs font-bold border border-slate-600 transition flex items-center gap-1">
         🔒 Cerrar
       </button>
@@ -110,7 +113,7 @@
 
   <!-- MODAL DE APERTURA DE TURNO DE CAJA (REQUERIDO PIN NIVEL 2 O 3) -->
   <div id="open-shift-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200 text-slate-900">
-    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+    <div class="bg-white rounded-2xl max-w-md w-full max-h-[92vh] overflow-y-auto p-6 shadow-2xl space-y-4">
       <div class="flex justify-between items-center border-b pb-3 border-slate-200">
         <h3 class="font-extrabold text-emerald-900 text-lg flex items-center gap-2">
           🔓 Abrir Turno de Caja (Nivel 2)
@@ -154,6 +157,8 @@
           <label class="block text-xs font-semibold text-slate-700 mb-1">Monto Inicial de Cambio en Caja ($) *</label>
           <input type="number" step="100" id="shift-initial-cash" required placeholder="Ej: 10000" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500 font-mono font-bold">
         </div>
+
+        <div id="open-shift-stockcheck" class="hidden"></div>
 
         <div>
           <label class="block text-xs font-semibold text-slate-700 mb-1">🔑 Clave / PIN Personal (Encargado Nivel 2 o Gerente Nivel 3) *</label>
@@ -535,7 +540,8 @@
     </div>
   </div>
 
-  <script src="/js/caja.js?v=2.1.0"></script>
+  <script src="/js/stock_check.js?v=1.0.0"></script>
+  <script src="/js/caja.js?v=2.2.0"></script>
   <script>
     lucide.createIcons();
   </script>

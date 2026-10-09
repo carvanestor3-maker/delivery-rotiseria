@@ -1009,11 +1009,31 @@ function renderPosProductsGrid() {
 }
 
 function appendPosPromoCards(grid) {
-  posPromos.forEach(promo => {
+  promoGroupEntries(posPromos).forEach(entry => {
+    const promo = entry.isGroup ? null : entry.promo;
+    if (entry.isGroup) {
+      const escG = (t) => String(t == null ? '' : t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+      const gcard = document.createElement('div');
+      gcard.onclick = () => openPromoGroup(entry, addPromoToPosCart);
+      gcard.className = 'bg-orange-50 p-3 rounded-2xl border border-orange-300 shadow-sm hover:border-orange-500 hover:shadow-md cursor-pointer transition flex flex-col justify-between space-y-2 group';
+      gcard.innerHTML = `
+        <div class="space-y-1">
+          <span class="inline-block bg-orange-200 text-orange-900 font-black text-[9px] px-1.5 py-0.5 rounded">🎁 ARMAR</span>
+          <div class="font-extrabold text-slate-900 text-xs line-clamp-2">${escG(entry.name)}</div>
+          <div class="text-[10px] text-slate-500 font-semibold">${escG(entry.promos.map(p => p.name).join(' · '))}</div>
+        </div>
+        <div class="flex justify-between items-center pt-1 border-t border-orange-200">
+          <span class="font-mono font-black text-slate-900 text-xs">${entry.promos.length} opciones</span>
+          <span class="p-1 bg-orange-200 group-hover:bg-orange-500 text-orange-900 rounded-lg text-xs font-black transition">Armar</span>
+        </div>
+      `;
+      grid.appendChild(gcard);
+      return;
+    }
     const card = document.createElement('div');
     card.onclick = () => openPromoBuilder(promo, addPromoToPosCart);
     card.className = 'bg-orange-50 p-3 rounded-2xl border border-orange-300 shadow-sm hover:border-orange-500 hover:shadow-md cursor-pointer transition flex flex-col justify-between space-y-2 group';
-    const resumen = promo.slots.map(sl => `${sl.qty} ${sl.label}`).join(' + ');
+    const resumen = promo.slots.map(sl => `${promoSlotQtyText(sl)} ${sl.label}`).join(' + ');
     const esc = (t) => String(t == null ? '' : t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     card.innerHTML = `
       <div class="space-y-1">
@@ -1022,7 +1042,7 @@ function appendPosPromoCards(grid) {
         <div class="text-[10px] text-slate-500 font-semibold">${esc(resumen)}</div>
       </div>
       <div class="flex justify-between items-center pt-1 border-t border-orange-200">
-        <span class="font-mono font-black text-slate-900 text-sm">${formatCurrency(promo.price)}</span>
+        <span class="font-mono font-black text-slate-900 text-sm">${promoPriceLabel(promo)}</span>
         <span class="p-1 bg-orange-200 group-hover:bg-orange-500 text-orange-900 rounded-lg text-xs font-black transition">Armar</span>
       </div>
     `;

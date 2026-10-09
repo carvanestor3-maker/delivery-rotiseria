@@ -1,14 +1,17 @@
 // ==========================================================================
-// ADMIN: PROMOS ARMABLES (combos con cupos)
+// ADMIN: PROMOS ARMABLES (combos y "armá el tuyo")
 // Se dibuja dentro de <div id="promos-admin-root"> en la pestaña Productos.
-// Cada promo tiene cupos: nombre, cantidad y de dónde se elige (una categoría
-// completa o una lista de platos ya cargados). No lleva ficha técnica propia:
-// al venderla se descuenta la ficha técnica de cada plato elegido.
+// Cada promo tiene cupos: nombre, cantidad (exacta o de mínimo a máximo) y de
+// dónde se elige: una categoría, una lista de platos ya cargados o PRE-ARMADOS
+// en porciones (ej. Carne 150 g, Papas 250 g) con su propio precio.
+// Además puede tener descuento por cantidad (ej. 24 unidades 5 %, 36 → 8 %).
+// No lleva ficha técnica propia: al venderla se descuenta lo elegido.
 // ==========================================================================
 (function () {
   var promos = [];
   var menuProducts = [];
   var menuCategories = [];
+  var semis = [];
   var form = null;
 
   function esc(s) {
@@ -18,6 +21,8 @@
   }
   function money(n) { return '$' + Math.round(Number(n) || 0).toLocaleString('es-AR'); }
   function root() { return document.getElementById('promos-admin-root'); }
+  function unitText(u) { return u === 'un' ? 'un.' : (u === 'ml' ? 'ml' : 'g'); }
+  function semiById(id) { return semis.find(function (s) { return s.id === Number(id); }); }
 
   async function load() {
     var r = root();
@@ -27,6 +32,7 @@
       var pd = await results[0].json();
       var md = await results[1].json();
       promos = pd.success ? (pd.promos || []) : [];
+      semis = pd.success ? (pd.semis || []) : [];
       menuProducts = md.success ? (md.products || []) : [];
       menuCategories = md.success ? (md.categories || []) : [];
     } catch (err) {
@@ -35,15 +41,43 @@
     renderList();
   }
 
+  function qtyText(slot) {
+    var max = slot.max !== undefined ? slot.max : slot.qty;
+    var min = slot.min !== undefined ? slot.min : slot.qty;
+    if (min === max) return String(max);
+    if (min === 0) return 'hasta ' + max;
+    return min + ' a ' + max;
+  }
+
   function slotSummary(slot) {
-    var from;
+    var parts = [];
     if (slot.product_ids && slot.product_ids.length) {
-      from = slot.product_ids.length === 1 ? '1 plato' : slot.product_ids.length + ' platos';
-    } else {
+      parts.push(slot.product_ids.length === 1 ? '1 plato' : slot.product_ids.length + ' platos');
+    } else if (slot.category_id !== null && slot.category_id !== undefined) {
       var cat = menuCategories.find(function (c) { return c.id === slot.category_id; });
-      from = cat ? 'categoría ' + cat.name : 'categoría';
+      parts.push(cat ? 'categoría ' + cat.name : 'categoría');
     }
-    return esc(slot.label) + ' × ' + slot.qty + ' <span style="color:#94a3b8;">(' + esc(from) + ')</span>';
+    if (slot.items && slot.items.length) parts.push(slot.items.length + ' pre-armado(s)');
+    return esc(slot.label) + ' × ' + qtyText(slot) + ' <span style="color:#94a3b8;">(' + esc(parts.join(' + ')) + ')</span>';
+  }
+
+  function groupNames() {
+    var seen = {}, out = [];
+    promos.forEach(function (p) { var g = String(p.group || '').trim(); if (g && !seen[g.toLowerCase()]) { seen[g.toLowerCase()] = 1; out.push(g); } });
+    return out;
+  }
+
+  function isVariablePrice(p) {
+    return (p.slots || []).some(function (s) {
+      return s.price_mode === 'product' || (s.items || []).some(function (it) { return it.price > 0; });
+    });
+  }
+
+  function discountSummary(p) {
+    var d = p.discount;
+    if (!d || !d.tiers || !d.tiers.length) return '';
+    var what = (d.slot === null || d.slot === undefined || !p.slots[d.slot]) ? 'unidades' : p.slots[d.slot].label;
+    return ' · 🎯 Descuento (' + esc(what) + '): ' + d.tiers.map(function (t) { return 'desde ' + t.min + ' → ' + t.percent + '%'; }).join(', ');
   }
 
   function renderList() {
@@ -54,9 +88,9 @@
       : promos.map(function (p) {
           return '<div style="padding:12px 16px;border-top:1px solid #e2e8f0;display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:space-between;">' +
             '<div style="min-width:0;flex:1 1 260px;">' +
-              '<div style="font-weight:800;font-size:14px;">' + esc(p.name) + ' <span style="font-family:monospace;color:#0f172a;">' + money(p.price) + '</span> ' +
+              '<div style="font-weight:800;font-size:14px;">' + (p.group ? '<span style="background:#e0e7ff;color:#3730a3;font-size:10px;font-weight:800;padding:2px 6px;border-radius:6px;margin-right:4px;">' + esc(p.group) + '</span>' : '') + esc(p.name) + ' <span style="font-family:monospace;color:#0f172a;">' + (isVariablePrice(p) ? (p.price > 0 ? money(p.price) + ' base + opciones' : 'precio según lo que elijan') : money(p.price)) + '</span> ' +
               (p.available === 0 ? '<span style="background:#fee2e2;color:#991b1b;font-size:10px;font-weight:800;padding:2px 6px;border-radius:6px;">PAUSADA</span>' : '<span style="background:#dcfce7;color:#166534;font-size:10px;font-weight:800;padding:2px 6px;border-radius:6px;">ACTIVA</span>') + '</div>' +
-              '<div style="font-size:12px;color:#475569;margin-top:2px;">' + p.slots.map(slotSummary).join(' + ') + '</div>' +
+              '<div style="font-size:12px;color:#475569;margin-top:2px;">' + p.slots.map(slotSummary).join(' + ') + discountSummary(p) + '</div>' +
             '</div>' +
             '<div style="display:flex;gap:6px;flex-wrap:wrap;">' +
               '<button type="button" data-pa="edit" data-id="' + p.id + '" style="padding:6px 10px;border:1px solid #cbd5e1;background:#fff;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;">✏️ Editar</button>' +
@@ -68,8 +102,8 @@
     r.innerHTML =
       '<div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.05);margin-top:16px;">' +
         '<div style="padding:14px 16px;display:flex;gap:12px;justify-content:space-between;align-items:center;flex-wrap:wrap;">' +
-          '<div><div style="font-weight:800;font-size:16px;">🎁 Promos armables</div>' +
-          '<div style="font-size:12px;color:#64748b;max-width:560px;">Combos con cupos (ej. 1 pizza + 12 empanadas, o 2 hamburguesas + 1 guarnición). El cliente y el cajero eligen los gustos, y el stock se descuenta de la ficha técnica de cada plato elegido. No hace falta cargar nada como plato nuevo.</div></div>' +
+          '<div><div style="font-weight:800;font-size:16px;">🎁 Promos armables y "armá el tuyo"</div>' +
+          '<div style="font-size:12px;color:#64748b;max-width:620px;">Combos con cupos (ej. 1 pizza + 12 empanadas) y armadores de sándwiches, hamburguesas o minutas: el cliente y el cajero suman o restan pre-armados en gramos (carne 150 g, papas 250 g…) con su precio, y hay descuento por cantidad. El stock se descuenta de lo elegido. No hace falta cargar nada como plato nuevo.</div></div>' +
           '<button type="button" data-pa="new" style="background:#f97316;color:#fff;border:0;border-radius:10px;padding:9px 14px;font-weight:800;font-size:12px;cursor:pointer;">➕ Nueva promo</button>' +
         '</div>' + rows +
       '</div>';
@@ -100,17 +134,37 @@
   }
 
   // ---------- Formulario ----------
+  function newSlot() {
+    return { label: '', min: 1, max: 1, mode: 'category', category_id: menuCategories.length ? menuCategories[0].id : null, product_ids: [], items: [], price_mode: 'none' };
+  }
+  function newItem() {
+    return { semi_id: semis.length ? semis[0].id : '', label: '', portion: '', price: '', image_url: '', available: 1 };
+  }
+
   function emptyForm() {
-    return { id: null, name: '', description: '', price: '', available: 1, slots: [{ label: '', qty: 1, mode: 'category', category_id: menuCategories.length ? menuCategories[0].id : null, product_ids: [] }] };
+    return { id: null, name: '', description: '', group: '', price: '', available: 1, slots: [newSlot()], disc_slot: '', tiers: [] };
   }
 
   function editForm(p) {
     return {
-      id: p.id, name: p.name, description: p.description || '', price: p.price, available: p.available === 0 ? 0 : 1,
+      id: p.id, name: p.name, description: p.description || '', group: p.group || '', price: p.price, available: p.available === 0 ? 0 : 1,
+      image_url: p.image_url || '',
       slots: p.slots.map(function (s) {
-        var list = s.product_ids && s.product_ids.length > 0;
-        return { label: s.label, qty: s.qty, mode: list ? 'list' : 'category', category_id: s.category_id, product_ids: (s.product_ids || []).slice() };
-      })
+        var hasItems = s.items && s.items.length > 0;
+        var hasList = s.product_ids && s.product_ids.length > 0;
+        return {
+          label: s.label,
+          min: s.min !== undefined ? s.min : s.qty,
+          max: s.max !== undefined ? s.max : s.qty,
+          mode: hasItems && !hasList && (s.category_id === null || s.category_id === undefined) ? 'items' : (hasList ? 'list' : 'category'),
+          category_id: s.category_id,
+          product_ids: (s.product_ids || []).slice(),
+          items: (s.items || []).map(function (it) { return { semi_id: it.semi_id, label: it.label, portion: it.portion, price: it.price, image_url: it.image_url || '', available: it.available === 0 ? 0 : 1 }; }),
+          price_mode: s.price_mode === 'product' ? 'product' : 'none'
+        };
+      }),
+      disc_slot: p.discount && p.discount.slot !== null && p.discount.slot !== undefined ? String(p.discount.slot) : '',
+      tiers: p.discount && p.discount.tiers ? p.discount.tiers.map(function (t) { return { min: t.min, percent: t.percent }; }) : []
     };
   }
 
@@ -121,7 +175,7 @@
     var ov = document.createElement('div');
     ov.id = 'promo-admin-form';
     ov.style.cssText = 'position:fixed;inset:0;background:rgba(2,6,23,.75);z-index:99999;display:flex;align-items:center;justify-content:center;padding:12px;font-family:Arial,sans-serif;';
-    ov.innerHTML = '<div style="background:#fff;color:#0f172a;border-radius:16px;max-width:640px;width:100%;max-height:94vh;display:flex;flex-direction:column;overflow:hidden;">' +
+    ov.innerHTML = '<div style="background:#fff;color:#0f172a;border-radius:16px;max-width:720px;width:100%;max-height:94vh;display:flex;flex-direction:column;overflow:hidden;">' +
       '<div style="padding:14px 18px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;"><div style="font-weight:800;font-size:16px;">' + (form.id ? '✏️ Editar promo' : '🎁 Nueva promo') + '</div>' +
       '<button type="button" id="pf-close" aria-label="Cerrar" style="border:0;background:#f1f5f9;border-radius:8px;width:30px;height:30px;font-size:16px;font-weight:800;cursor:pointer;">✕</button></div>' +
       '<div id="pf-body" style="padding:14px 18px;overflow-y:auto;flex:1;"></div>' +
@@ -145,6 +199,37 @@
   }
 
   var INPUT = 'width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;box-sizing:border-box;background:#fff;color:#0f172a;';
+  var SMALL = 'padding:7px 8px;border:1px solid #cbd5e1;border-radius:8px;font-size:12px;box-sizing:border-box;background:#fff;color:#0f172a;';
+
+  function itemsEditor(s, i) {
+    if (semis.length === 0) {
+      return '<div style="font-size:12px;color:#b91c1c;font-weight:700;padding:8px;background:#fef2f2;border-radius:8px;">Todavía no cargaste pre-armados. Cargalos en Admin → Stock → Pre-Armados y volvé acá.</div>';
+    }
+    var rows = s.items.map(function (it, j) {
+      var semi = semiById(it.semi_id);
+      var pu = semi ? unitText(semi.portion_unit) : 'g';
+      var photo = '<span style="position:relative;display:block;width:40px;height:40px;">' +
+        '<label title="' + (it.image_url ? 'Cambiar foto' : 'Subir foto (opcional)') + '" style="display:flex;align-items:center;justify-content:center;width:40px;height:40px;border:1px dashed #94a3b8;border-radius:50%;overflow:hidden;cursor:pointer;background:#fff;font-size:16px;">' +
+          (it.image_url ? '<img src="' + esc(it.image_url) + '" alt="" style="width:100%;height:100%;object-fit:cover;">' : '📷') +
+          '<input type="file" accept="image/*" data-photo-s="' + i + '" data-photo-it="' + j + '" style="display:none;">' +
+        '</label>' +
+        (it.image_url ? '<button type="button" data-act="rm-photo" data-s="' + i + '" data-it="' + j + '" title="Quitar foto" style="position:absolute;right:-5px;top:-5px;width:16px;height:16px;border:0;border-radius:50%;background:#b91c1c;color:#fff;font-size:10px;line-height:16px;padding:0;cursor:pointer;">✕</button>' : '') +
+      '</span>';
+      return '<div style="display:grid;grid-template-columns:44px minmax(120px,1.5fr) minmax(90px,1fr) 78px 88px auto;gap:6px;align-items:center;margin-bottom:6px;">' + photo +
+        '<select data-s="' + i + '" data-it="' + j + '" data-k="semi_id" style="' + SMALL + '">' +
+          semis.map(function (sm) { return '<option value="' + sm.id + '"' + (sm.id === Number(it.semi_id) ? ' selected' : '') + '>' + esc(sm.name) + ' (' + esc(sm.unit || 'g') + ')</option>'; }).join('') +
+        '</select>' +
+        '<input data-s="' + i + '" data-it="' + j + '" data-k="label" value="' + esc(it.label) + '" placeholder="Nombre (opcional)" style="' + SMALL + '">' +
+        '<span style="display:flex;align-items:center;gap:3px;"><input data-s="' + i + '" data-it="' + j + '" data-k="portion" type="number" min="0" step="any" inputmode="decimal" value="' + esc(it.portion) + '" placeholder="150" style="' + SMALL + 'width:100%;"><b style="font-size:11px;color:#64748b;">' + pu + '</b></span>' +
+        '<span style="display:flex;align-items:center;gap:3px;"><b style="font-size:11px;color:#64748b;">$</b><input data-s="' + i + '" data-it="' + j + '" data-k="price" type="number" min="0" step="1" inputmode="decimal" value="' + esc(it.price) + '" placeholder="0" style="' + SMALL + 'width:100%;"></span>' +
+        '<button type="button" data-act="rm-item" data-s="' + i + '" data-it="' + j + '" title="Quitar" style="padding:6px 8px;border:0;background:#fee2e2;color:#b91c1c;border-radius:8px;font-weight:800;cursor:pointer;">🗑</button>' +
+      '</div>';
+    }).join('');
+    return '<div style="font-size:11px;color:#64748b;margin-bottom:6px;">Cada fila es una opción con su foto (opcional, sirve para la imagen estimativa que ve el cliente al armar), su porción y su precio por unidad (ej. "Carne 150 g $3.500", "Papas 250 g $2.800"). El cliente suma o resta con + y −. Podés repetir el mismo pre-armado con otra porción (150 g, 250 g…).</div>' +
+      '<div style="display:grid;grid-template-columns:44px minmax(120px,1.5fr) minmax(90px,1fr) 78px 88px auto;gap:6px;font-size:10px;font-weight:800;color:#64748b;margin-bottom:3px;"><span>Foto</span><span>Pre-armado</span><span>Nombre que ve el cliente</span><span>Porción</span><span>Precio</span><span></span></div>' +
+      rows +
+      '<button type="button" data-act="add-item" data-s="' + i + '" style="padding:7px 12px;border:1px dashed #94a3b8;background:#fff;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;">➕ Agregar opción</button>';
+  }
 
   function renderForm() {
     var body = document.querySelector('#promo-admin-form #pf-body');
@@ -154,46 +239,125 @@
       return menuCategories.map(function (c) { return '<option value="' + c.id + '"' + (c.id === sel ? ' selected' : '') + '>' + esc((c.icon || '') + ' ' + c.name) + '</option>'; }).join('');
     };
     body.innerHTML =
-      '<div style="display:grid;grid-template-columns:1fr 140px;gap:10px;margin-bottom:10px;">' +
-        '<label style="font-size:12px;font-weight:700;">Nombre de la promo<input data-f="name" value="' + esc(form.name) + '" placeholder="Ej. Pizza + 12 empanadas" style="' + INPUT + '"></label>' +
-        '<label style="font-size:12px;font-weight:700;">Precio ($)<input data-f="price" type="number" min="0" step="1" inputmode="decimal" value="' + esc(form.price) + '" style="' + INPUT + '"></label>' +
+      '<div style="display:grid;grid-template-columns:1fr 180px;gap:10px;margin-bottom:10px;">' +
+        '<label style="font-size:12px;font-weight:700;">Nombre<input data-f="name" value="' + esc(form.name) + '" placeholder="Ej. Armá tu sándwich de milanesa" style="' + INPUT + '"></label>' +
+        '<label style="font-size:12px;font-weight:700;">Precio base ($)<input data-f="price" type="number" min="0" step="1" inputmode="decimal" value="' + esc(form.price) + '" placeholder="0" style="' + INPUT + '"></label>' +
       '</div>' +
-      '<label style="display:block;font-size:12px;font-weight:700;margin-bottom:10px;">Descripción (opcional)<input data-f="description" value="' + esc(form.description) + '" placeholder="Ej. Elegí tu pizza y tus 12 empanadas" style="' + INPUT + '"></label>' +
-      '<div style="font-weight:800;font-size:13px;margin:12px 0 6px;">Cupos de la promo</div>' +
+      '<div style="font-size:11px;color:#64748b;margin:-4px 0 10px;">El precio base se suma a lo que elijan. Si todo el precio sale de las opciones, dejalo en 0. Una promo de precio fijo (ej. 1 pizza + 12 empanadas) lleva solo el precio base.</div>' +
+      '<label style="display:block;font-size:12px;font-weight:700;margin-bottom:4px;">Grupo (opcional)<input data-f="group" list="pa-groups" value="' + esc(form.group) + '" placeholder="Ej. Armá tu comida" style="' + INPUT + '"></label>' +
+      '<datalist id="pa-groups">' + groupNames().map(function (g) { return '<option value="' + esc(g) + '">'; }).join('') + '</datalist>' +
+      '<div style="font-size:11px;color:#64748b;margin-bottom:10px;">Las promos con el mismo grupo se muestran como UNA sola tarjeta: el cliente primero elige qué armar (hamburguesa, sándwich de milanesa, lomito…) y después le salen las opciones de esa promo. Dejalo vacío para que se muestre sola.</div>' +
+      '<label style="display:block;font-size:12px;font-weight:700;margin-bottom:10px;">Descripción (opcional)<input data-f="description" value="' + esc(form.description) + '" placeholder="Ej. Elegí el pan, la milanesa y las guarniciones" style="' + INPUT + '"></label>' +
+      '<div style="font-weight:800;font-size:13px;margin:12px 0 6px;">Cupos (los pasos del armado)</div>' +
       form.slots.map(function (s, i) {
-        var picker = s.mode === 'category'
-          ? '<select data-s="' + i + '" data-k="category_id" style="' + INPUT + '">' + catOptions(s.category_id) + '</select>'
-          : '<input data-pick-filter="' + i + '" placeholder="Buscar plato…" style="' + INPUT + 'margin-bottom:6px;">' +
+        var picker = '';
+        if (s.mode === 'category') {
+          picker = '<select data-s="' + i + '" data-k="category_id" style="' + INPUT + '">' + catOptions(s.category_id) + '</select>';
+        } else if (s.mode === 'list') {
+          picker = '<input data-pick-filter="' + i + '" placeholder="Buscar plato…" style="' + INPUT + 'margin-bottom:6px;">' +
             '<div data-pick-list="' + i + '" style="max-height:170px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px;padding:4px;">' +
             menuProducts.map(function (p) {
               var cat = menuCategories.find(function (c) { return c.id === p.category_id; });
               return '<label data-name="' + esc((p.name + ' ' + (cat ? cat.name : '')).toLowerCase()) + '" style="display:flex;gap:8px;align-items:center;padding:4px 6px;font-size:12px;cursor:pointer;"><input type="checkbox" data-s="' + i + '" data-k="pick" value="' + p.id + '"' + (s.product_ids.indexOf(p.id) > -1 ? ' checked' : '') + '> ' + esc(p.name) + ' <span style="color:#94a3b8;">' + esc(cat ? cat.name : '') + '</span></label>';
             }).join('') + '</div>' +
             '<div style="font-size:11px;color:#64748b;margin-top:4px;">' + s.product_ids.length + ' plato(s) elegido(s)</div>';
+        } else {
+          picker = itemsEditor(s, i);
+        }
+        var priceMode = s.mode === 'items' ? '' :
+          '<label style="display:flex;gap:8px;align-items:center;font-size:12px;font-weight:700;margin-top:8px;cursor:pointer;"><input type="checkbox" data-s="' + i + '" data-k="price_mode"' + (s.price_mode === 'product' ? ' checked' : '') + '> Sumar el precio de cada plato elegido (usa el precio del menú; ideal para docenas de empanadas con descuento por cantidad)</label>';
         return '<div style="border:1px solid #e2e8f0;border-radius:12px;padding:10px;margin-bottom:8px;background:#f8fafc;">' +
-          '<div style="display:grid;grid-template-columns:1fr 90px auto;gap:8px;align-items:end;margin-bottom:8px;">' +
-            '<label style="font-size:11px;font-weight:700;">Nombre del cupo<input data-s="' + i + '" data-k="label" value="' + esc(s.label) + '" placeholder="Ej. Pizza, Empanadas, Guarnición" style="' + INPUT + '"></label>' +
-            '<label style="font-size:11px;font-weight:700;">Cantidad<input data-s="' + i + '" data-k="qty" type="number" min="1" step="1" value="' + esc(s.qty) + '" style="' + INPUT + '"></label>' +
+          '<div style="display:grid;grid-template-columns:1fr 80px 80px auto;gap:8px;align-items:end;margin-bottom:8px;">' +
+            '<label style="font-size:11px;font-weight:700;">Nombre del cupo<input data-s="' + i + '" data-k="label" value="' + esc(s.label) + '" placeholder="Ej. Carne, Pan, Papas, Empanadas" style="' + INPUT + '"></label>' +
+            '<label style="font-size:11px;font-weight:700;" title="Cantidad mínima que tiene que elegir (0 = opcional)">Mínimo<input data-s="' + i + '" data-k="min" type="number" min="0" step="1" value="' + esc(s.min) + '" style="' + INPUT + '"></label>' +
+            '<label style="font-size:11px;font-weight:700;" title="Cantidad máxima que puede elegir. Igual al mínimo = cantidad exacta">Máximo<input data-s="' + i + '" data-k="max" type="number" min="1" step="1" value="' + esc(s.max) + '" style="' + INPUT + '"></label>' +
             (form.slots.length > 1 ? '<button type="button" data-act="rm-slot" data-s="' + i + '" title="Quitar cupo" style="padding:8px 10px;border:0;background:#fee2e2;color:#b91c1c;border-radius:8px;font-weight:800;cursor:pointer;">🗑</button>' : '<span></span>') +
           '</div>' +
           '<div style="display:flex;gap:14px;font-size:12px;font-weight:700;margin-bottom:6px;flex-wrap:wrap;">' +
-            '<label style="cursor:pointer;" title="No incluye los artículos cuyo nombre empieza con Promo o Combo"><input type="radio" name="mode-' + i + '" data-s="' + i + '" data-k="mode" value="category"' + (s.mode === 'category' ? ' checked' : '') + '> Elegir de una categoría</label>' +
-            '<label style="cursor:pointer;"><input type="radio" name="mode-' + i + '" data-s="' + i + '" data-k="mode" value="list"' + (s.mode === 'list' ? ' checked' : '') + '> Elegir de una lista de platos</label>' +
-          '</div>' + picker + '</div>';
+            '<label style="cursor:pointer;" title="No incluye los artículos cuyo nombre empieza con Promo o Combo"><input type="radio" name="mode-' + i + '" data-s="' + i + '" data-k="mode" value="category"' + (s.mode === 'category' ? ' checked' : '') + '> Platos de una categoría</label>' +
+            '<label style="cursor:pointer;"><input type="radio" name="mode-' + i + '" data-s="' + i + '" data-k="mode" value="list"' + (s.mode === 'list' ? ' checked' : '') + '> Lista de platos</label>' +
+            '<label style="cursor:pointer;"><input type="radio" name="mode-' + i + '" data-s="' + i + '" data-k="mode" value="items"' + (s.mode === 'items' ? ' checked' : '') + '> Pre-armados en porciones (con precio)</label>' +
+          '</div>' + picker + priceMode + '</div>';
       }).join('') +
       '<button type="button" data-act="add-slot" style="padding:8px 12px;border:1px dashed #94a3b8;background:#fff;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;margin-bottom:12px;">➕ Agregar otro cupo</button>' +
+      // ---- descuento por cantidad
+      '<div style="border:1px solid #bbf7d0;background:#f0fdf4;border-radius:12px;padding:10px;margin-bottom:12px;">' +
+        '<div style="font-weight:800;font-size:13px;margin-bottom:4px;">🎯 Descuento por cantidad (opcional)</div>' +
+        '<div style="font-size:11px;color:#475569;margin-bottom:8px;">Cuantas más unidades, más descuento: se aplica sobre el total. Ej. empanadas: desde 24 → 5 %, desde 36 → 8 %. Hamburguesas: desde 2 → 10 %, desde 3 → 15 %.</div>' +
+        '<label style="font-size:12px;font-weight:700;display:block;margin-bottom:8px;">Contar las unidades de: ' +
+          '<select data-f="disc_slot" style="' + SMALL + 'margin-left:6px;"><option value=""' + (form.disc_slot === '' ? ' selected' : '') + '>Todos los cupos</option>' +
+          form.slots.map(function (s, i) { return '<option value="' + i + '"' + (String(i) === String(form.disc_slot) ? ' selected' : '') + '>' + esc(s.label || ('Cupo ' + (i + 1))) + '</option>'; }).join('') +
+          '</select></label>' +
+        form.tiers.map(function (t, k) {
+          return '<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;font-size:12px;font-weight:700;">Desde ' +
+            '<input data-t="' + k + '" data-k="min" type="number" min="1" step="1" value="' + esc(t.min) + '" placeholder="24" style="' + SMALL + 'width:80px;"> unidades → ' +
+            '<input data-t="' + k + '" data-k="percent" type="number" min="0" step="any" value="' + esc(t.percent) + '" placeholder="5" style="' + SMALL + 'width:70px;"> % de descuento ' +
+            '<button type="button" data-act="rm-tier" data-t="' + k + '" title="Quitar" style="padding:5px 8px;border:0;background:#fee2e2;color:#b91c1c;border-radius:8px;font-weight:800;cursor:pointer;">🗑</button></div>';
+        }).join('') +
+        '<button type="button" data-act="add-tier" style="padding:7px 12px;border:1px dashed #86efac;background:#fff;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;">➕ Agregar escalón</button>' +
+      '</div>' +
       '<label style="display:flex;gap:8px;align-items:center;font-size:12px;font-weight:700;margin-bottom:10px;"><input type="checkbox" data-f="available"' + (form.available !== 0 ? ' checked' : '') + '> Promo activa (visible para pedir)</label>' +
       '<label style="display:block;font-size:12px;font-weight:700;">Tu PIN (Nivel 2 o superior)<input id="pf-pin" type="password" inputmode="numeric" style="' + INPUT + 'max-width:200px;" autocomplete="off"></label>' +
       '<div id="pf-error" style="color:#b91c1c;font-size:12px;font-weight:700;margin-top:8px;display:none;"></div>';
     body.scrollTop = scroll;
   }
 
+  function resizeToDataUrl(file, maxDim) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onerror = reject;
+      reader.onload = function (ev) {
+        var img = new Image();
+        img.onerror = function () { reject(new Error('No se pudo leer la imagen')); };
+        img.onload = function () {
+          var w = img.width, h = img.height;
+          if (w > maxDim || h > maxDim) {
+            if (w >= h) { h = Math.round(h * maxDim / w); w = maxDim; } else { w = Math.round(w * maxDim / h); h = maxDim; }
+          }
+          var canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          resolve(canvas.toDataURL('image/jpeg', 0.82));
+        };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // Foto de una opción: se achica en el navegador, se muestra al toque y se sube
+  // en segundo plano (si la subida falla queda guardada chica, incrustada).
+  async function onPhotoPicked(t) {
+    var slot = form.slots[parseInt(t.getAttribute('data-photo-s'))];
+    var item = slot && slot.items[parseInt(t.getAttribute('data-photo-it'))];
+    var file = t.files && t.files[0];
+    if (!item || !file) return;
+    try {
+      var dataUrl = await resizeToDataUrl(file, 480);
+      item.image_url = dataUrl;
+      renderForm();
+      try {
+        var res = await fetch('/api/admin/upload-image', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image: dataUrl }) });
+        var d = await res.json();
+        if (d.success && d.url && form && item.image_url === dataUrl) { item.image_url = d.url; renderForm(); }
+      } catch (e) { /* queda la versión chica incrustada */ }
+    } catch (err) {
+      showError('No se pudo leer esa foto. Probá con otra.');
+    }
+  }
+
   function onFormInput(e) {
     var t = e.target;
     if (!form || !t) return;
+    if (t.hasAttribute('data-photo-s')) { if (e.type === 'change') onPhotoPicked(t); return; }
     if (t.hasAttribute('data-f')) {
       var k = t.getAttribute('data-f');
       form[k] = k === 'available' ? (t.checked ? 1 : 0) : t.value;
+      return;
+    }
+    if (t.hasAttribute('data-t')) {
+      var tier = form.tiers[parseInt(t.getAttribute('data-t'))];
+      if (tier) tier[t.getAttribute('data-k')] = t.value;
       return;
     }
     if (t.hasAttribute('data-pick-filter')) {
@@ -207,6 +371,13 @@
       var key = t.getAttribute('data-k');
       var slot = form.slots[i];
       if (!slot) return;
+      if (t.hasAttribute('data-it')) {
+        var item = slot.items[parseInt(t.getAttribute('data-it'))];
+        if (!item) return;
+        if (key === 'semi_id') { item.semi_id = parseInt(t.value); renderForm(); }
+        else item[key] = t.value;
+        return;
+      }
       if (key === 'pick') {
         var id = parseInt(t.value);
         var pos = slot.product_ids.indexOf(id);
@@ -217,11 +388,12 @@
         if (info && info.nextElementSibling) info.nextElementSibling.textContent = slot.product_ids.length + ' plato(s) elegido(s)';
       } else if (key === 'mode') {
         slot.mode = t.value;
+        if (slot.mode === 'items' && slot.items.length === 0) slot.items.push(newItem());
         renderForm();
+      } else if (key === 'price_mode') {
+        slot.price_mode = t.checked ? 'product' : 'none';
       } else if (key === 'category_id') {
         slot.category_id = parseInt(t.value);
-      } else if (key === 'qty') {
-        slot.qty = t.value;
       } else {
         slot[key] = t.value;
       }
@@ -234,10 +406,32 @@
     var act = btn.getAttribute('data-act');
     if (act === 'add-slot') {
       if (form.slots.length >= 8) return;
-      form.slots.push({ label: '', qty: 1, mode: 'category', category_id: menuCategories.length ? menuCategories[0].id : null, product_ids: [] });
+      form.slots.push(newSlot());
       renderForm();
     } else if (act === 'rm-slot') {
-      form.slots.splice(parseInt(btn.getAttribute('data-s')), 1);
+      var rmIdx = parseInt(btn.getAttribute('data-s'));
+      form.slots.splice(rmIdx, 1);
+      if (form.disc_slot !== '') {
+        var ds = parseInt(form.disc_slot);
+        if (ds === rmIdx) form.disc_slot = '';
+        else if (ds > rmIdx) form.disc_slot = String(ds - 1);
+      }
+      renderForm();
+    } else if (act === 'add-item') {
+      form.slots[parseInt(btn.getAttribute('data-s'))].items.push(newItem());
+      renderForm();
+    } else if (act === 'rm-item') {
+      form.slots[parseInt(btn.getAttribute('data-s'))].items.splice(parseInt(btn.getAttribute('data-it')), 1);
+      renderForm();
+    } else if (act === 'rm-photo') {
+      e.preventDefault();
+      form.slots[parseInt(btn.getAttribute('data-s'))].items[parseInt(btn.getAttribute('data-it'))].image_url = '';
+      renderForm();
+    } else if (act === 'add-tier') {
+      form.tiers.push({ min: '', percent: '' });
+      renderForm();
+    } else if (act === 'rm-tier') {
+      form.tiers.splice(parseInt(btn.getAttribute('data-t')), 1);
       renderForm();
     }
   }
@@ -247,25 +441,45 @@
     if (el) { el.textContent = msg; el.style.display = 'block'; }
   }
 
+  function buildPayload(pin) {
+    return {
+      id: form.id, name: form.name, description: form.description, group: String(form.group || '').trim(), price: form.price === '' ? 0 : form.price,
+      image_url: form.image_url || '', available: form.available, pin: pin,
+      slots: form.slots.map(function (s) {
+        var items = s.mode === 'items' ? s.items.map(function (it) {
+          return { semi_id: Number(it.semi_id), label: it.label, portion: Number(it.portion), price: it.price === '' ? 0 : Number(it.price), image_url: it.image_url || '', available: it.available };
+        }) : [];
+        return {
+          label: s.label, min: parseInt(s.min), max: parseInt(s.max),
+          category_id: s.mode === 'category' ? s.category_id : null,
+          product_ids: s.mode === 'list' ? s.product_ids : [],
+          items: items,
+          price_mode: s.mode === 'items' ? 'none' : s.price_mode
+        };
+      }),
+      discount: { slot: form.disc_slot === '' ? null : parseInt(form.disc_slot), tiers: form.tiers.map(function (t) { return { min: t.min === '' ? '' : Number(t.min), percent: t.percent === '' ? '' : Number(t.percent) }; }) }
+    };
+  }
+
   async function saveForm() {
     var pin = (document.getElementById('pf-pin') || {}).value;
     if (!form.name.trim()) return showError('Poné un nombre a la promo.');
-    if (!(parseFloat(form.price) > 0)) return showError('Poné un precio mayor a 0.');
     for (var i = 0; i < form.slots.length; i++) {
       var s = form.slots[i];
       if (!String(s.label).trim()) return showError('Cada cupo necesita un nombre.');
-      if (!(parseInt(s.qty) >= 1)) return showError('La cantidad del cupo "' + s.label + '" tiene que ser 1 o más.');
+      if (!(parseInt(s.max) >= 1)) return showError('El máximo del cupo "' + s.label + '" tiene que ser 1 o más.');
+      if (!(parseInt(s.min) >= 0) || parseInt(s.min) > parseInt(s.max)) return showError('El mínimo del cupo "' + s.label + '" tiene que estar entre 0 y el máximo.');
       if (s.mode === 'list' && s.product_ids.length === 0) return showError('Elegí al menos un plato en el cupo "' + s.label + '".');
+      if (s.mode === 'items') {
+        if (s.items.length === 0) return showError('Agregá al menos una opción en el cupo "' + s.label + '".');
+        for (var j = 0; j < s.items.length; j++) {
+          if (!(Number(s.items[j].portion) > 0)) return showError('Poné la porción (gramos o unidades) de cada opción del cupo "' + s.label + '".');
+        }
+      }
     }
     if (!pin) return showError('Ingresá tu PIN para guardar.');
-    var payload = {
-      id: form.id, name: form.name, description: form.description, price: form.price, available: form.available, pin: pin,
-      slots: form.slots.map(function (s) {
-        return { label: s.label, qty: parseInt(s.qty), category_id: s.mode === 'category' ? s.category_id : null, product_ids: s.mode === 'list' ? s.product_ids : [] };
-      })
-    };
     try {
-      var data = await send('POST', '/api/admin/promos', payload);
+      var data = await send('POST', '/api/admin/promos', buildPayload(pin));
       if (!data.success) return showError(data.error || 'No se pudo guardar.');
       closeForm();
       await load();
@@ -287,7 +501,8 @@
     if (act === 'toggle') {
       var pin = await askPin((p.available === 0 ? 'Activar' : 'Pausar') + ' la promo "' + p.name + '"');
       if (!pin) return;
-      var d = await send('POST', '/api/admin/promos', { id: p.id, name: p.name, description: p.description, price: p.price, available: p.available === 0 ? 1 : 0, slots: p.slots, pin: pin });
+      // se reenvía TODO lo que ya tiene la promo para no perder opciones ni descuentos
+      var d = await send('POST', '/api/admin/promos', { id: p.id, name: p.name, description: p.description, group: p.group || '', price: p.price, image_url: p.image_url || '', available: p.available === 0 ? 1 : 0, slots: p.slots, discount: p.discount || null, pin: pin });
       if (!d.success) alert('⚠️ ' + d.error);
       await load();
     } else if (act === 'delete') {

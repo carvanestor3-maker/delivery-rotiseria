@@ -973,18 +973,107 @@ function resolvePromoSlotProducts(store, slot) {
   return [];
 }
 
+// ----- Unidades de los Pre-Armados: se cargan en gramos o unidades. La porción de
+// una opción se escribe en g / ml / unidades y acá se pasa a la unidad del pre-armado.
+function semiUnitKind(unit) {
+  const u = String(unit || '').toLowerCase().trim();
+  if (['unidades', 'unidad', 'un', 'u', 'uni'].includes(u)) return 'un';
+  if (['ml', 'mililitros', 'mililitro'].includes(u)) return 'ml';
+  if (['l', 'lt', 'lts', 'litro', 'litros'].includes(u)) return 'l';
+  if (['kg', 'kilo', 'kilos', 'kilogramo', 'kilogramos'].includes(u)) return 'kg';
+  return 'g';
+}
+function semiPortionFactor(unit) {
+  const k = semiUnitKind(unit);
+  return (k === 'kg' || k === 'l') ? 0.001 : 1;
+}
+function semiPortionUnit(unit) {
+  const k = semiUnitKind(unit);
+  return k === 'un' ? 'un' : ((k === 'ml' || k === 'l') ? 'ml' : 'g');
+}
+
+// Cupos con rango: min..max (si no hay min/max el cupo es exacto = qty, como antes)
+function promoSlotMin(slot) { return Number.isInteger(slot.min) ? slot.min : slot.qty; }
+function promoSlotMax(slot) { return Number.isInteger(slot.max) ? slot.max : slot.qty; }
+
+function effectiveProductPrice(p) {
+  const promo = parseFloat(p.precio_promo);
+  if (!isNaN(promo) && promo > 0) return promo;
+  return parseFloat(p.price) || 0;
+}
+
+// Opciones de un cupo: platos (de categoría o lista) y/o pre-armados con porción y precio.
+// Foto opcional de una opción de promo (para la vista estimativa del armador):
+// link http(s), ruta del propio sitio o imagen incrustada chica. Cualquier otra cosa se descarta.
+function cleanPromoOptionImage(v) {
+  const s = String(v || '').trim();
+  if (!s) return '';
+  if (/^https?:\/\//i.test(s) && s.length <= 2000) return s;
+  if (/^\/[^\/]/.test(s) && s.length <= 500) return s;
+  if (/^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+\/=]+$/.test(s) && s.length <= 700000) return s;
+  return '';
+}
+
+function resolvePromoSlotOptions(store, slot) {
+  const priced = slot.price_mode === 'product';
+  const opts = resolvePromoSlotProducts(store, slot).map(p => ({
+    type: 'product', key: `p${p.id}`, id: p.id, name: p.name, price: priced ? effectiveProductPrice(p) : 0,
+    // las fotos incrustadas de los platos no se repiten acá (ya viajan con el menú): el armador las busca por id
+    image_url: /^data:/i.test(String(p.image_url || '')) ? '' : (p.image_url || '')
+  }));
+  (slot.items || []).filter(it => it.available !== 0).forEach(it => {
+    opts.push({
+      type: 'item', key: it.key, id: it.key, name: it.label, price: parseFloat(it.price) || 0,
+      portion: it.portion, portion_unit: it.portion_unit || 'g', semi_id: it.semi_id,
+      image_url: it.image_url || ''
+    });
+  });
+  return opts;
+}
+
+// Descuento por cantidad (ej. 12 empanadas 0 %, 24 → 5 %, 36 → 8 %): cuenta las
+// unidades elegidas en un cupo (o en todos) y aplica el mayor escalón alcanzado.
+function promoDiscountFor(promo, normSel) {
+  const d = promo.discount;
+  if (!d || !Array.isArray(d.tiers) || d.tiers.length === 0) return { pct: 0, count: 0 };
+  const count = (normSel || [])
+    .filter(s => d.slot === null || d.slot === undefined || s.slot === d.slot)
+    .reduce((acc, s) => acc + s.qty, 0);
+  let pct = 0;
+  d.tiers.forEach(t => { if (count >= t.min && t.percent > pct) pct = t.percent; });
+  return { pct, count };
+}
+
+// Precio de UNA unidad armada: base + opciones con precio, menos el descuento por cantidad.
+function computePromoTotal(promo, normSel) {
+  let subtotal = Number(promo.price) || 0;
+  (normSel || []).forEach(s => { subtotal += (Number(s.unit_price) || 0) * s.qty; });
+  const { pct } = promoDiscountFor(promo, normSel);
+  const total = pct > 0 ? Math.round(subtotal * (1 - pct / 100)) : parseFloat(subtotal.toFixed(2));
+  return { subtotal: parseFloat(subtotal.toFixed(2)), pct, total };
+}
+
 function buildPublicPromo(store, promo) {
   return {
     id: promo.id,
     name: promo.name,
     description: promo.description || '',
+    group: promo.group || '',
     price: promo.price,
     image_url: promo.image_url || '',
+    discount: promo.discount && Array.isArray(promo.discount.tiers) && promo.discount.tiers.length > 0
+      ? { slot: (promo.discount.slot === null || promo.discount.slot === undefined) ? null : promo.discount.slot, tiers: promo.discount.tiers }
+      : null,
     slots: promo.slots.map((slot, index) => ({
       index,
       label: slot.label,
-      qty: slot.qty,
-      options: resolvePromoSlotProducts(store, slot).map(p => ({ id: p.id, name: p.name }))
+      qty: promoSlotMax(slot),
+      min: promoSlotMin(slot),
+      max: promoSlotMax(slot),
+      options: resolvePromoSlotOptions(store, slot).map(o => ({
+        id: o.id, key: o.key, type: o.type, name: o.name, price: o.price,
+        portion: o.portion, portion_unit: o.portion_unit, image_url: o.image_url || ''
+      }))
     }))
   };
 }
@@ -993,7 +1082,7 @@ function getPublicPromos(store) {
   return getPromoList(store)
     .filter(pr => pr.available !== 0)
     .map(pr => buildPublicPromo(store, pr))
-    .filter(pr => pr.slots.every(sl => sl.options.length > 0));
+    .filter(pr => pr.slots.every(sl => sl.options.length > 0 || sl.min === 0));
 }
 
 function promoDetailText(selections) {
@@ -1007,8 +1096,9 @@ function promoDetailText(selections) {
 }
 
 // Valida los ítems "promo" de un pedido o venta y los deja normalizados.
-// Devuelve { items } o { error }.
-function normalizePromoSaleItems(store, items) {
+// Recalcula el precio (base + opciones - descuento por cantidad) y lo compara con
+// el que mandó el cliente. Devuelve { items } o { error }.
+async function normalizePromoSaleItems(store, items) {
   if (!Array.isArray(items)) return { items };
   const out = [];
   for (const item of items) {
@@ -1022,53 +1112,81 @@ function normalizePromoSaleItems(store, items) {
     if (!Number.isInteger(qty) || qty < 1 || qty > 99) {
       return { error: `Cantidad inválida para la promo "${promo.name}".` };
     }
-    if (Math.abs(parseFloat(item.price) - promo.price) > 0.01) {
-      return { error: `El precio de la promo "${promo.name}" cambió. Actualizá el menú y volvé a armarla.` };
-    }
 
     const selections = Array.isArray(item.selections) ? item.selections : [];
-    if (selections.some(sel => !Number.isInteger(Number(sel.slot)) || Number(sel.slot) < 0 || Number(sel.slot) >= promo.slots.length)) {
+    if (selections.length > 200 || selections.some(sel => !Number.isInteger(Number(sel.slot)) || Number(sel.slot) < 0 || Number(sel.slot) >= promo.slots.length)) {
       return { error: `La selección de la promo "${promo.name}" no es válida.` };
     }
 
     const normSel = [];
     for (let si = 0; si < promo.slots.length; si++) {
       const slot = promo.slots[si];
-      const allowed = resolvePromoSlotProducts(store, slot);
+      const allowed = resolvePromoSlotOptions(store, slot);
+      const minQ = promoSlotMin(slot);
+      const maxQ = promoSlotMax(slot);
       let sum = 0;
       for (const sel of selections.filter(x => Number(x.slot) === si)) {
         const q = Number(sel.qty);
         if (!Number.isInteger(q) || q <= 0) {
           return { error: `Cantidad inválida en "${slot.label}" de la promo "${promo.name}".` };
         }
-        const prod = allowed.find(pp => pp.id === Number(sel.product_id));
-        if (!prod) {
-          return { error: `Uno de los platos elegidos en "${slot.label}" ya no está disponible. Armá la promo de nuevo.` };
+        const opt = sel.item_key
+          ? allowed.find(o => o.type === 'item' && o.key === String(sel.item_key))
+          : allowed.find(o => o.type === 'product' && o.id === Number(sel.product_id));
+        if (!opt) {
+          return { error: `Una de las opciones elegidas en "${slot.label}" ya no está disponible. Armá la promo de nuevo.` };
         }
         sum += q;
-        const prev = normSel.find(x => x.slot === si && x.product_id === prod.id);
-        if (prev) prev.qty += q;
-        else normSel.push({ slot: si, label: slot.label, product_id: prod.id, name: prod.name, qty: q });
+        const prev = normSel.find(x => x.slot === si && x.key === opt.key);
+        if (prev) { prev.qty += q; continue; }
+        const entry = {
+          slot: si, label: slot.label, key: opt.key, type: opt.type, name: opt.name, qty: q,
+          unit_price: opt.price, product_id: null, item_key: null, semi_id: null, amount_each: null
+        };
+        if (opt.type === 'item') {
+          const semi = await dbSemi.getSemiElaborado(opt.semi_id);
+          if (!semi) {
+            return { error: `"${opt.name}" ya no está disponible. Armá la promo de nuevo.` };
+          }
+          entry.item_key = opt.key;
+          entry.semi_id = opt.semi_id;
+          entry.amount_each = parseFloat((opt.portion * semiPortionFactor(semi.unit)).toFixed(6));
+        } else {
+          entry.product_id = opt.id;
+        }
+        normSel.push(entry);
       }
-      if (sum !== slot.qty) {
-        return { error: `En la promo "${promo.name}" hay que elegir ${slot.qty} en "${slot.label}" (elegiste ${sum}).` };
+      if (sum < minQ || sum > maxQ) {
+        return { error: minQ === maxQ
+          ? `En la promo "${promo.name}" hay que elegir ${maxQ} en "${slot.label}" (elegiste ${sum}).`
+          : `En la promo "${promo.name}" hay que elegir entre ${minQ} y ${maxQ} en "${slot.label}" (elegiste ${sum}).` };
       }
     }
 
-    const detail = promoDetailText(normSel);
+    const calc = computePromoTotal(promo, normSel);
+    if (!(calc.total > 0)) {
+      return { error: `La promo "${promo.name}" quedó sin precio. Elegí al menos una opción.` };
+    }
+    if (Math.abs(parseFloat(item.price) - calc.total) > 0.51) {
+      return { error: `El precio de la promo "${promo.name}" cambió. Actualizá el menú y volvé a armarla.` };
+    }
+
+    const detail = promoDetailText(normSel) + (calc.pct > 0 ? ` | Descuento ${calc.pct}%` : '');
     const normalized = {
       ...item,
       id: `promo-${promo.id}`,
       promo_id: promo.id,
       name: `${promo.name} — ${detail}`,
-      price: promo.price,
+      price: calc.total,
       qty,
       selections: normSel,
       detail,
+      subtotal: calc.subtotal,
+      discount_pct: calc.pct,
       category_name: 'Promos',
       unit_type: item.unit_type || 'unidad'
     };
-    if (item.total !== undefined) normalized.total = parseFloat((promo.price * qty).toFixed(2));
+    if (item.total !== undefined) normalized.total = parseFloat((calc.total * qty).toFixed(2));
     out.push(normalized);
   }
   return { items: out };
@@ -1079,9 +1197,27 @@ function normalizePromoSaleItems(store, items) {
 function expandOrderItemComponents(item, qtyMultiplier) {
   const m = (qtyMultiplier === undefined || qtyMultiplier === null) ? 1 : qtyMultiplier;
   if (item && item.promo_id && Array.isArray(item.selections)) {
-    return item.selections.map(sel => ({ product_id: sel.product_id, qty: sel.qty * m }));
+    // Pre-armados elegidos: se descuenta la porción exacta (en la unidad del pre-armado)
+    return item.selections.map(sel => sel.semi_id
+      ? { semi_id: sel.semi_id, amount: parseFloat((sel.amount_each * sel.qty * m).toFixed(6)) }
+      : { product_id: sel.product_id, qty: sel.qty * m });
   }
   return [{ product_id: item.id, qty: m }];
+}
+
+// Descuenta una cantidad (en la unidad del pre-armado) y registra en el ledger lo
+// que REALMENTE salió del stock (nunca baja de 0).
+async function deductSemiAmount(semiId, amount, ledger) {
+  const amt = parseFloat(amount) || 0;
+  if (!(amt > 0)) return;
+  const before = await dbSemi.getSemiElaborado(semiId);
+  if (!before) return;
+  const beforeStock = before.current_stock || 0;
+  const semi = await dbSemi.deductSemiStock(semiId, amt);
+  if (semi) {
+    const actual = parseFloat((beforeStock - (semi.current_stock || 0)).toFixed(4));
+    if (actual > 0) ledger.push({ kind: 'semi', id: semiId, qty: actual });
+  }
 }
 
 // Venta POS de un plato: si ya estaba producido (stock preparado), los insumos
@@ -2211,39 +2347,100 @@ app.post('/api/cash/shift/reconcile-food', (req, res) => {
 
 // RUTAS API DE MENÚ Y CLIENTE
 // PROMOS ARMABLES: administración (Nivel 2 para crear/editar, igual que el menú)
-function cleanPromoPayload(store, body) {
+function cleanPromoPayload(store, body, semis) {
   const name = String(body.name || '').trim();
   if (!name) return { error: 'El nombre de la promo es obligatorio.' };
-  const price = parseFloat(body.price);
-  if (!(price > 0)) return { error: 'El precio de la promo tiene que ser mayor a 0.' };
+  const price = (body.price === '' || body.price === undefined || body.price === null) ? 0 : parseFloat(body.price);
+  if (isNaN(price) || price < 0) return { error: 'El precio base de la promo no puede ser negativo.' };
   const rawSlots = Array.isArray(body.slots) ? body.slots : [];
   if (rawSlots.length === 0) return { error: 'La promo necesita al menos un cupo (ej. 1 pizza).' };
   if (rawSlots.length > 8) return { error: 'Máximo 8 cupos por promo.' };
+  const semiById = new Map((semis || []).map(sm => [sm.id, sm]));
 
   const slots = [];
   for (const sl of rawSlots) {
     const label = String(sl.label || '').trim();
-    const qty = Number(sl.qty);
     if (!label) return { error: 'Cada cupo necesita un nombre (ej. "Pizza", "Empanadas").' };
-    if (!Number.isInteger(qty) || qty < 1 || qty > 60) return { error: `La cantidad del cupo "${label}" tiene que ser un número entero entre 1 y 60.` };
+    const hasMax = sl.max !== undefined && sl.max !== null && sl.max !== '';
+    const maxQ = Number(hasMax ? sl.max : sl.qty);
+    const hasMin = sl.min !== undefined && sl.min !== null && sl.min !== '';
+    const minQ = hasMin ? Number(sl.min) : maxQ;
+    if (!Number.isInteger(maxQ) || maxQ < 1 || maxQ > 200) return { error: `La cantidad máxima del cupo "${label}" tiene que ser un número entero entre 1 y 200.` };
+    if (!Number.isInteger(minQ) || minQ < 0 || minQ > maxQ) return { error: `La cantidad mínima del cupo "${label}" tiene que ser un número entero entre 0 y ${maxQ}.` };
+
     const productIds = Array.isArray(sl.product_ids) ? sl.product_ids.map(Number).filter(n => Number.isInteger(n)) : [];
-    const validIds = productIds.filter(id => (store.products || []).some(p => p.id === id));
+    const validIds = productIds.filter(id => (store.products || []).some(pp => pp.id === id));
+
+    // Pre-armados con porción (g / ml / unidades) y precio propio
+    const items = [];
+    for (const it of (Array.isArray(sl.items) ? sl.items : [])) {
+      const semiId = Number(it.semi_id);
+      const semi = semiById.get(semiId);
+      if (!semi) return { error: `En el cupo "${label}" hay un pre-armado que ya no existe. Quitalo o elegí otro.` };
+      const portion = Number(it.portion);
+      if (!(portion > 0) || portion > 1000000) return { error: `La porción de "${semi.name}" en el cupo "${label}" tiene que ser mayor a 0.` };
+      const itemPrice = (it.price === '' || it.price === undefined || it.price === null) ? 0 : Number(it.price);
+      if (isNaN(itemPrice) || itemPrice < 0) return { error: `El precio de "${semi.name}" en el cupo "${label}" no puede ser negativo.` };
+      const portionUnit = semiPortionUnit(semi.unit);
+      const key = `s${semiId}x${portion}`;
+      if (items.some(x => x.key === key)) return { error: `En el cupo "${label}" repetiste "${semi.name}" con la misma porción.` };
+      const itemLabel = String(it.label || '').trim() || `${semi.name} ${portion}${portionUnit === 'un' ? ' un.' : ' ' + portionUnit}`;
+      items.push({ key, semi_id: semiId, label: itemLabel, portion, portion_unit: portionUnit, price: itemPrice, image_url: cleanPromoOptionImage(it.image_url), available: it.available === 0 || it.available === '0' || it.available === false ? 0 : 1 });
+    }
+
     let categoryId = null;
-    if (validIds.length === 0) {
+    if (validIds.length === 0 && items.length === 0) {
       categoryId = (sl.category_id === null || sl.category_id === undefined || sl.category_id === '') ? null : Number(sl.category_id);
       if (categoryId === null || !(store.categories || []).some(c => c.id === categoryId)) {
-        return { error: `El cupo "${label}" tiene que tener una categoría o una lista de platos.` };
+        return { error: `El cupo "${label}" tiene que tener una categoría, una lista de platos o pre-armados.` };
       }
     }
-    slots.push({ label, qty, category_id: validIds.length === 0 ? categoryId : null, product_ids: validIds });
+    slots.push({
+      label, qty: maxQ, min: minQ, max: maxQ,
+      category_id: categoryId, product_ids: validIds, items,
+      price_mode: sl.price_mode === 'product' ? 'product' : 'none'
+    });
   }
-  return { value: { name, description: String(body.description || '').trim(), price, image_url: String(body.image_url || '').trim(), available: body.available === 0 || body.available === '0' || body.available === false ? 0 : 1, slots } };
+
+  const hasPricing = price > 0 || slots.some(sl => sl.price_mode === 'product' || sl.items.some(it => it.price > 0));
+  if (!hasPricing) return { error: 'La promo necesita un precio: poné un precio base o precios en las opciones.' };
+
+  // Descuento por cantidad (escalones)
+  let discount = null;
+  const rawD = body.discount;
+  if (rawD && Array.isArray(rawD.tiers)) {
+    const tiers = [];
+    for (const t of rawD.tiers) {
+      const emptyRow = (t.min === '' || t.min === undefined || t.min === null) && (t.percent === '' || t.percent === undefined || t.percent === null);
+      if (emptyRow) continue;
+      const mn = Number(t.min), pc = Number(t.percent);
+      if (!Number.isInteger(mn) || mn < 1 || mn > 1000) return { error: 'En el descuento por cantidad, "desde" tiene que ser un número entero de 1 en adelante.' };
+      if (!(pc > 0) || pc >= 100) return { error: 'En el descuento por cantidad, el porcentaje tiene que ser mayor a 0 y menor a 100.' };
+      tiers.push({ min: mn, percent: pc });
+    }
+    tiers.sort((x, y) => x.min - y.min);
+    for (let i = 1; i < tiers.length; i++) {
+      if (tiers[i].min === tiers[i - 1].min) return { error: 'Hay dos escalones de descuento con la misma cantidad.' };
+      if (tiers[i].percent <= tiers[i - 1].percent) return { error: 'Cada escalón tiene que dar más descuento que el anterior.' };
+    }
+    if (tiers.length > 0) {
+      const hasSlot = rawD.slot !== null && rawD.slot !== undefined && rawD.slot !== '';
+      const slotIdx = hasSlot ? Number(rawD.slot) : null;
+      if (hasSlot && (!Number.isInteger(slotIdx) || slotIdx < 0 || slotIdx >= slots.length)) {
+        return { error: 'El cupo elegido para contar el descuento no existe.' };
+      }
+      discount = { slot: slotIdx, tiers };
+    }
+  }
+
+  return { value: { name, description: String(body.description || '').trim(), group: String(body.group || '').trim().slice(0, 60), price, image_url: String(body.image_url || '').trim(), available: body.available === 0 || body.available === '0' || body.available === false ? 0 : 1, slots, discount } };
 }
 
-app.get('/api/admin/promos', (req, res) => {
+app.get('/api/admin/promos', async (req, res) => {
   try {
     const store = db.getStore();
-    res.json({ success: true, promos: getPromoList(store), public_view: getPromoList(store).map(pr => buildPublicPromo(store, pr)) });
+    const semis = (await dbSemi.listSemiElaborados()).map(sm => ({ id: sm.id, name: sm.name, code: sm.code, unit: sm.unit, portion_unit: semiPortionUnit(sm.unit) }));
+    res.json({ success: true, promos: getPromoList(store), public_view: getPromoList(store).map(pr => buildPublicPromo(store, pr)), semis });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -2256,7 +2453,8 @@ app.post('/api/admin/promos', async (req, res) => {
       return res.status(401).json({ success: false, error: 'Acceso Denegado: crear o editar promos requiere PIN de Encargado (Nivel 2) o superior.' });
     }
     const store = db.getStore();
-    const cleaned = cleanPromoPayload(store, req.body);
+    const semis = await dbSemi.listSemiElaborados();
+    const cleaned = cleanPromoPayload(store, req.body, semis);
     if (cleaned.error) return res.status(400).json({ success: false, error: cleaned.error });
 
     const list = getPromoList(store);
@@ -2594,7 +2792,7 @@ app.post('/api/orders', async (req, res) => {
     // Promos armables: se validan los gustos elegidos y el precio contra la regla
     let itemsToSave = items;
     if (Array.isArray(items)) {
-      const np = normalizePromoSaleItems(store, items);
+      const np = await normalizePromoSaleItems(store, items);
       if (np.error) return res.status(400).json({ success: false, error: np.error });
       itemsToSave = np.items;
     }
@@ -2780,8 +2978,12 @@ app.put('/api/orders/:id/status', async (req, res) => {
       if (Array.isArray(orderItems)) {
         for (const item of orderItems) {
           for (const comp of expandOrderItemComponents(item, item.qty || 1)) {
-            const r = await deductProductRecipeComponents(store, comp.product_id, comp.qty);
-            orderLedger.push(...r.ledger);
+            if (comp.semi_id) {
+              await deductSemiAmount(comp.semi_id, comp.amount, orderLedger);
+            } else {
+              const r = await deductProductRecipeComponents(store, comp.product_id, comp.qty);
+              orderLedger.push(...r.ledger);
+            }
           }
         }
       }
@@ -4013,7 +4215,7 @@ app.post('/api/pos/sale', async (req, res) => {
     }
 
     // Promos armables: validar gustos elegidos y precio contra la regla
-    const promoCheck = normalizePromoSaleItems(store, items);
+    const promoCheck = await normalizePromoSaleItems(store, items);
     if (promoCheck.error) {
       return res.status(400).json({ success: false, error: promoCheck.error });
     }
@@ -4051,7 +4253,11 @@ app.post('/api/pos/sale', async (req, res) => {
     for (const item of items) {
       const qtySold = parseFloat(item.qty || 1);
       for (const comp of expandOrderItemComponents(item, qtySold)) {
-        await consumeProductForPosSale(store, comp.product_id, comp.qty, posLedger);
+        if (comp.semi_id) {
+          await deductSemiAmount(comp.semi_id, comp.amount, posLedger);
+        } else {
+          await consumeProductForPosSale(store, comp.product_id, comp.qty, posLedger);
+        }
       }
     }
     newOrder.stock_ledger = posLedger;

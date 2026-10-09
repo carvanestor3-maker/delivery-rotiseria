@@ -155,12 +155,9 @@ function renderCategoryTabs() {
   if (!container) return;
 
   const isAll = state.selectedCategory === 'all';
-  let html = `
-    <button type="button" onclick="selectCategory('all')" class="category-tab px-3.5 py-2 rounded-xl text-xs font-black transition-all shadow-xs cursor-pointer ${isAll ? 'bg-orange-500 text-white shadow-md scale-105' : 'bg-white text-slate-700 hover:bg-slate-200 border border-slate-200'}">
-      🔥 Todo el Menú
-    </button>
-  `;
+  let html = '';
 
+  // Las promos para armar van como PRIMERA opción de las categorías
   if ((state.promos || []).length > 0) {
     const isPromos = state.selectedCategory === 'promos';
     html += `
@@ -169,6 +166,12 @@ function renderCategoryTabs() {
     </button>
     `;
   }
+
+  html += `
+    <button type="button" onclick="selectCategory('all')" class="category-tab px-3.5 py-2 rounded-xl text-xs font-black transition-all shadow-xs cursor-pointer ${isAll ? 'bg-orange-500 text-white shadow-md scale-105' : 'bg-white text-slate-700 hover:bg-slate-200 border border-slate-200'}">
+      🔥 Todo el Menú
+    </button>
+  `;
 
   (state.categories || []).forEach(cat => {
     const isActive = String(state.selectedCategory) === String(cat.id);
@@ -203,10 +206,10 @@ function renderMenuSections() {
       <h2 class="font-black text-slate-900 text-base flex items-center gap-2 border-b border-slate-200 pb-2">
         <span class="text-xl">🎁</span>
         <span>Promos para armar a tu gusto</span>
-        <span class="text-xs font-bold text-slate-400 font-mono ml-auto">(${state.promos.length})</span>
+        <span class="text-xs font-bold text-slate-400 font-mono ml-auto">(${promoGroupEntries(state.promos).length})</span>
       </h2>
       <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-        ${state.promos.map(pr => renderPromoCard(pr)).join('')}
+        ${promoGroupEntries(state.promos).map(e => e.isGroup ? renderPromoGroupCard(e) : renderPromoCard(e.promo)).join('')}
       </div>
     `;
     container.appendChild(promoSection);
@@ -262,7 +265,8 @@ function escPromoHtml(s) {
 }
 
 function renderPromoCard(promo) {
-  const resumen = promo.slots.map(sl => `${sl.qty} ${escPromoHtml(sl.label)}`).join(' + ');
+  const resumen = promo.slots.map(sl => `${promoSlotQtyText(sl)} ${escPromoHtml(sl.label)}`).join(' + ');
+  const maxDesc = (promo.discount && promo.discount.tiers && promo.discount.tiers.length) ? Math.max(...promo.discount.tiers.map(t => t.percent)) : 0;
   return `
     <div class="bg-white rounded-2xl p-3 shadow-xs border border-orange-200 flex flex-col justify-between hover:shadow-md transition">
       <div class="space-y-1">
@@ -270,13 +274,42 @@ function renderPromoCard(promo) {
         <h3 class="font-extrabold text-slate-900 text-sm leading-tight">${escPromoHtml(promo.name)}</h3>
         ${promo.description ? `<p class="text-slate-500 text-[11px] leading-snug">${escPromoHtml(promo.description)}</p>` : ''}
         <p class="text-slate-600 text-[11px] font-semibold">${resumen}</p>
+        ${maxDesc > 0 ? `<span class="inline-block bg-emerald-100 text-emerald-700 text-[10px] font-black px-2 py-0.5 rounded-md">🎯 Hasta ${maxDesc}% OFF por cantidad</span>` : ''}
       </div>
       <div class="pt-2 mt-2 border-t border-slate-100 flex items-center justify-between gap-1">
-        <div class="font-black text-slate-950 text-sm font-mono tracking-tight">${formatCurrency(promo.price)}</div>
+        <div class="font-black text-slate-950 text-sm font-mono tracking-tight">${promoPriceLabel(promo)}</div>
         <button type="button" onclick="openPromoFromMenu(${promo.id})" class="bg-orange-500 hover:bg-orange-600 active:scale-95 text-white font-extrabold text-xs px-3 py-1.5 rounded-xl shadow-xs transition cursor-pointer">Armar</button>
       </div>
     </div>
   `;
+}
+
+// Tarjeta de un grupo de promos (ej. "Armá tu comida": hamburguesa / sándwich / lomito...).
+// Al tocarla, primero se elige qué armar y después se abre el armador de esa promo.
+function renderPromoGroupCard(entry) {
+  const maxDesc = Math.max(0, ...entry.promos.map(p => (p.discount && p.discount.tiers && p.discount.tiers.length) ? Math.max(...p.discount.tiers.map(t => t.percent)) : 0));
+  const nombres = entry.promos.map(p => escPromoHtml(p.name)).join(' · ');
+  const gkey = encodeURIComponent(entry.name.toLowerCase());
+  return `
+    <div class="bg-white rounded-2xl p-3 shadow-xs border border-orange-200 flex flex-col justify-between hover:shadow-md transition">
+      <div class="space-y-1">
+        <span class="inline-block bg-orange-100 text-orange-700 text-[10px] font-black px-2 py-0.5 rounded-md">🎁 ARMÁ EL TUYO</span>
+        <h3 class="font-extrabold text-slate-900 text-sm leading-tight">${escPromoHtml(entry.name)}</h3>
+        <p class="text-slate-600 text-[11px] font-semibold">Elegí qué querés armar: ${nombres}</p>
+        ${maxDesc > 0 ? `<span class="inline-block bg-emerald-100 text-emerald-700 text-[10px] font-black px-2 py-0.5 rounded-md">🎯 Hasta ${maxDesc}% OFF por cantidad</span>` : ''}
+      </div>
+      <div class="pt-2 mt-2 border-t border-slate-100 flex items-center justify-between gap-1">
+        <div class="font-black text-slate-950 text-xs">${entry.promos.length} opciones</div>
+        <button type="button" onclick="openPromoGroupFromMenu('${gkey}')" class="bg-orange-500 hover:bg-orange-600 active:scale-95 text-white font-extrabold text-xs px-3 py-1.5 rounded-xl shadow-xs transition cursor-pointer">Armar</button>
+      </div>
+    </div>
+  `;
+}
+
+function openPromoGroupFromMenu(gkey) {
+  const name = decodeURIComponent(gkey);
+  const entry = promoGroupEntries(state.promos).find(e => e.isGroup && e.name.toLowerCase() === name);
+  if (entry) openPromoGroup(entry, addPromoToCart);
 }
 
 function openPromoFromMenu(promoId) {

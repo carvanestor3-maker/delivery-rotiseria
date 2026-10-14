@@ -1530,7 +1530,7 @@ function handleSendReferralWhatsApp(e) {
   const refCode = state.customer ? state.customer.referral_code : '';
   const shareUrl = refCode ? `https://spressgastro-ar.com?ref=${encodeURIComponent(refCode)}` : `https://spressgastro-ar.com`;
 
-  const shareText = `🍳 *La Gran Rotisería, Bar & Drugstore 24hs*\n¡Hola! 👋 ${myName} te invita a probar la App del Club La Gran Rotisería.\n\nInstalala en tu celular, hace un pedido, recibis 1000 puntos de regalo para cangear por el 50% OFF del plato que elijas. Consulta las promos o los platos que te permitan utilizar tus puntos, con cada compras tambien acumuas puntos, y por cada amigo referido que mandes la invitacion, baje la app haga su primér pedido acreditas 500 puntos mas.\n\n_(Primera compra mínima para asociarse y acreditar los puntos $15.000 para todos los socios, o completándolos con el segundo pedido)_\n\n📲 *Instalá la App y hacé tu pedido aquí:*\n${shareUrl}`;
+  const shareText = `🍳 *La Gran Rotisería, Bar & Drugstore 24hs*\n¡Hola! 👋 ${myName} te invita a probar la App del Club La Gran Rotisería.\n\nInstalala en tu celular, hace un pedido, recibis 1000 puntos de regalo para cangear por el 50% OFF del plato que elijas (se habilitan despues de tu primera compra entregada). Consulta las promos o los platos que te permitan utilizar tus puntos, con cada compras tambien acumuas puntos, y por cada amigo referido que mandes la invitacion, baje la app haga su primér pedido acreditas 500 puntos mas.\n\n_(Primera compra mínima para asociarse y acreditar los puntos $15.000 para todos los socios, o completándolos con el segundo pedido)_\n\n📲 *Instalá la App y hacé tu pedido aquí:*\n${shareUrl}`;
 
   window.open(`https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(shareText)}`, '_blank');
   closeReferralModal();
@@ -1576,7 +1576,7 @@ function openLegalesModal(type) {
       content.innerHTML = `
         <p class="font-bold text-amber-400">Términos y Condiciones del Servicio del Club:</p>
         <p>1. El programa de fidelización "Club La Gran Rotisería" permite acumular puntos por cada compra realizada tanto en el portal online como presencialmente en el local de España 1028 (Casi Yrigoyen).</p>
-        <p>2. Los puntos pueden canjearse por un 50% o un 20% de descuento sobre el precio de lista de los platos del menú, o por cupones de promoción. Al anular un pedido con canje, los puntos se devuelven.</p>
+        <p>2. Los puntos pueden canjearse por un 50% o un 20% de descuento sobre el precio de lista de los platos del menú, o por cupones de promoción. Los puntos (incluidos los de bienvenida) se pueden canjear recién después de la primera compra entregada. Al anular un pedido con canje, los puntos se devuelven.</p>
         <p>3. Los puntos son personales y transferibles a otros usuarios mediante DNI.</p>
       `;
     }
@@ -1656,6 +1656,24 @@ function openRedemptionsModal() {
 
   renderRedemptionsList();
   modal.classList.remove('opacity-0', 'pointer-events-none');
+
+  // Trae los puntos y el estado del candado actualizados (por si le entregaron un pedido)
+  if (state.customer && state.customer.dni) {
+    fetch('/api/club/login-by-dni', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dni: state.customer.dni })
+    }).then(r => r.json()).then(data => {
+      if (data && data.success && data.customer) {
+        state.customer = data.customer;
+        saveCustomerToStorage();
+        updateCustomerUI();
+        const pts = clubPointsBalance();
+        if (pointsBal) pointsBal.textContent = `⭐ ${pts} pts`;
+        renderRedemptionsList();
+      }
+    }).catch(() => {});
+  }
 }
 
 function closeRedemptionsModal() {
@@ -1692,6 +1710,8 @@ function renderRedemptionsList() {
   // Los puntos que ya están "reservados" en el carrito no se pueden usar dos veces
   const customerPoints = clubPointsBalance() - cartRedeemPoints();
   const products = state.products || [];
+  // El servidor avisa si el socio todavía no tuvo ninguna compra entregada
+  const locked = !!(state.customer && state.customer.redeem_unlocked === false);
 
   if (products.length === 0) {
     container.innerHTML = `<p class="text-center py-6 text-slate-400 text-xs">Cargando catálogo de canjes...</p>`;
@@ -1700,7 +1720,7 @@ function renderRedemptionsList() {
 
   const btn = (prod, pct) => {
     const cost = redeemCostPoints(prod, pct);
-    const ok = customerPoints >= cost;
+    const ok = !locked && customerPoints >= cost;
     const price = redeemUnitPrice(prod, pct);
     return `
       <button type="button" onclick="redeemProductWithPoints('${prod.id}', ${pct})" ${ok ? '' : 'disabled'}
@@ -1710,7 +1730,12 @@ function renderRedemptionsList() {
       </button>`;
   };
 
-  container.innerHTML = products.map(prod => {
+  const lockBanner = locked ? `
+    <div class="p-3 bg-amber-500/10 border border-amber-500/40 rounded-2xl text-[11px] text-amber-300 font-medium">
+      🔒 Tus puntos (incluidos los 1000 de bienvenida) se habilitan para canjear <strong>después de tu primera compra entregada</strong>. Hacé tu primer pedido y, cuando te lo entreguen, ya podés canjear.
+    </div>` : '';
+
+  container.innerHTML = lockBanner + products.map(prod => {
     const rawImage = prod.image_url ? prod.image_url.trim() : '';
     const imageUrl = rawImage.length > 0 ? rawImage : '/logo_preview.jpg';
     return `
@@ -1735,6 +1760,11 @@ function redeemProductWithPoints(productId, pct) {
 
   if (!state.customer) {
     alert('Para canjear puntos primero ingresá a tu Tarjeta Club con tu DNI.');
+    return;
+  }
+
+  if (state.customer.redeem_unlocked === false) {
+    alert('Tus puntos se habilitan para canjear después de tu primera compra entregada.');
     return;
   }
 

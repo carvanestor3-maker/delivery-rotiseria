@@ -2698,6 +2698,14 @@ function referralOrderBelongsTo(order, customer) {
   if (oDni && oDni !== cDni) return false;
   return refSamePhone(order.customer_phone, customer.phone);
 }
+// Los puntos de bienvenida (y todos los demás) se pueden canjear recién después
+// de la primera compra ENTREGADA del socio (mismo DNI y mismo celular).
+function memberHasDeliveredOrder(store, customer) {
+  return (store.orders || []).some(o => o.status === 'entregado' && referralOrderBelongsTo(o, customer));
+}
+function withRedeemFlag(store, customer) {
+  return customer ? { ...customer, redeem_unlocked: memberHasDeliveredOrder(store, customer) } : customer;
+}
 function findReferrerOf(store, customer) {
   const ref = customer.referral;
   if (!ref) return null;
@@ -2878,7 +2886,7 @@ app.post('/api/club/register', (req, res) => {
       is_new: isNew,
       welcome_points: isNew ? welcomePts : 0,
       referral_status: referralStatus,
-      customer
+      customer: withRedeemFlag(store, customer)
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -2901,7 +2909,7 @@ app.post('/api/club/login-by-dni', (req, res) => {
       return res.status(404).json({ success: false, error: `Socio no encontrado con DNI ${strDni}. Debe asociarse completando su perfil.` });
     }
 
-    res.json({ success: true, customer });
+    res.json({ success: true, customer: withRedeemFlag(store, customer) });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -2972,6 +2980,9 @@ function prepareRedemptions(store, items, customerObj, orderPhone) {
   // ser el mismo con el que el socio se asoció (se comparan los últimos 10 dígitos)
   if (!refSamePhone(orderPhone, customerObj.phone)) {
     return { error: 'Para canjear puntos, el celular del pedido tiene que ser el mismo con el que te asociaste al Club. Corregí el celular en el pedido o consultá en el local.' };
+  }
+  if (!memberHasDeliveredOrder(store, customerObj)) {
+    return { error: 'Tus puntos (incluidos los 1000 de bienvenida) se habilitan para canjear después de tu primera compra entregada. Hacé tu primer pedido y, cuando te lo entreguen, ya podés canjear.' };
   }
   const balance = customerObj.points || 0;
   if (balance < totalPoints) {
@@ -3101,7 +3112,7 @@ app.post('/api/orders', async (req, res) => {
     res.json({
       success: true,
       order: newOrder,
-      customer: customerObj || null
+      customer: customerObj ? withRedeemFlag(store, customerObj) : null
     });
   } catch (err) {
     console.error('Error al guardar pedido:', err);

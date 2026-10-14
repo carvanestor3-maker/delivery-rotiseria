@@ -471,6 +471,13 @@ function showCartToastNotification(msg) {
 function updateItemQty(productId, delta) {
   const itemIndex = state.cart.findIndex(i => String(i.id) === String(productId));
   if (itemIndex > -1) {
+    if (delta > 0 && isRedeemCartItem(state.cart[itemIndex])) {
+      const extra = (state.cart[itemIndex].points_cost || 0) * delta;
+      if (cartRedeemPoints() + extra > clubPointsBalance()) {
+        alert(`No te alcanzan los puntos para canjear una unidad más (tenés ${clubPointsBalance()}).`);
+        return;
+      }
+    }
     state.cart[itemIndex].qty += delta;
     if (state.cart[itemIndex].qty <= 0) {
       state.cart.splice(itemIndex, 1);
@@ -1569,7 +1576,7 @@ function openLegalesModal(type) {
       content.innerHTML = `
         <p class="font-bold text-amber-400">Términos y Condiciones del Servicio del Club:</p>
         <p>1. El programa de fidelización "Club La Gran Rotisería" permite acumular puntos por cada compra realizada tanto en el portal online como presencialmente en el local de España 1028 (Casi Yrigoyen).</p>
-        <p>2. Los puntos pueden canjearse para cubrir el 50% del valor de platos seleccionados o cupones de promoción.</p>
+        <p>2. Los puntos pueden canjearse por un 50% o un 20% de descuento sobre el precio de lista de los platos del menú, o por cupones de promoción. Al anular un pedido con canje, los puntos se devuelven.</p>
         <p>3. Los puntos son personales y transferibles a otros usuarios mediante DNI.</p>
       `;
     }
@@ -1656,11 +1663,34 @@ function closeRedemptionsModal() {
   if (modal) modal.classList.add('opacity-0', 'pointer-events-none');
 }
 
+// Costo en puntos y precio de un canje. TIENEN que dar igual que en el servidor
+// (server.js: redeemCostPoints / redeemUnitPrice): 1 punto = $2,50 de descuento.
+//   50% -> precio / 5     (o el points_cost propio del plato)
+//   20% -> precio / 12,5  (o 0,4 x el points_cost propio)   mínimo 100 puntos
+function redeemCostPoints(prod, pct) {
+  const custom = parseInt(prod.points_cost) || 0;
+  const price = parseFloat(prod.price) || 0;
+  if (pct === 50) return custom > 0 ? custom : Math.max(100, Math.round(price / 5));
+  return custom > 0 ? Math.max(100, Math.round(custom * 0.4)) : Math.max(100, Math.round(price / 12.5));
+}
+function redeemUnitPrice(prod, pct) {
+  return Math.round((parseFloat(prod.price) || 0) * (100 - pct) / 100);
+}
+function redeemCartId(prodId, pct) { return pct === 20 ? `redeem20-${prodId}` : `redeem-${prodId}`; }
+function isRedeemCartItem(item) { return /^redeem(20)?-/.test(String(item && item.id)); }
+function cartRedeemPoints() {
+  return state.cart.filter(isRedeemCartItem).reduce((sum, i) => sum + (i.points_cost || 0) * i.qty, 0);
+}
+function clubPointsBalance() {
+  return (state.customer && state.customer.points != null) ? state.customer.points : 0;
+}
+
 function renderRedemptionsList() {
   const container = document.getElementById('redemptions-list-container');
   if (!container) return;
 
-  const customerPoints = (state.customer && state.customer.points) ? state.customer.points : 0;
+  // Los puntos que ya están "reservados" en el carrito no se pueden usar dos veces
+  const customerPoints = clubPointsBalance() - cartRedeemPoints();
   const products = state.products || [];
 
   if (products.length === 0) {
@@ -1668,53 +1698,66 @@ function renderRedemptionsList() {
     return;
   }
 
+  const btn = (prod, pct) => {
+    const cost = redeemCostPoints(prod, pct);
+    const ok = customerPoints >= cost;
+    const price = redeemUnitPrice(prod, pct);
+    return `
+      <button type="button" onclick="redeemProductWithPoints('${prod.id}', ${pct})" ${ok ? '' : 'disabled'}
+        class="flex-1 px-2 py-2 rounded-xl text-[11px] font-black transition leading-tight ${ok ? (pct === 50 ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 shadow-md active:scale-95 cursor-pointer' : 'bg-gradient-to-r from-emerald-400 to-teal-400 text-slate-950 shadow-md active:scale-95 cursor-pointer') : 'bg-slate-700 text-slate-500 cursor-not-allowed'}">
+        ${ok ? '🎁' : '🔒'} ${pct}% OFF<br>
+        <span class="font-mono">${formatCurrency(price)}</span> · ⭐ ${cost}
+      </button>`;
+  };
+
   container.innerHTML = products.map(prod => {
-    const normalPrice = prod.price;
-    const halfPrice = Math.round(prod.price * 0.5);
-    const pointsCost = prod.points_cost || Math.max(100, Math.round(prod.price / 5));
-    const canAfford = customerPoints >= pointsCost;
     const rawImage = prod.image_url ? prod.image_url.trim() : '';
     const imageUrl = rawImage.length > 0 ? rawImage : '/logo_preview.jpg';
-
     return `
-      <div class="p-3 bg-slate-800/90 border border-slate-700 rounded-2xl flex items-center justify-between gap-3 hover:border-amber-500/50 transition">
-        <div class="flex items-center gap-3 flex-1 min-w-0">
-          <img src="${imageUrl}" onerror="this.onerror=null; this.src='/logo_preview.jpg';" class="w-14 h-14 rounded-xl object-cover border border-slate-700 flex-shrink-0">
+      <div class="p-3 bg-slate-800/90 border border-slate-700 rounded-2xl space-y-2 hover:border-amber-500/50 transition">
+        <div class="flex items-center gap-3 min-w-0">
+          <img src="${imageUrl}" onerror="this.onerror=null; this.src='/logo_preview.jpg';" class="w-12 h-12 rounded-xl object-cover border border-slate-700 flex-shrink-0">
           <div class="min-w-0 flex-1">
             <h4 class="font-black text-xs text-white truncate">${prod.name}</h4>
-            <div class="flex items-center gap-2 mt-0.5">
-              <span class="line-through text-slate-400 text-[11px] font-mono">${formatCurrency(normalPrice)}</span>
-              <span class="text-emerald-400 font-extrabold text-xs font-mono">${formatCurrency(halfPrice)}</span>
-              <span class="bg-amber-400/20 text-amber-300 border border-amber-400/40 text-[9px] font-black px-1.5 py-0.5 rounded-md">⭐ ${pointsCost} pts</span>
-            </div>
+            <span class="text-slate-400 text-[11px] font-mono">Precio de lista ${formatCurrency(prod.price)}</span>
           </div>
         </div>
-
-        <button type="button" onclick="redeemProductWithPoints('${prod.id}')" ${canAfford ? '' : 'disabled'} class="px-3 py-2 rounded-xl text-xs font-black transition flex-shrink-0 ${canAfford ? 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 shadow-md active:scale-95 cursor-pointer' : 'bg-slate-700 text-slate-500 cursor-not-allowed'}">
-          ${canAfford ? '🎁 Canjear 50%' : '🔒 Faltan Pts'}
-        </button>
+        <div class="flex gap-2">${btn(prod, 50)}${btn(prod, 20)}</div>
       </div>
     `;
   }).join('');
 }
 
-function redeemProductWithPoints(productId) {
+function redeemProductWithPoints(productId, pct) {
+  pct = pct === 20 ? 20 : 50;
   const prod = state.products.find(p => String(p.id) === String(productId));
   if (!prod) return;
 
-  const pointsCost = prod.points_cost || Math.max(100, Math.round(prod.price / 5));
-  const halfPrice = Math.round(prod.price * 0.5);
+  if (!state.customer) {
+    alert('Para canjear puntos primero ingresá a tu Tarjeta Club con tu DNI.');
+    return;
+  }
 
-  const existingItem = state.cart.find(item => String(item.id) === `redeem-${prod.id}`);
+  const pointsCost = redeemCostPoints(prod, pct);
+  const unitPrice = redeemUnitPrice(prod, pct);
+  const available = clubPointsBalance() - cartRedeemPoints();
+  if (available < pointsCost) {
+    alert(`No te alcanzan los puntos: necesitás ${pointsCost} y tenés ${Math.max(0, available)} disponibles (descontando lo que ya pusiste en el carrito).`);
+    return;
+  }
+
+  const cartId = redeemCartId(prod.id, pct);
+  const existingItem = state.cart.find(item => String(item.id) === cartId);
   if (existingItem) {
     existingItem.qty += 1;
   } else {
     state.cart.push({
-      id: `redeem-${prod.id}`,
-      name: `🎁 [CANJE 50% OFF] ${prod.name} (-${pointsCost} pts)`,
-      price: halfPrice,
+      id: cartId,
+      name: `🎁 [CANJE ${pct}% OFF] ${prod.name} (-${pointsCost} pts)`,
+      price: unitPrice,
       qty: 1,
-      points_cost: pointsCost
+      points_cost: pointsCost,
+      redeem_pct: pct
     });
   }
 
@@ -1722,7 +1765,7 @@ function redeemProductWithPoints(productId) {
   updateCartUI();
   closeRedemptionsModal();
   openCartModal();
-  alert(`🎉 ¡Canje Agregado al Carrito!\n\n${prod.name}\n💰 Precio Canje 50%: ${formatCurrency(halfPrice)}\n⭐ Puntos a utilizar: ${pointsCost} pts.`);
+  alert(`🎉 ¡Canje agregado al carrito!\n\n${prod.name}\n💰 Pagás con ${pct}% OFF: ${formatCurrency(unitPrice)}\n⭐ Puntos a utilizar: ${pointsCost} pts.\n\nLos puntos se descuentan cuando confirmás el pedido (si lo anulan, te vuelven).`);
 }
 
 function openClubProfileModal() {

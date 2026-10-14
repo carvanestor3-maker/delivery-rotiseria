@@ -2903,6 +2903,75 @@ app.post('/api/club/login-by-dni', (req, res) => {
   }
 });
 
+// ==========================================================================
+// CANJES DE PUNTOS (50% OFF y 20% OFF sobre el precio de lista del plato)
+// El servidor es quien manda: recalcula el precio del canje, verifica que el
+// socio tenga saldo, le descuenta los puntos al crear el pedido y se los
+// devuelve si el pedido se anula. El portal manda el plato como
+// `redeem-<id>` (50%) o `redeem20-<id>` (20%).
+// Costo en puntos (1 punto = $2,50 de descuento en los dos tramos):
+//   50% -> precio / 5     (o el `points_cost` propio del plato)
+//   20% -> precio / 12,5  (o 0,4 x el `points_cost` propio del plato)
+//   mínimo 100 puntos por canje.
+// ==========================================================================
+const REDEEM_MIN_POINTS = 100;
+function redeemCostPoints(prod, pct) {
+  const custom = parseInt(prod.points_cost) || 0;
+  if (pct === 50) return custom > 0 ? custom : Math.max(REDEEM_MIN_POINTS, Math.round((parseFloat(prod.price) || 0) / 5));
+  return custom > 0
+    ? Math.max(REDEEM_MIN_POINTS, Math.round(custom * 0.4))
+    : Math.max(REDEEM_MIN_POINTS, Math.round((parseFloat(prod.price) || 0) / 12.5));
+}
+function redeemUnitPrice(prod, pct) {
+  return Math.round((parseFloat(prod.price) || 0) * (100 - pct) / 100);
+}
+function parseRedeemItem(item) {
+  const m = /^redeem(20)?-(.+)$/.exec(String((item && item.id) === undefined ? '' : item.id));
+  return m ? { pct: m[1] ? 20 : 50, productId: m[2] } : null;
+}
+function findClubCustomer(store, dni, phone) {
+  const d = String(dni || '').trim();
+  let c = null;
+  if (d) c = (store.customers || []).find(x => String(x.dni).trim() === d) || null;
+  if (!c && phone) c = (store.customers || []).find(x => String(x.phone).trim() === String(phone).trim()) || null;
+  return c;
+}
+// Revisa los canjes del pedido. Devuelve { error } o { totalPoints, summary, detail }.
+// Deja en cada ítem de canje el costo y el porcentaje calculados por el servidor.
+function prepareRedemptions(store, items, customerObj) {
+  if (!Array.isArray(items)) return { totalPoints: 0, detail: [] };
+  const detail = [];
+  let totalPoints = 0;
+  for (const item of items) {
+    const info = parseRedeemItem(item);
+    if (!info) continue;
+    const prod = (store.products || []).find(p => String(p.id) === info.productId);
+    if (!prod) return { error: 'Un plato del canje ya no existe en el menú. Quitalo del carrito y volvé a elegirlo.' };
+    const qty = Number(item.qty);
+    if (!Number.isInteger(qty) || qty < 1 || qty > 99) return { error: `Cantidad inválida en el canje de "${prod.name}".` };
+    const expected = redeemUnitPrice(prod, info.pct);
+    if (Math.abs((parseFloat(item.price) || 0) - expected) > 0.51) {
+      return { error: `El precio del canje de "${prod.name}" cambió (ahora $${expected} con ${info.pct}% OFF). Quitalo del carrito y volvé a elegirlo.` };
+    }
+    const cost = redeemCostPoints(prod, info.pct);
+    item.points_cost = cost;
+    item.redeem_pct = info.pct;
+    item.redeem_product_id = prod.id;
+    totalPoints += cost * qty;
+    detail.push({ product_id: prod.id, name: prod.name, pct: info.pct, qty, points_each: cost });
+  }
+  if (!detail.length) return { totalPoints: 0, detail: [] };
+  if (!customerObj) {
+    return { error: 'Para canjear puntos tenés que estar asociado al Club (ingresá con tu DNI en "Tarjeta Club") y pedir con el mismo celular.' };
+  }
+  const balance = customerObj.points || 0;
+  if (balance < totalPoints) {
+    return { error: `No te alcanzan los puntos: tenés ${balance} y los canjes del carrito necesitan ${totalPoints}.` };
+  }
+  const summary = detail.map(d => `${d.qty}x ${d.name} (${d.pct}% OFF)`).join(', ');
+  return { totalPoints, summary, detail };
+}
+
 app.post('/api/orders', async (req, res) => {
   try {
     const { customer_name, customer_phone, customer_dni, address, delivery_type, payment_method, payment_note, notes, items, total } = req.body;
@@ -2939,6 +3008,14 @@ app.post('/api/orders', async (req, res) => {
       }
     }
 
+    // Canjes de puntos: se valida el saldo del socio ANTES de crear el pedido
+    // (todo este tramo es síncrono: no puede colarse otro pedido en el medio)
+    const strSearchDni = (customer_dni || '').trim();
+    const customerObj = findClubCustomer(store, strSearchDni, customer_phone);
+    const redemption = prepareRedemptions(store, itemsToSave, customerObj);
+    if (redemption.error) return res.status(400).json({ success: false, error: redemption.error });
+    const itemsJsonFinal = typeof itemsToSave === 'string' ? itemsToSave : JSON.stringify(itemsToSave);
+
     const nextId = store.orders.length > 0 ? Math.max(...store.orders.map(o => o.id)) + 1 : 1;
     const newOrder = {
       id: nextId,
@@ -2951,7 +3028,7 @@ app.post('/api/orders', async (req, res) => {
       payment_method: payment_method || 'Efectivo',
       payment_note: payment_note || '',
       notes: notes || '',
-      items: typeof items === 'string' ? items : JSON.parse(itemsJson),
+      items: typeof items === 'string' ? items : JSON.parse(itemsJsonFinal),
       total: parseFloat(total),
       status: 'nuevo',
       paid: 0,
@@ -2961,16 +3038,21 @@ app.post('/api/orders', async (req, res) => {
 
     store.orders.unshift(newOrder);
 
-    // Acreditar puntos automáticamente al Socio si está registrado en el Club
-    const strSearchDni = (customer_dni || '').trim();
-    let customerObj = null;
-    if (strSearchDni) {
-      customerObj = (store.customers || []).find(c => String(c.dni).trim() === strSearchDni);
-    }
-    if (!customerObj && customer_phone) {
-      customerObj = (store.customers || []).find(c => String(c.phone).trim() === String(customer_phone).trim());
+    // Cobrar los puntos de los canjes (el saldo ya se verificó arriba)
+    if (customerObj && redemption.totalPoints > 0) {
+      customerObj.points = Math.max(0, (customerObj.points || 0) - redemption.totalPoints);
+      if (!customerObj.history) customerObj.history = [];
+      customerObj.history.unshift({
+        date: new Date().toISOString(),
+        description: `🎁 Canje de puntos en Pedido ${orderNumber}: ${redemption.summary}`,
+        points_change: -redemption.totalPoints,
+        type: 'redeem'
+      });
+      newOrder.points_redeemed = redemption.totalPoints;
+      newOrder.redeem_detail = redemption.detail;
     }
 
+    // Acreditar puntos automáticamente al Socio si está registrado en el Club
     if (customerObj) {
       const ptsRatio = parseFloat((store.settings && store.settings.points_per_100_currency) || 3);
       const pointsEarned = Math.floor((parseFloat(total) / 100) * ptsRatio);
@@ -3255,6 +3337,24 @@ app.post('/api/orders/:id/cancel', async (req, res) => {
       }
       existingOrder.points_reversed = existingOrder.points_earned;
       existingOrder.points_earned = 0;
+    }
+
+    // Si el pedido tenía canjes de puntos, se le devuelven al socio
+    if (existingOrder.points_redeemed > 0) {
+      const redeemOwner = findClubCustomer(store, existingOrder.customer_dni, existingOrder.customer_phone);
+      if (redeemOwner) {
+        redeemOwner.points = (redeemOwner.points || 0) + existingOrder.points_redeemed;
+        if (!redeemOwner.history) redeemOwner.history = [];
+        redeemOwner.history.unshift({
+          date: new Date().toISOString(),
+          description: `↩️ Puntos de canje devueltos por Anulación del Pedido ${existingOrder.order_number}`,
+          points_change: existingOrder.points_redeemed,
+          type: 'redeem_refund'
+        });
+        io.emit('customer_updated', redeemOwner);
+      }
+      existingOrder.points_refunded = existingOrder.points_redeemed;
+      existingOrder.points_redeemed = 0;
     }
 
     // Si este pedido había completado la compra mínima de un referido, se devuelve el premio

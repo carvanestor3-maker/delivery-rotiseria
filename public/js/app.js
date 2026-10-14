@@ -59,7 +59,23 @@ async function forceReinstallApp() {
   return emergencyAppReset();
 }
 
+// Link de invitación de un amigo (…?ref=REF-12345678): se guarda el código para
+// mandarlo cuando la persona se asocie al Club y así acreditarle puntos a quien invitó.
+function captureReferralFromUrl() {
+  try {
+    const ref = new URLSearchParams(window.location.search).get('ref');
+    if (ref && /^[A-Za-z0-9\-]{3,40}$/.test(ref)) localStorage.setItem('rotiseria_pending_ref', ref);
+  } catch (e) {}
+}
+function getPendingReferral() {
+  try { return localStorage.getItem('rotiseria_pending_ref') || ''; } catch (e) { return ''; }
+}
+function clearPendingReferral() {
+  try { localStorage.removeItem('rotiseria_pending_ref'); } catch (e) {}
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+  captureReferralFromUrl();
   closeAllPublicModals();
   loadMenuData();
   loadCartFromStorage();
@@ -1160,7 +1176,7 @@ function closeDrawer() {
 async function syncCustomerProfile(dni, name, phone, address) {
   if (!dni) return;
   try {
-    const res = await fetch('/api/customer/sync', {
+    const res = await fetch('/api/club/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ dni, name, phone, address })
@@ -1180,7 +1196,7 @@ function updateCustomerUI() {
 
   const custName = state.customer.name || 'Cliente Registrado';
   const custDni = state.customer.dni ? `DNI: ${state.customer.dni}` : 'DNI: Sin Ingresar';
-  const points = state.customer.points_balance || 100;
+  const points = (state.customer.points != null ? state.customer.points : (state.customer.points_balance || 0));
 
   // Actualizar Drawer
   const drawerName = document.getElementById('drawer-cust-name');
@@ -1306,32 +1322,54 @@ async function openPointsHistoryModal() {
   if (!container) return;
   container.innerHTML = `<p class="text-center py-4 text-slate-400">Cargando movimientos...</p>`;
 
-  const dni = state.customer ? state.customer.dni : '32456789';
+  if (!state.customer || !state.customer.dni) {
+    container.innerHTML = `
+      <div class="py-4 text-center text-slate-400 space-y-1">
+        <p>🎁 Asociate al Club y recibí <strong>1000 Puntos de Bienvenida</strong>.</p>
+        <p class="text-[11px]">Completá tu perfil de socio para empezar a acumular puntos.</p>
+      </div>
+    `;
+    return;
+  }
   try {
-    const res = await fetch(`/api/customer/details/${dni}`);
+    // Se vuelve a pedir el socio para mostrar su saldo e historial al día
+    const res = await fetch('/api/club/login-by-dni', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dni: state.customer.dni })
+    });
     const data = await res.json();
-    if (data.success && Array.isArray(data.history) && data.history.length > 0) {
-      container.innerHTML = data.history.map(h => `
+    if (data.success && data.customer) {
+      state.customer = data.customer;
+      saveCustomerToStorage();
+      updateCustomerUI();
+    }
+    const history = (state.customer && Array.isArray(state.customer.history)) ? state.customer.history : [];
+    if (history.length > 0) {
+      container.innerHTML = history.map(h => {
+        const change = Number(h.points_change) || 0;
+        const d = new Date(h.date);
+        return `
         <div class="py-2.5 flex justify-between items-center">
           <div>
             <div class="font-bold text-white">${h.description}</div>
-            <div class="text-[10px] text-slate-400">${new Date(h.date).toLocaleDateString()} ${new Date(h.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+            <div class="text-[10px] text-slate-400">${d.toLocaleDateString()} ${d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
           </div>
-          <div class="font-mono font-black ${h.type.includes('out') ? 'text-red-400' : 'text-emerald-400'}">
-            ${h.type.includes('out') ? '-' : '+'}${h.points} pts
+          <div class="font-mono font-black ${change < 0 ? 'text-red-400' : (change === 0 ? 'text-amber-400' : 'text-emerald-400')}">
+            ${change === 0 ? (h.type === 'referral_pending' ? '⏳ pendiente' : '—') : (change < 0 ? '' : '+') + change + ' pts'}
           </div>
-        </div>
-      `).join('');
+        </div>`;
+      }).join('');
     } else {
       container.innerHTML = `
         <div class="py-4 text-center text-slate-400 space-y-1">
-          <p>🎁 Tenés <strong>100 Puntos de Bienvenida</strong> activos.</p>
+          <p>⭐ Tenés <strong>${state.customer.points || 0} puntos</strong> en tu cuenta.</p>
           <p class="text-[11px]">Realizá pedidos para acumular más puntos en cada compra.</p>
         </div>
       `;
     }
   } catch (e) {
-    container.innerHTML = `<p class="text-center py-4 text-slate-400">Tenés 100 Puntos de Bienvenida cargados.</p>`;
+    container.innerHTML = `<p class="text-center py-4 text-slate-400">Tenés ${(state.customer && state.customer.points) || 0} puntos en tu cuenta.</p>`;
   }
 }
 
@@ -1485,7 +1523,7 @@ function handleSendReferralWhatsApp(e) {
   const refCode = state.customer ? state.customer.referral_code : '';
   const shareUrl = refCode ? `https://spressgastro-ar.com?ref=${encodeURIComponent(refCode)}` : `https://spressgastro-ar.com`;
 
-  const shareText = `🍳 *La Gran Rotisería, Bar & Drugstore 24hs*\n¡Hola! 👋 ${myName} te invita a probar la App del Club La Gran Rotisería.\n\nInstalala en tu celular, hace un pedido, recibis 1000 puntos de regalo para cangear por el 50% OFF del plato que elijas. Consulta las promos o los platos que te permitan utilizar tus puntos, con cada compras tambien acumuas puntos, y por cada amigo referido que mandes la invitacion, baje la app haga su primér pedido acreditas 500 puntos mas.\n\n_(Primera compra mínima para asociarse y acreditar los puntos $10.000 para todos los socios)_\n\n📲 *Instalá la App y hacé tu pedido aquí:*\n${shareUrl}`;
+  const shareText = `🍳 *La Gran Rotisería, Bar & Drugstore 24hs*\n¡Hola! 👋 ${myName} te invita a probar la App del Club La Gran Rotisería.\n\nInstalala en tu celular, hace un pedido, recibis 1000 puntos de regalo para cangear por el 50% OFF del plato que elijas. Consulta las promos o los platos que te permitan utilizar tus puntos, con cada compras tambien acumuas puntos, y por cada amigo referido que mandes la invitacion, baje la app haga su primér pedido acreditas 500 puntos mas.\n\n_(Primera compra mínima para asociarse y acreditar los puntos $15.000 para todos los socios, o completándolos con el segundo pedido)_\n\n📲 *Instalá la App y hacé tu pedido aquí:*\n${shareUrl}`;
 
   window.open(`https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(shareText)}`, '_blank');
   closeReferralModal();
@@ -1606,7 +1644,7 @@ function openRedemptionsModal() {
   if (!modal) return;
 
   const pointsBal = document.getElementById('redemptions-points-balance');
-  const points = (state.customer && state.customer.points_balance) ? state.customer.points_balance : 100;
+  const points = (state.customer && state.customer.points != null) ? state.customer.points : ((state.customer && state.customer.points_balance) || 0);
   if (pointsBal) pointsBal.textContent = `⭐ ${points} pts`;
 
   renderRedemptionsList();
@@ -1733,7 +1771,7 @@ async function submitClubRegistration(e) {
     const res = await fetch('/api/club/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ dni, name, phone, address, birthdate })
+      body: JSON.stringify({ dni, name, phone, address, birthdate, referral_code: getPendingReferral() })
     });
     const data = await res.json();
     if (data.success) {
@@ -1741,6 +1779,7 @@ async function submitClubRegistration(e) {
       saveCustomerToStorage();
       updateCustomerUI();
       closeClubProfileModal();
+      if (data.is_new) clearPendingReferral();
 
       if (data.is_new) {
         alert(`🎉 ¡FELICIDADES ${data.customer.name.toUpperCase()}!\n\nTe asociaste exitosamente al Club La Gran Rotisería 24hs.\n\n⭐ Te regalamos ${data.welcome_points} PUNTOS DE BIENVENIDA para usar en tus próximos pedidos.`);

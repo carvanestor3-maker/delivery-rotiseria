@@ -2669,6 +2669,107 @@ app.post('/api/admin/import-excel', (req, res) => {
 });
 
 
+// ==========================================================================
+// PREMIO POR INVITAR (REFERIDOS)
+// Los puntos del que invita ya NO se pagan al asociarse el amigo: quedan
+// "pendientes" y se acreditan cuando los pedidos ENTREGADOS del amigo (el
+// primero, o el primero + el segundo) llegan a la compra mínima (por defecto
+// $15.000). Los pedidos tienen que ser del mismo socio (DNI) y del mismo
+// celular con el que se asoció. Si se anula un pedido que ya había dado el
+// premio, el premio se devuelve y vuelve a quedar pendiente.
+// ==========================================================================
+function refDigits(v) { return String(v || '').replace(/\D/g, ''); }
+function refSamePhone(a, b) {
+  const x = refDigits(a), y = refDigits(b);
+  if (x.length < 6 || y.length < 6) return false;
+  return x.slice(-10) === y.slice(-10);
+}
+function referralMinPurchase(store) {
+  const v = parseFloat(store.settings && store.settings.referral_min_purchase);
+  return v > 0 ? v : 15000;
+}
+function referralOrderBelongsTo(order, customer) {
+  const oDni = String(order.customer_dni || '').trim();
+  const cDni = String(customer.dni || '').trim();
+  if (oDni && oDni !== cDni) return false;
+  return refSamePhone(order.customer_phone, customer.phone);
+}
+function findReferrerOf(store, customer) {
+  const ref = customer.referral;
+  if (!ref) return null;
+  return (store.customers || []).find(c => c.id === ref.referrer_id) || null;
+}
+// Devuelve el socio que invitó (para avisar por socket) si hubo algún cambio de estado.
+function evaluateReferralReward(store, customer) {
+  const ref = customer && customer.referral;
+  if (!ref || ref.status !== 'pending') return null;
+  const min = ref.min_purchase || referralMinPurchase(store);
+  const delivered = (store.orders || [])
+    .filter(o => o.status === 'entregado' && referralOrderBelongsTo(o, customer))
+    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+    .slice(0, 2);
+  if (delivered.length === 0) return null;
+  const sum = delivered.reduce((s, o) => s + (parseFloat(o.total) || 0), 0);
+  const referrer = findReferrerOf(store, customer);
+  const now = new Date().toISOString();
+  const pts = ref.points || parseInt((store.settings && store.settings.referral_points) || 500);
+  if (sum >= min && referrer) {
+    referrer.points = (referrer.points || 0) + pts;
+    if (!referrer.history) referrer.history = [];
+    referrer.history.unshift({
+      date: now,
+      description: `👥 Premio por Invitar a ${customer.name} (DNI ${customer.dni}): completó $${Math.round(sum)} en compras`,
+      points_change: pts,
+      type: 'referral'
+    });
+    ref.status = 'paid';
+    ref.paid_at = now;
+    ref.paid_points = pts;
+    ref.paid_order_ids = delivered.map(o => o.id);
+    return referrer;
+  }
+  if (delivered.length >= 2 || !referrer) {
+    ref.status = 'expired';
+    ref.expired_at = now;
+    if (referrer) {
+      if (!referrer.history) referrer.history = [];
+      referrer.history.unshift({
+        date: now,
+        description: `👥 ${customer.name} no llegó a $${min} en sus primeros 2 pedidos: no se acreditaron los ${pts} pts`,
+        points_change: 0,
+        type: 'referral_expired'
+      });
+    }
+    return referrer;
+  }
+  return null;
+}
+// Si se anula un pedido que había completado la compra mínima, se devuelve el premio.
+function revertReferralRewardForOrder(store, order) {
+  const touched = [];
+  (store.customers || []).forEach(customer => {
+    const ref = customer.referral;
+    if (!ref || ref.status !== 'paid' || !Array.isArray(ref.paid_order_ids) || !ref.paid_order_ids.includes(order.id)) return;
+    const referrer = findReferrerOf(store, customer);
+    if (referrer) {
+      referrer.points = Math.max(0, (referrer.points || 0) - (ref.paid_points || 0));
+      if (!referrer.history) referrer.history = [];
+      referrer.history.unshift({
+        date: new Date().toISOString(),
+        description: `🚫 Premio por invitar a ${customer.name} revertido: se anuló el pedido ${order.order_number}`,
+        points_change: -(ref.paid_points || 0),
+        type: 'referral_reversed'
+      });
+      touched.push(referrer);
+    }
+    ref.status = 'pending';
+    delete ref.paid_order_ids;
+    delete ref.paid_at;
+    delete ref.paid_points;
+  });
+  return touched;
+}
+
 // REGISTRO DE NUEVO SOCIO DEL CLUB / EDICIÓN DE PERFIL
 app.post('/api/club/register', (req, res) => {
   try {
@@ -2686,6 +2787,8 @@ app.post('/api/club/register', (req, res) => {
 
     let customer = store.customers.find(c => String(c.dni).trim() === strDni);
     let isNew = false;
+    let referralStatus = null;
+    let referrerTouched = null;
     const welcomePts = parseInt((store.settings && store.settings.welcome_points) || 1000);
     const referralPts = parseInt((store.settings && store.settings.referral_points) || 500);
 
@@ -2722,19 +2825,40 @@ app.post('/api/club/register', (req, res) => {
         updated_at: new Date().toISOString()
       };
 
-      // Si fue referido por otro socio, acreditarle puntos al referente
+      // Si fue referido por otro socio: el premio queda PENDIENTE hasta que el
+      // amigo complete la compra mínima con pedidos entregados (ver arriba).
       if (referral_code) {
         const cleanRef = String(referral_code).trim().replace('REF-', '');
         const referrer = store.customers.find(c => String(c.dni).trim() === cleanRef || String(c.phone).trim() === cleanRef);
-        if (referrer) {
-          referrer.points = (referrer.points || 0) + referralPts;
+        if (!referrer) {
+          referralStatus = 'ignored_unknown_code';
+        } else if (String(referrer.dni).trim() === strDni) {
+          referralStatus = 'ignored_self';
+        } else if (refSamePhone(referrer.phone, strPhone)) {
+          referralStatus = 'ignored_same_phone';
+        } else if (!/^\d{7,11}$/.test(strDni)) {
+          referralStatus = 'ignored_bad_dni';
+        } else if (store.customers.some(c => refSamePhone(c.phone, strPhone))) {
+          referralStatus = 'ignored_phone_in_use';
+        } else {
+          const minPurchase = referralMinPurchase(store);
+          customer.referral = {
+            referrer_id: referrer.id,
+            referrer_dni: referrer.dni,
+            status: 'pending',
+            points: referralPts,
+            min_purchase: minPurchase,
+            created_at: new Date().toISOString()
+          };
           if (!referrer.history) referrer.history = [];
           referrer.history.unshift({
             date: new Date().toISOString(),
-            description: `👥 Premio por Invitar al Nuevo Socio ${strName} (DNI ${strDni})`,
-            points_change: referralPts,
-            type: 'referral'
+            description: `👥 Invitaste a ${strName} (DNI ${strDni}): ${referralPts} pts pendientes hasta que complete $${minPurchase} en compras entregadas`,
+            points_change: 0,
+            type: 'referral_pending'
           });
+          referralStatus = 'pending';
+          referrerTouched = referrer;
         }
       }
 
@@ -2743,11 +2867,13 @@ app.post('/api/club/register', (req, res) => {
 
     db.saveStore();
     io.emit('customer_updated', customer);
+    if (referrerTouched) io.emit('customer_updated', referrerTouched);
 
     res.json({
       success: true,
       is_new: isNew,
       welcome_points: isNew ? welcomePts : 0,
+      referral_status: referralStatus,
       customer
     });
   } catch (err) {
@@ -3004,7 +3130,17 @@ app.put('/api/orders/:id/status', async (req, res) => {
     existingOrder.status = status;
     if (delivered_at) existingOrder.delivered_at = delivered_at;
     existingOrder.updated_at = new Date().toISOString();
+
+    // Premio por invitar: si el pedido entregado es de un socio invitado, se mira si ya completó la compra mínima
+    let referrerToNotify = null;
+    if (status === 'entregado') {
+      const oDni = String(existingOrder.customer_dni || '').trim();
+      let buyer = oDni ? (store.customers || []).find(c => String(c.dni).trim() === oDni) : null;
+      if (!buyer && existingOrder.customer_phone) buyer = (store.customers || []).find(c => refSamePhone(c.phone, existingOrder.customer_phone));
+      if (buyer) referrerToNotify = evaluateReferralReward(store, buyer);
+    }
     db.saveStore();
+    if (referrerToNotify) io.emit('customer_updated', referrerToNotify);
 
     const updatedOrder = {
       ...existingOrder,
@@ -3120,6 +3256,10 @@ app.post('/api/orders/:id/cancel', async (req, res) => {
       existingOrder.points_reversed = existingOrder.points_earned;
       existingOrder.points_earned = 0;
     }
+
+    // Si este pedido había completado la compra mínima de un referido, se devuelve el premio
+    const referrersReverted = revertReferralRewardForOrder(store, existingOrder);
+    referrersReverted.forEach(r => io.emit('customer_updated', r));
 
     const previousStatus = existingOrder.status;
     const previousPaid = existingOrder.paid;

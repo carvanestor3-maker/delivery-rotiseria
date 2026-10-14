@@ -1202,6 +1202,10 @@ function expandOrderItemComponents(item, qtyMultiplier) {
       ? { semi_id: sel.semi_id, amount: parseFloat((sel.amount_each * sel.qty * m).toFixed(6)) }
       : { product_id: sel.product_id, qty: sel.qty * m });
   }
+  // Plato canjeado con puntos (id "redeem-12" / "redeem20-12"): consume los
+  // ingredientes del plato real, igual que si se hubiera vendido normal.
+  const rd = parseRedeemItem(item);
+  if (rd && Number.isInteger(Number(rd.productId))) return [{ product_id: Number(rd.productId), qty: m }];
   return [{ product_id: item.id, qty: m }];
 }
 
@@ -2938,7 +2942,7 @@ function findClubCustomer(store, dni, phone) {
 }
 // Revisa los canjes del pedido. Devuelve { error } o { totalPoints, summary, detail }.
 // Deja en cada ítem de canje el costo y el porcentaje calculados por el servidor.
-function prepareRedemptions(store, items, customerObj) {
+function prepareRedemptions(store, items, customerObj, orderPhone) {
   if (!Array.isArray(items)) return { totalPoints: 0, detail: [] };
   const detail = [];
   let totalPoints = 0;
@@ -2963,6 +2967,11 @@ function prepareRedemptions(store, items, customerObj) {
   if (!detail.length) return { totalPoints: 0, detail: [] };
   if (!customerObj) {
     return { error: 'Para canjear puntos tenés que estar asociado al Club (ingresá con tu DNI en "Tarjeta Club") y pedir con el mismo celular.' };
+  }
+  // El DNI solo no alcanza para gastar puntos: el celular del pedido tiene que
+  // ser el mismo con el que el socio se asoció (se comparan los últimos 10 dígitos)
+  if (!refSamePhone(orderPhone, customerObj.phone)) {
+    return { error: 'Para canjear puntos, el celular del pedido tiene que ser el mismo con el que te asociaste al Club. Corregí el celular en el pedido o consultá en el local.' };
   }
   const balance = customerObj.points || 0;
   if (balance < totalPoints) {
@@ -3012,7 +3021,7 @@ app.post('/api/orders', async (req, res) => {
     // (todo este tramo es síncrono: no puede colarse otro pedido en el medio)
     const strSearchDni = (customer_dni || '').trim();
     const customerObj = findClubCustomer(store, strSearchDni, customer_phone);
-    const redemption = prepareRedemptions(store, itemsToSave, customerObj);
+    const redemption = prepareRedemptions(store, itemsToSave, customerObj, customer_phone);
     if (redemption.error) return res.status(400).json({ success: false, error: redemption.error });
     const itemsJsonFinal = typeof itemsToSave === 'string' ? itemsToSave : JSON.stringify(itemsToSave);
 

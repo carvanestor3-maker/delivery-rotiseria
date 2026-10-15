@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <title>Muestrario Mayorista - Express Gastro Bar</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif; background: #e5e7eb; color: #0f172a; }
+    .topbar { background: #0f172a; color: #fff; padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    .topbar h1 { margin: 0; font-size: 16px; font-weight: 800; }
+    .topbar a { color: #fbbf24; font-size: 13px; font-weight: 700; text-decoration: none; }
+    .topbar a:hover { text-decoration: underline; }
+    .layout { display: flex; gap: 16px; padding: 16px; align-items: flex-start; max-width: 1200px; margin: 0 auto; }
+    .panel { width: 320px; flex-shrink: 0; background: #fff; border: 1px solid #cbd5e1; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+    .panel h2 { margin: 0 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: #475569; }
+    .btn { display: block; text-align: center; text-decoration: none; font-weight: 800; font-size: 14px; padding: 12px 14px; border-radius: 12px; border: 0; cursor: pointer; }
+    .btn.main { background: #f59e0b; color: #0f172a; }
+    .btn.main:hover { background: #d98a06; }
+    .btn.alt { background: #0f172a; color: #fff; }
+    .btn.alt:hover { background: #1e293b; }
+    ul { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.7; color: #334155; }
+    .tip { font-size: 12px; color: #475569; line-height: 1.5; background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 10px 12px; }
+    .visor { flex: 1; min-width: 0; background: #fff; border: 1px solid #cbd5e1; border-radius: 16px; overflow: hidden; }
+    .visor iframe { width: 100%; height: calc(100vh - 110px); min-height: 520px; border: 0; display: block; }
+    @media (max-width: 860px) {
+      .layout { flex-direction: column; }
+      .panel { width: 100%; }
+      .visor { width: 100%; }
+      .visor iframe { height: 70vh; }
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <h1>📄 Muestrario de Venta Mayorista</h1>
+    <a href="/admin.html">← Volver al panel de administración</a>
+  </div>
+
+  <div class="layout">
+    <aside class="panel">
+      <div>
+        <h2>Acciones</h2>
+        <div style="display:grid;gap:8px">
+          <a class="btn main" href="/muestrario/Muestrario_Mayorista_Congelados_A4.pdf" download>⬇️ Descargar PDF</a>
+          <a class="btn alt" href="/muestrario/Muestrario_Mayorista_Congelados_A4.pdf" target="_blank" rel="noopener">🖨️ Abrir para imprimir</a>
+        </div>
+      </div>
+      <div>
+        <h2>Contenido (7 hojas A4)</h2>
+        <ul>
+          <li>Empanadas de la Casa</li>
+          <li>Empanadas de Jamón y Queso</li>
+          <li>Empanadas de Carne</li>
+          <li>Empanadas de Verduras</li>
+          <li>Empanadas de 3 Cebollas y Queso</li>
+          <li>Chipá congelado</li>
+          <li>Sopa paraguaya congelada</li>
+        </ul>
+      </div>
+      <div class="tip">
+        <b>Para imprimir:</b> papel A4, escala <b>100 % / tamaño real</b> (no "ajustar a página") y activar "gráficos de fondo". Los precios del muestrario están dentro del PDF; si cambian, hay que generar el PDF de nuevo.
+      </div>
+    </aside>
+
+    <section class="visor">
+      <iframe src="/muestrario/Muestrario_Mayorista_Congelados_A4.pdf#view=FitH" title="Muestrario mayorista"></iframe>
+    </section>
+  </div>
+</body>
+</html>

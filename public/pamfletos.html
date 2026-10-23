@@ -202,7 +202,7 @@ html,body{margin:0;padding:0;font-family:'Segoe UI',Arial,Helvetica,sans-serif;b
 .bar button{background:#f59e0b;color:#0f172a;border:0;border-radius:10px;padding:9px 16px;font-weight:800;font-size:14px;cursor:pointer}
 .bar button:hover{background:#d98a06}
 .ayuda{max-width:297mm;margin:10px auto 0;padding:0 8px;font-size:12px;color:#475569}
-.hoja{width:297mm;height:210mm;margin:10px auto 24px;background:#fff;display:flex;box-shadow:0 0 12px rgba(0,0,0,.25);position:relative;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.hoja{width:297mm;height:208.5mm;overflow:hidden;margin:10px auto 24px;background:#fff;display:flex;box-shadow:0 0 12px rgba(0,0,0,.25);position:relative;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .mitad{width:148.5mm;height:210mm;position:relative;overflow:hidden}
 .mitad.der .esc{width:105mm;height:148.5mm;transform:scale(1.41429);transform-origin:0 0}
 .mitad.der .esc .card{width:105mm;height:148.5mm}
@@ -318,7 +318,9 @@ html,body{margin:0;padding:0;font-family:'Segoe UI',Arial,Helvetica,sans-serif;b
 @media print{
   html,body{background:#fff}
   .bar,.ayuda{display:none!important}
-  .hoja,.hoja4{margin:0;box-shadow:none;page-break-after:avoid}
+  html,body{height:auto!important;overflow:visible}
+  .hoja,.hoja4{margin:0!important;box-shadow:none;break-after:avoid;page-break-after:avoid;break-inside:avoid}
+  .hoja4{height:296mm!important;overflow:hidden}
 }
 
 </style>

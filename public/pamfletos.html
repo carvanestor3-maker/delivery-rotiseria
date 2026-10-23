@@ -1147,7 +1147,7 @@ function modo(m){
     document.getElementById('m-'+k).classList.toggle('on',k===m);
   });
   document.getElementById('ayuda').textContent=TEXTOS[m];
-  document.getElementById('pagina').textContent='@page{size:A4 '+(m==='mixto'?'landscape':'portrait')+';margin:0}';
+  document.getElementById('pagina').textContent='@page{size:A4 '+(m==='mixto'?'landscape':'portrait')+';margin:0} @media print{html,body{width:'+(m==='mixto'?'297mm':'210mm')+'!important;height:'+(m==='mixto'?'208mm':'295mm')+'!important;overflow:hidden!important;margin:0!important;padding:0!important}}';
   try{localStorage.setItem('pamfletos_modo',m);}catch(e){}
 }
 var inicial='mixto';

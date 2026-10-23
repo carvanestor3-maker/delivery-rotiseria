@@ -1,0 +1,1145 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Pamfletos - La Gran Rotisería</title>
+<style>
+
+  
+  * { box-sizing: border-box; }
+  
+  
+  .card {
+    position: relative;
+    width: 105mm;
+    height: 148.5mm;
+    padding: 3.5mm 5mm 6.5mm;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: linear-gradient(180deg, #fffaf3 0%, #fff 35%);
+    overflow: hidden;
+  }
+  .top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 2mm;
+    width: 100%;
+    padding-bottom: 2mm;
+    border-bottom: 2px solid #f59e0b;
+  }
+  .logo {
+    width: 19mm;
+    height: 19mm;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #d97706;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+    flex-shrink: 0;
+  }
+  .brand {
+    flex: 1;
+    text-align: center;
+  }
+  .brand-name {
+    font-weight: 900;
+    letter-spacing: 0.3px;
+    font-size: 11.5pt;
+    color: #1e293b;
+    line-height: 1.1;
+  }
+  .brand-tag {
+    font-size: 8pt;
+    color: #b45309;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .brand-domain {
+    font-size: 7.2pt;
+    color: #1e293b;
+    font-weight: 700;
+    margin-top: 0.3mm;
+  }
+  .combos {
+    width: 100%;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 1mm;
+    margin: 1.2mm 0;
+  }
+  .combo-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 2mm;
+    padding: 1mm 1.6mm;
+    background: #fff7ed;
+    border: 1px solid #fde68a;
+    border-radius: 2mm;
+  }
+  .combo-info { flex: 1; min-width: 0; }
+  .combo-title {
+    font-size: 7.8pt;
+    font-weight: 800;
+    color: #92400e;
+    text-transform: uppercase;
+  }
+  .combo-items {
+    font-size: 6.6pt;
+    color: #44403c;
+    line-height: 1.2;
+    margin-top: 0.3mm;
+  }
+  .combo-price {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    flex-shrink: 0;
+  }
+  .combo-price .antes {
+    font-size: 6.5pt;
+    color: #a8a29e;
+    text-decoration: line-through;
+  }
+  .combo-price .ahora {
+    font-size: 10.5pt;
+    font-weight: 900;
+    color: #166534;
+    white-space: nowrap;
+  }
+  .whatsapp-line {
+    box-sizing: border-box;
+    width: 100%;
+    text-align: center;
+    font-size: 7.8pt;
+    font-weight: 700;
+    color: #075e54;
+    background: #dcfce7;
+    border: 1px solid #16a34a;
+    border-radius: 2mm;
+    padding: 1mm 1.6mm;
+    margin: 0 0 1.2mm 0;
+  }
+  .bottom {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.8mm;
+  }
+  .qrs {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    padding: 0;
+    gap: 1.5mm;
+  }
+  .tagline {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6mm;
+    text-align: center;
+    min-width: 0;
+  }
+  .tagline div {
+    font-size: 8.2pt;
+    font-weight: 800;
+    color: #78350f;
+    line-height: 1.2;
+  }
+  .qr-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.6mm;
+  }
+  .qr-block img {
+    width: 16mm;
+    height: 16mm;
+    border: 1.5px solid #1e293b;
+    border-radius: 2px;
+    padding: 0.8mm;
+    background: #fff;
+  }
+  .qr-block span {
+    font-size: 7pt;
+    font-weight: 800;
+    color: #1e293b;
+    text-transform: uppercase;
+  }
+  .promo {
+    width: 100%;
+    font-size: 6.6pt;
+    line-height: 1.2;
+    text-align: center;
+    color: #78350f;
+    background: #fef3c7;
+    border: 1px solid #fbbf24;
+    border-radius: 2mm;
+    padding: 1.3mm 2mm;
+  }
+  
+  
+  
+
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;font-family:'Segoe UI',Arial,Helvetica,sans-serif;background:#e5e5e5}
+.bar{background:#0f172a;color:#fff;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.bar h1{margin:0;font-size:16px;font-weight:800}
+.bar .acc{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.bar a{color:#fbbf24;font-size:13px;font-weight:700;text-decoration:none}
+.bar button{background:#f59e0b;color:#0f172a;border:0;border-radius:10px;padding:9px 16px;font-weight:800;font-size:14px;cursor:pointer}
+.bar button:hover{background:#d98a06}
+.ayuda{max-width:297mm;margin:10px auto 0;padding:0 8px;font-size:12px;color:#475569}
+.hoja{width:297mm;height:210mm;margin:10px auto 24px;background:#fff;display:flex;box-shadow:0 0 12px rgba(0,0,0,.25);position:relative;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.mitad{width:148.5mm;height:210mm;position:relative;overflow:hidden}
+.mitad.der .esc{width:105mm;height:148.5mm;transform:scale(1.41429);transform-origin:0 0}
+.mitad.der .esc .card{width:105mm;height:148.5mm}
+.corte{position:absolute;left:148.5mm;top:0;bottom:0;border-left:1px dashed #999}
+/* ---- tarjeta izquierda: congelados mayorista ---- */
+.izq{width:148.5mm;height:210mm;padding:4.5mm 6mm 4.5mm;display:flex;flex-direction:column;gap:1.8mm;background:linear-gradient(180deg,#fffaf3 0%,#fff 30%)}
+.izq .top{padding-bottom:2mm}
+.izq .logo{width:20mm;height:20mm}
+.izq .brand-name{font-size:13pt}
+.izq .brand-tag{font-size:8.6pt}
+.izq .brand-domain{font-size:7.6pt}
+.sec{border:1px solid #fde68a;background:#fff7ed;border-radius:2.4mm;padding:1.8mm 2.2mm}
+.sec h2{margin:0;font-size:9.4pt;font-weight:900;color:#92400e;text-transform:uppercase;letter-spacing:.2px}
+.sec .sb{font-size:7pt;color:#44403c;line-height:1.25;margin-top:.4mm}
+.fmts{display:flex;gap:2.2mm;margin-top:1.6mm}
+.fmt{flex:1;min-width:0}
+.fmt img{width:100%;height:14mm;object-fit:cover;border-radius:1.6mm;border:1px solid #d6c7a8;display:block}
+.fmt .cap{font-size:7.4pt;font-weight:900;color:#fff;background:#78350f;border-radius:5mm;text-align:center;padding:.7mm 1mm;margin:1mm 0 1.2mm}
+.fmt .rows{display:flex;flex-direction:column;gap:.8mm}
+.fmt .fr{display:flex;justify-content:space-between;align-items:center;background:#fff;border:1px solid #f59e0b;border-radius:1.6mm;padding:.7mm 1.8mm;font-size:6.4pt;color:#57534e;line-height:1.1}
+.fmt .fr b{font-size:10pt;font-weight:900;color:#166534}
+.trays{display:flex;gap:2mm;margin-top:1.6mm}
+.trays figure{flex:1;margin:0;text-align:center}
+.trays img{width:100%;height:27mm;object-fit:cover;border-radius:1.6mm;border:1px solid #d6c7a8;display:block}
+.trays figcaption{font-size:7pt;font-weight:800;color:#78350f;margin-top:.5mm}
+.tiers{display:flex;gap:1.6mm;margin-top:1.6mm}
+.tiers>div{flex:1;background:#fff;border:1px solid #f59e0b;border-radius:1.8mm;text-align:center;padding:1mm .6mm .8mm}
+.tiers .r{font-size:6.2pt;color:#57534e;line-height:1.15;min-height:5.6mm;display:flex;align-items:center;justify-content:center}
+.tiers .v{font-size:12.5pt;font-weight:900;color:#166534;line-height:1.05}
+.tiers .u{font-size:5.8pt;color:#92400e;font-weight:700;text-transform:uppercase;letter-spacing:.3px}
+.chipa{display:flex;gap:2.4mm;margin-top:1.6mm;align-items:stretch}
+.chipa img{width:22mm;height:21mm;object-fit:cover;object-position:30% 55%;border-radius:1.6mm;border:1px solid #d6c7a8;flex:none}
+.chipa .tiers{margin-top:0;flex:1;flex-direction:column;justify-content:center}
+.chipa .tiers>div{display:flex;align-items:center;justify-content:space-between;text-align:left;padding:.6mm 2.2mm}
+.chipa .tiers .r{min-height:0;font-size:7pt;font-weight:700;justify-content:flex-start}
+.chipa .tiers .v{font-size:12.5pt}
+.cfoto{width:12.5mm;height:7mm;object-fit:cover;border-radius:1.2mm;flex:none;border:1px solid #fde68a}
+.combo-row{gap:1.6mm}
+.combo-items{font-size:6.2pt}
+.aclara{width:100%;margin-top:1.2mm;text-align:center;font-size:7.2pt;color:#78350f;background:#fef3c7;border:1px solid #fbbf24;border-radius:2mm;padding:.9mm 1.6mm;line-height:1.2}
+.pz{display:flex;gap:1.8mm;margin-top:1.4mm}
+.pzc{flex:1;min-width:0;display:flex;align-items:center;gap:1.4mm;background:#fff;border:1px solid #f59e0b;border-radius:1.8mm;padding:.8mm}
+.pzc img{width:27mm;height:15mm;object-fit:cover;border-radius:1.2mm;flex:none}
+.pzp{display:flex;flex-direction:column;align-items:center;flex:1;text-align:center;line-height:1.1}
+.pzp span{font-size:6.2pt;color:#57534e}
+.pzp b{font-size:13pt;color:#166534;font-weight:900}
+.pzp i,.elab i{font-style:normal;font-size:5.6pt;color:#92400e;font-weight:700;text-transform:uppercase}
+.elab{display:flex;justify-content:space-between;align-items:center;margin-top:1.2mm;background:#fff;border:1px solid #f59e0b;border-radius:1.8mm;padding:.8mm 2mm;font-size:6.6pt;color:#57534e}
+.elab b{font-size:10.5pt;color:#166534;font-weight:900}
+.izq .whatsapp-line{margin:0}
+.izq .nota{font-size:6.6pt;line-height:1.3;text-align:center;color:#78350f;background:#fef3c7;border:1px solid #fbbf24;border-radius:2mm;padding:1.2mm 2mm;margin-top:auto}
+/* ---- hoja 4x1 ---- */
+.hoja4{width:210mm;height:297mm;margin:10px auto 24px;background:#fff;display:grid;grid-template-columns:105mm 105mm;grid-template-rows:148.5mm 148.5mm;box-shadow:0 0 12px rgba(0,0,0,.25);-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.hoja4 .celda{width:105mm;height:148.5mm;overflow:hidden;position:relative}
+.hoja4 .celda:nth-child(1),.hoja4 .celda:nth-child(3){border-right:1px dashed #999}
+.hoja4 .celda:nth-child(1),.hoja4 .celda:nth-child(2){border-bottom:1px dashed #999}
+.hoja4 .celda .card{width:105mm;height:148.5mm}
+.izq.mini{width:105mm;height:148.5mm;padding:3mm 4mm;gap:1.5mm}
+.mini .top{padding-bottom:1mm}
+.mini .logo{width:12mm;height:12mm;border-width:1.5px}
+.mini .brand-name{font-size:8.8pt}.mini .brand-tag{font-size:6.2pt}.mini .brand-domain{font-size:5.6pt}
+.mini .sec{padding:1mm 1.4mm;border-radius:1.6mm}
+.mini .sec h2{font-size:6.8pt}
+.mini .sb{font-size:5.4pt;margin-top:.2mm}
+.mini .fmt img{height:12.5mm}
+.mini .fmts{gap:1.4mm;margin-top:1mm}
+.mini .fmt .cap{font-size:5.6pt;padding:.4mm;margin:.6mm 0 0}
+.mini .tiers{gap:1mm;margin-top:1mm}
+.mini .tiers>div{padding:.5mm .4mm}
+.mini .tiers .r{font-size:5.8pt;min-height:4.6mm}
+.mini .tiers .v{font-size:9.6pt}
+.mini .tiers .u{font-size:5pt}
+.chipa.sopa img{width:27mm;height:15mm;object-position:50% 50%}
+.mini .chipa.sopa img{width:20mm;height:11mm}
+.mini .chipa{gap:1.4mm;margin-top:1mm}
+.mini .chipa img{width:17mm;height:16mm}
+.mini .chipa .tiers>div{padding:.4mm 1.6mm}
+.mini .chipa .tiers .r{font-size:6pt;min-height:0}
+.mini .chipa .tiers .v{font-size:9.6pt}
+.pze img{width:27mm;height:15mm}
+.mini .pze img{width:18mm;height:10mm}
+.mini .pz{gap:1mm;margin-top:1mm}
+.mini .pzc{gap:1mm;padding:.5mm}
+.mini .pzc img{width:18mm;height:10mm}
+.mini .pzp span{font-size:5.4pt}
+.mini .pzp b{font-size:9.6pt}
+.mini .pzp i,.mini .elab i{font-size:5pt}
+.mini .elab{font-size:5.6pt;padding:.5mm 1.4mm;margin-top:.8mm}
+.mini .elab b{font-size:8.4pt}
+.mini .whatsapp-line{font-size:5.8pt;padding:.7mm 1mm}
+.mini .nota{font-size:5pt;padding:.7mm 1mm;line-height:1.25}
+.oculta{display:none!important}
+.modos{display:flex;gap:6px;flex-wrap:wrap}
+.modos button{background:#1e293b;color:#e2e8f0;border:1px solid #475569;border-radius:10px;padding:8px 12px;font-weight:700;font-size:12.5px;cursor:pointer}
+.modos button.on{background:#fbbf24;color:#0f172a;border-color:#fbbf24}
+
+@media print{
+  html,body{background:#fff}
+  .bar,.ayuda{display:none!important}
+  .hoja,.hoja4{margin:0;box-shadow:none;page-break-after:avoid}
+}
+
+</style>
+<style id="pagina">@page{size:A4 landscape;margin:0}</style>
+</head>
+<body>
+  <div class="bar">
+    <h1>📄 Pamfletos para imprimir</h1>
+    <div class="acc">
+      <div class="modos">
+        <button id="m-mixto" class="on" onclick="modo('mixto')">2 por hoja · Congelados + Cocinado</button>
+        <button id="m-cocinado" onclick="modo('cocinado')">4 por hoja · Solo cocinado</button>
+        <button id="m-congelados" onclick="modo('congelados')">4 por hoja · Solo congelados</button>
+      </div>
+      <button style="background:#f59e0b;color:#0f172a;border:0;border-radius:10px;padding:9px 16px;font-weight:800;font-size:14px;cursor:pointer" onclick="window.print()">🖨️ Imprimir</button>
+      <a href="/admin.html">← Panel</a>
+    </div>
+  </div>
+  <p class="ayuda" id="ayuda"></p>
+
+  <div class="hoja" id="h-mixto">
+    <div class="mitad izq-m"><section class="izq">
+  <div class="top">
+    <img class="logo" src="/pamfletos/asset_a35049cf.jpg" alt="Logo La Gran Rotisería">
+    <div class="brand"><div class="brand-name">LA GRAN ROTISERÍA</div><div class="brand-tag">Venta mayorista · Congelados</div><div class="brand-domain">spressgastro-ar.com</div></div>
+    <img class="logo" src="/pamfletos/asset_a35049cf.jpg" alt="Logo La Gran Rotisería">
+  </div>
+
+  <div class="sec">
+    <h2>Empanadas congeladas XL · formato grande</h2>
+    <div class="sb">Casa · Jamón y Queso · Carne · Verduras · 3 Cebollas y Queso. Todas valen lo mismo.</div>
+    <div class="fmts">
+      <div class="fmt"><img src="/pamfletos/bandeja_x6.jpg" alt="Bandeja de telgopor, media docena"><div class="cap">Bandeja x6 · media docena</div></div>
+      <div class="fmt"><img src="/pamfletos/bandeja_x12.jpg" alt="Bandeja de telgopor, una docena"><div class="cap">Bandeja x12 · una docena</div></div>
+    </div>
+    <div class="tiers"><div><div class="r">Hasta 3 docenas</div><div class="v">$14.000</div><div class="u">por docena</div></div><div><div class="r">Más de 3 y hasta 6 docenas</div><div class="v">$12.000</div><div class="u">por docena</div></div><div><div class="r">Más de 6 docenas</div><div class="v">$10.000</div><div class="u">por docena</div></div></div>
+  </div>
+
+  <div class="sec">
+    <h2>Chipá congelado</h2>
+    <div class="sb">Bollitos en paquetes de medio kilo o de un kilo.</div>
+    <div class="chipa">
+      <img src="/pamfletos/chipa_medio_kilo.jpg" alt="Bandejita de chipá congelado, medio kilo">
+      <div class="tiers"><div><div class="r">Hasta 5 kg</div><div class="v">$10.000</div><div class="u">por kilo</div></div><div><div class="r">Más de 5 kg</div><div class="v">$8.000</div><div class="u">por kilo</div></div></div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <h2>Pizzas congeladas</h2>
+    <div class="pz">
+      <div class="pzc"><img src="/pamfletos/prepizza_individual.jpg" alt="Prepizza individual"><div class="pzp"><span>Prepizza individual</span><b>$800</b><i>mayorista</i></div></div>
+      <div class="pzc"><img src="/pamfletos/prepizza_x2.jpg" alt="Pack por 2 prepizzas"><div class="pzp"><span>Pack x2 prepizzas</span><b>$1.500</b><i>mayorista</i></div></div>
+    </div>
+    <div class="pz"><div class="pzc pze"><img src="/pamfletos/pizza_jamon_queso.jpg" alt="Pizza de jamón y queso con muzzarella"><div class="pzp"><span>Pizza elaborada de muzzarella con jamón</span><b>$7.000</b><i>mayorista</i></div></div></div>
+  </div>
+
+  <div class="sec">
+    <h2>Sopa paraguaya congelada</h2>
+    <div class="sb">En bandejitas de aluminio.</div>
+    <div class="chipa sopa">
+      <img src="/pamfletos/sopa_paraguaya.jpg" alt="Sopa paraguaya congelada en bandejitas de aluminio">
+      <div class="tiers"><div><div class="r">Hasta 5 bandejas</div><div class="v">$4.500</div><div class="u">por bandejita</div></div><div><div class="r">Más de 5 bandejas</div><div class="v">$3.500</div><div class="u">por bandejita</div></div></div>
+    </div>
+  </div>
+
+  <div class="whatsapp-line">📱 WhatsApp: +54 9 379 559-1611 | +54 9 351 230-7121</div>
+  <div class="nota">Mayorista para reventa · Paquetes de media docena (6 u.) o una docena (12 u.) · España 1028 (casi Yrigoyen)</div>
+</section></div>
+    <div class="mitad der"><div class="esc"><section class="card">
+      <div class="top">
+        <img class="logo" src="/pamfletos/asset_a35049cf.jpg" alt="Logo La Gran Rotisería" />
+        <div class="brand">
+          <div class="brand-name">LA GRAN ROTISERÍA</div>
+          <div class="brand-tag">Promos para Compartir</div>
+          <div class="brand-domain">spressgastro-ar.com</div>
+        </div>
+        <img class="logo" src="/pamfletos/asset_a35049cf.jpg" alt="Logo La Gran Rotisería" />
+      </div>
+
+      <div class="aclara">🛵 Pedidos por <b>delivery en la app</b> · Productos <b>cocinados</b></div>
+
+      <div class="combos">
+        
+          <div class="combo-row"><img class="cfoto" src="/pamfletos/promo_empanadas.jpg" alt=""><div class="combo-info">
+              <div class="combo-title">2 Docenas de Empanadas</div>
+              <div class="combo-items">24 Empanadas variedad mixta a elección</div>
+            </div>
+            <div class="combo-price">
+              <span class="antes">$47.600</span>
+              <span class="ahora">$32.000</span>
+            </div>
+          </div>
+
+          <div class="combo-row"><img class="cfoto" src="/pamfletos/promo_empanadas.jpg" alt=""><div class="combo-info">
+              <div class="combo-title">3 Docenas de Empanadas Mixtas</div>
+              <div class="combo-items">36 Empanadas variedad mixta a elección</div>
+            </div>
+            <div class="combo-price">
+              <span class="antes">$71.400</span>
+              <span class="ahora">$45.000</span>
+            </div>
+          </div>
+
+          <div class="combo-row"><img class="cfoto" src="/pamfletos/promo_pizzas2.jpg" alt=""><div class="combo-info">
+              <div class="combo-title">2 Pizzas Combinadas</div>
+              <div class="combo-items">Mitad y mitad, variedades a elección</div>
+            </div>
+            <div class="combo-price">
+              <span class="antes">$56.000</span>
+              <span class="ahora">$30.000</span>
+            </div>
+          </div>
+
+          <div class="combo-row"><img class="cfoto" src="/pamfletos/promo_pizzas3.jpg" alt=""><div class="combo-info">
+              <div class="combo-title">3 Pizzas Combinadas</div>
+              <div class="combo-items">6 medias pizzas, variedades a elección</div>
+            </div>
+            <div class="combo-price">
+              <span class="antes">$84.000</span>
+              <span class="ahora">$45.000</span>
+            </div>
+          </div>
+
+          <div class="combo-row"><img class="cfoto" src="/pamfletos/promo_milanesa.jpg" alt=""><div class="combo-info">
+              <div class="combo-title">2 Sánd. de Milanesa con Papas</div>
+              <div class="combo-items">2 Milanesa de Carne Vacuna Completo + Papas Fritas</div>
+            </div>
+            <div class="combo-price">
+              <span class="antes">$27.000</span>
+              <span class="ahora">$18.000</span>
+            </div>
+          </div>
+
+          <div class="combo-row"><img class="cfoto" src="/pamfletos/promo_hamburguesas.jpg" alt=""><div class="combo-info">
+              <div class="combo-title">2 Hamburguesas con Papas</div>
+              <div class="combo-items">2 Hamburguesas Clásicas con Papas Fritas</div>
+            </div>
+            <div class="combo-price">
+              <span class="antes">$17.100</span>
+              <span class="ahora">$13.000</span>
+            </div>
+          </div>
+
+          <div class="combo-row"><img class="cfoto" src="/pamfletos/promo_hamburguesas.jpg" alt=""><div class="combo-info">
+              <div class="combo-title">3 Hamburguesas con Papas</div>
+              <div class="combo-items">3 Hamburguesas Clásicas con Papas Fritas</div>
+            </div>
+            <div class="combo-price">
+              <span class="antes">$25.650</span>
+              <span class="ahora">$18.500</span>
+            </div>
+          </div>
+
+      </div>
+
+      <div class="whatsapp-line">
+        📱 WhatsApp: <strong>+54 9 379 559-1611</strong> &nbsp;|&nbsp; <strong>+54 9 351 230-7121</strong>
+      </div>
+
+      <div class="bottom">
+        <div class="qrs">
+          <div class="qr-block">
+            <img src="/pamfletos/asset_bdd31c86.png" alt="QR Menú" />
+            <span>Ver MENÚ</span>
+          </div>
+          <div class="tagline">
+            <div>✨ Gastronomía Premium</div>
+            <div>🍲 Preparados Caseros</div>
+            <div>🥗 Comidas Nutricionales y Viandas — Consultar</div>
+          </div>
+          <div class="qr-block">
+            <img src="/pamfletos/asset_9ac8476d.png" alt="QR Pedidos" />
+            <span>PEDÍ YA</span>
+          </div>
+        </div>
+        <div class="promo">
+          🎁 En tu <strong>primera compra +$10.000</strong> por nuestro portal de pedidos, recibís <strong>1000 puntos de regalo</strong> para descontar en tu primer pedido.
+        </div>
+      </div>
+    </section></div></div>
+    <div class="corte"></div>
+  </div>
+
+  <div class="hoja4 oculta" id="h-cocinado">
+    <div class="celda"><section class="card">
+      <div class="top">
+        <img class="logo" src="/pamfletos/asset_a35049cf.jpg" alt="Logo La Gran Rotisería" />
+        <div class="brand">
+          <div class="brand-name">LA GRAN ROTISERÍA</div>
+          <div class="brand-tag">Promos para Compartir</div>
+          <div class="brand-domain">spressgastro-ar.com</div>
+        </div>
+        <img class="logo" src="/pamfletos/asset_a35049cf.jpg" alt="Logo La Gran Rotisería" />
+      </div>
+
+      <div class="aclara">🛵 Pedidos por <b>delivery en la app</b> · Productos <b>cocinados</b></div>
+
+      <div class="combos">
+        
+          <div class="combo-row"><img class="cfoto" src="/pamfletos/promo_empanadas.jpg" alt=""><div class="combo-info">
+              <div class="combo-title">2 Docenas de Empanadas</div>
+              <div class="combo-items">24 Empanadas variedad mixta a elección</div>
+            </div>
+            <div class="combo-price">
+              <span class="antes">$47.600</span>
+              <span class="ahora">$32.000</span>
+            </div>
+          </div>
+
+          <div class="combo-row"><img class="cfoto" src="/pamfletos/promo_empanadas.jpg" alt=""><div class="combo-info">
+              <div class="combo-title">3 Docenas de Empanadas Mixtas</div>
+              <div class="combo-items">36 Empanadas variedad mixta a elección</div>
+            </div>
+            <div class="combo-price">
+              <span class="antes">$71.400</span>
+              <span class="ahora">$45.000</span>
+            </div>
+          </div>
+
+          <div class="combo-row"><img class="cfoto" src="/pamfletos/promo_pizzas2.jpg" alt=""><div class="combo-info">
+              <div class="combo-title">2 Pizzas Combinadas</div>
+              <div class="combo-items">Mitad y mitad, variedades a elección</div>
+            </div>
+            <div class="combo-price">
+              <span class="antes">$56.000</span>
+              <span class="ahora">$30.000</span>
+            </div>
+          </div>
+
+          <div class="combo-row"><img class="cfoto" src="/pamfletos/promo_pizzas3.jpg" alt=""><div class="combo-info">
+              <div class="combo-title">3 Pizzas Combinadas</div>
+              <div class="combo-items">6 medias pizzas, variedades a elección</div>
+            </div>
+            <div class="combo-price">
+              <span class="antes">$84.000</span>
+              <span class="ahora">$45.000</span>
+            </div>
+          </div>
+
+          <div class="combo-row"><img class="cfoto" src="/pamfletos/promo_milanesa.jpg" alt=""><div class="combo-info">
+              <div class="combo-title">2 Sánd. de Milanesa con Papas</div>
+              <div class="combo-items">2 Milanesa de Carne Vacuna Completo + Papas Fritas</div>
+            </div>
+            <div class="combo-price">
+              <span class="antes">$27.000</span>
+              <span class="ahora">$18.000</span>
+            </div>
+          </div>
+
+          <div class="combo-row"><img class="cfoto" src="/pamfletos/promo_hamburguesas.jpg" alt=""><div class="combo-info">
+              <div class="combo-title">2 Hamburguesas con Papas</div>
+              <div class="combo-items">2 Hamburguesas Clásicas con Papas Fritas</div>
+            </div>
+            <div class="combo-price">
+              <span class="antes">$17.100</span>
+              <span class="ahora">$13.000</span>
+            </div>
+          </div>
+
+          <div class="combo-row"><img class="cfoto" src="/pamfletos/promo_hamburguesas.jpg" alt=""><div class="combo-info">
+              <div class="combo-title">3 Hamburguesas con Papas</div>
+              <div class="combo-items">3 Hamburguesas Clásicas con Papas Fritas</div>
+            </div>
+            <div class="combo-price">
+              <span class="antes">$25.650</span>
+              <span class="ahora">$18.500</span>
+            </div>
+          </div>
+
+      </div>
+
+      <div class="whatsapp-line">
+        📱 WhatsApp: <strong>+54 9 379 559-1611</strong> &nbsp;|&nbsp; <strong>+54 9 351 230-7121</strong>
+      </div>
+
+      <div class="bottom">
+        <div class="qrs">
+          <div class="qr-block">
+            <img src="/pamfletos/asset_bdd31c86.png" alt="QR Menú" />
+            <span>Ver MENÚ</span>
+          </div>
+          <div class="tagline">
+            <div>✨ Gastronomía Premium</div>
+            <div>🍲 Preparados Caseros</div>
+            <div>🥗 Comidas Nutricionales y Viandas — Consultar</div>
+          </div>
+          <div class="qr-block">
+            <img src="/pamfletos/asset_9ac8476d.png" alt="QR Pedidos" />
+            <span>PEDÍ YA</span>
+          </div>
+        </div>
+        <div class="promo">
+          🎁 En tu <strong>primera compra +$10.000</strong> por nuestro portal de pedidos, recibís <strong>1000 puntos de regalo</strong> para descontar en tu primer pedido.
+        </div>
+      </div>
+    </section></div><div class="celda"><section class="card">
+      <div class="top">
+        <img class="logo" src="/pamfletos/asset_a35049cf.jpg" alt="Logo La Gran Rotisería" />
+        <div class="brand">
+          <div class="brand-name">LA GRAN ROTISERÍA</div>
+          <div class="brand-tag">Promos para Compartir</div>
+          <div class="brand-domain">spressgastro-ar.com</div>
+        </div>
+        <img class="logo" src="/pamfletos/asset_a35049cf.jpg" alt="Logo La Gran Rotisería" />
+      </div>
+
+      <div class="aclara">🛵 Pedidos por <b>delivery en la app</b> · Productos <b>cocinados</b></div>
+
+      <div class="combos">
+        
+          <div class="combo-row"><img class="cfoto" src="/pamfletos/promo_empanadas.jpg" alt=""><div class="combo-info">
+              <div class="combo-title">2 Docenas de Empanadas</div>
+              <div class="combo-items">24 Empanadas variedad mixta a elección</div>
+            </div>
+            <div class="combo-price">
+              <span class="antes">$47.600</span>
+              <span class="ahora">$32.000</span>
+            </div>
+          </div>
+
+          <div class="combo-row"><img class="cfoto" src="/pamfletos/promo_empanadas.jpg" alt=""><div class="combo-info">
+              <div class="combo-title">3 Docenas de Empanadas Mixtas</div>
+              <div class="combo-items">36 Empanadas variedad mixta a elección</div>
+            </div>
+            <div class="combo-price">
+              <span class="antes">$71.400</span>
+              <span class="ahora">$45.000</span>
+            </div>
+          </div>
+
+          <div class="combo-row"><img class="cfoto" src="/pamfletos/promo_pizzas2.jpg" alt=""><div class="combo-info">
+              <div class="combo-title">2 Pizzas Combinadas</div>
+              <div class="combo-items">Mitad y mitad, variedades a elección</div>
+            </div>
+            <div class="combo-price">
+              <span class="antes">$56.000</span>
+              <span class="ahora">$30.000</span>
+            </div>
+          </div>
+
+          <div class="combo-row"><img class="cfoto" src="/pamfletos/promo_pizzas3.jpg" alt=""><div class="combo-info">
+              <div class="combo-title">3 Pizzas Combinadas</div>
+              <div class="combo-items">6 medias pizzas, variedades a elección</div>
+            </div>
+            <div class="combo-price">
+              <span class="antes">$84.000</span>
+              <span class="ahora">$45.000</span>
+            </div>
+          </div>
+
+          <div class="combo-row"><img class="cfoto" src="/pamfletos/promo_milanesa.jpg" alt=""><div class="combo-info">
+              <div class="combo-title">2 Sánd. de Milanesa con Papas</div>
+              <div class="combo-items">2 Milanesa de Carne Vacuna Completo + Papas Fritas</div>
+            </div>
+            <div class="combo-price">
+              <span class="antes">$27.000</span>
+              <span class="ahora">$18.000</span>
+            </div>
+          </div>
+
+          <div class="combo-row"><img class="cfoto" src="/pamfletos/promo_hamburguesas.jpg" alt=""><div class="combo-info">
+              <div class="combo-title">2 Hamburguesas con Papas</div>
+              <div class="combo-items">2 Hamburguesas Clásicas con Papas Fritas</div>
+            </div>
+            <div class="combo-price">
+              <span class="antes">$17.100</span>
+              <span class="ahora">$13.000</span>
+            </div>
+          </div>
+
+          <div class="combo-row"><img class="cfoto" src="/pamfletos/promo_hamburguesas.jpg" alt=""><div class="combo-info">
+              <div class="combo-title">3 Hamburguesas con Papas</div>
+              <div class="combo-items">3 Hamburguesas Clásicas con Papas Fritas</div>
+            </div>
+            <div class="combo-price">
+              <span class="antes">$25.650</span>
+              <span class="ahora">$18.500</span>
+            </div>
+          </div>
+
+      </div>
+
+      <div class="whatsapp-line">
+        📱 WhatsApp: <strong>+54 9 379 559-1611</strong> &nbsp;|&nbsp; <strong>+54 9 351 230-7121</strong>
+      </div>
+
+      <div class="bottom">
+        <div class="qrs">
+          <div class="qr-block">
+            <img src="/pamfletos/asset_bdd31c86.png" alt="QR Menú" />
+            <span>Ver MENÚ</span>
+          </div>
+          <div class="tagline">
+            <div>✨ Gastronomía Premium</div>
+            <div>🍲 Preparados Caseros</div>
+            <div>🥗 Comidas Nutricionales y Viandas — Consultar</div>
+          </div>
+          <div class="qr-block">
+            <img src="/pamfletos/asset_9ac8476d.png" alt="QR Pedidos" />
+            <span>PEDÍ YA</span>
+          </div>
+        </div>
+        <div class="promo">
+          🎁 En tu <strong>primera compra +$10.000</strong> por nuestro portal de pedidos, recibís <strong>1000 puntos de regalo</strong> para descontar en tu primer pedido.
+        </div>
+      </div>
+    </section></div><div class="celda"><section class="card">
+      <div class="top">
+        <img class="logo" src="/pamfletos/asset_a35049cf.jpg" alt="Logo La Gran Rotisería" />
+        <div class="brand">
+          <div class="brand-name">LA GRAN ROTISERÍA</div>
+          <div class="brand-tag">Promos para Compartir</div>
+          <div class="brand-domain">spressgastro-ar.com</div>
+        </div>
+        <img class="logo" src="/pamfletos/asset_a35049cf.jpg" alt="Logo La Gran Rotisería" />
+      </div>
+
+      <div class="aclara">🛵 Pedidos por <b>delivery en la app</b> · Productos <b>cocinados</b></div>
+
+      <div class="combos">
+        
+          <div class="combo-row"><img class="cfoto" src="/pamfletos/promo_empanadas.jpg" alt=""><div class="combo-info">
+              <div class="combo-title">2 Docenas de Empanadas</div>
+              <div class="combo-items">24 Empanadas variedad mixta a elección</div>
+            </div>
+            <div class="combo-price">
+              <span class="antes">$47.600</span>
+              <span class="ahora">$32.000</span>
+            </div>
+          </div>
+
+          <div class="combo-row"><img class="cfoto" src="/pamfletos/promo_empanadas.jpg" alt=""><div class="combo-info">
+              <div class="combo-title">3 Docenas de Empanadas Mixtas</div>
+              <div class="combo-items">36 Empanadas variedad mixta a elección</div>
+            </div>
+            <div class="combo-price">
+              <span class="antes">$71.400</span>
+              <span class="ahora">$45.000</span>
+            </div>
+          </div>
+
+          <div class="combo-row"><img class="cfoto" src="/pamfletos/promo_pizzas2.jpg" alt=""><div class="combo-info">
+              <div class="combo-title">2 Pizzas Combinadas</div>
+              <div class="combo-items">Mitad y mitad, variedades a elección</div>
+            </div>
+            <div class="combo-price">
+              <span class="antes">$56.000</span>
+              <span class="ahora">$30.000</span>
+            </div>
+          </div>
+
+          <div class="combo-row"><img class="cfoto" src="/pamfletos/promo_pizzas3.jpg" alt=""><div class="combo-info">
+              <div class="combo-title">3 Pizzas Combinadas</div>
+              <div class="combo-items">6 medias pizzas, variedades a elección</div>
+            </div>
+            <div class="combo-price">
+              <span class="antes">$84.000</span>
+              <span class="ahora">$45.000</span>
+            </div>
+          </div>
+
+          <div class="combo-row"><img class="cfoto" src="/pamfletos/promo_milanesa.jpg" alt=""><div class="combo-info">
+              <div class="combo-title">2 Sánd. de Milanesa con Papas</div>
+              <div class="combo-items">2 Milanesa de Carne Vacuna Completo + Papas Fritas</div>
+            </div>
+            <div class="combo-price">
+              <span class="antes">$27.000</span>
+              <span class="ahora">$18.000</span>
+            </div>
+          </div>
+
+          <div class="combo-row"><img class="cfoto" src="/pamfletos/promo_hamburguesas.jpg" alt=""><div class="combo-info">
+              <div class="combo-title">2 Hamburguesas con Papas</div>
+              <div class="combo-items">2 Hamburguesas Clásicas con Papas Fritas</div>
+            </div>
+            <div class="combo-price">
+              <span class="antes">$17.100</span>
+              <span class="ahora">$13.000</span>
+            </div>
+          </div>
+
+          <div class="combo-row"><img class="cfoto" src="/pamfletos/promo_hamburguesas.jpg" alt=""><div class="combo-info">
+              <div class="combo-title">3 Hamburguesas con Papas</div>
+              <div class="combo-items">3 Hamburguesas Clásicas con Papas Fritas</div>
+            </div>
+            <div class="combo-price">
+              <span class="antes">$25.650</span>
+              <span class="ahora">$18.500</span>
+            </div>
+          </div>
+
+      </div>
+
+      <div class="whatsapp-line">
+        📱 WhatsApp: <strong>+54 9 379 559-1611</strong> &nbsp;|&nbsp; <strong>+54 9 351 230-7121</strong>
+      </div>
+
+      <div class="bottom">
+        <div class="qrs">
+          <div class="qr-block">
+            <img src="/pamfletos/asset_bdd31c86.png" alt="QR Menú" />
+            <span>Ver MENÚ</span>
+          </div>
+          <div class="tagline">
+            <div>✨ Gastronomía Premium</div>
+            <div>🍲 Preparados Caseros</div>
+            <div>🥗 Comidas Nutricionales y Viandas — Consultar</div>
+          </div>
+          <div class="qr-block">
+            <img src="/pamfletos/asset_9ac8476d.png" alt="QR Pedidos" />
+            <span>PEDÍ YA</span>
+          </div>
+        </div>
+        <div class="promo">
+          🎁 En tu <strong>primera compra +$10.000</strong> por nuestro portal de pedidos, recibís <strong>1000 puntos de regalo</strong> para descontar en tu primer pedido.
+        </div>
+      </div>
+    </section></div><div class="celda"><section class="card">
+      <div class="top">
+        <img class="logo" src="/pamfletos/asset_a35049cf.jpg" alt="Logo La Gran Rotisería" />
+        <div class="brand">
+          <div class="brand-name">LA GRAN ROTISERÍA</div>
+          <div class="brand-tag">Promos para Compartir</div>
+          <div class="brand-domain">spressgastro-ar.com</div>
+        </div>
+        <img class="logo" src="/pamfletos/asset_a35049cf.jpg" alt="Logo La Gran Rotisería" />
+      </div>
+
+      <div class="aclara">🛵 Pedidos por <b>delivery en la app</b> · Productos <b>cocinados</b></div>
+
+      <div class="combos">
+        
+          <div class="combo-row"><img class="cfoto" src="/pamfletos/promo_empanadas.jpg" alt=""><div class="combo-info">
+              <div class="combo-title">2 Docenas de Empanadas</div>
+              <div class="combo-items">24 Empanadas variedad mixta a elección</div>
+            </div>
+            <div class="combo-price">
+              <span class="antes">$47.600</span>
+              <span class="ahora">$32.000</span>
+            </div>
+          </div>
+
+          <div class="combo-row"><img class="cfoto" src="/pamfletos/promo_empanadas.jpg" alt=""><div class="combo-info">
+              <div class="combo-title">3 Docenas de Empanadas Mixtas</div>
+              <div class="combo-items">36 Empanadas variedad mixta a elección</div>
+            </div>
+            <div class="combo-price">
+              <span class="antes">$71.400</span>
+              <span class="ahora">$45.000</span>
+            </div>
+          </div>
+
+          <div class="combo-row"><img class="cfoto" src="/pamfletos/promo_pizzas2.jpg" alt=""><div class="combo-info">
+              <div class="combo-title">2 Pizzas Combinadas</div>
+              <div class="combo-items">Mitad y mitad, variedades a elección</div>
+            </div>
+            <div class="combo-price">
+              <span class="antes">$56.000</span>
+              <span class="ahora">$30.000</span>
+            </div>
+          </div>
+
+          <div class="combo-row"><img class="cfoto" src="/pamfletos/promo_pizzas3.jpg" alt=""><div class="combo-info">
+              <div class="combo-title">3 Pizzas Combinadas</div>
+              <div class="combo-items">6 medias pizzas, variedades a elección</div>
+            </div>
+            <div class="combo-price">
+              <span class="antes">$84.000</span>
+              <span class="ahora">$45.000</span>
+            </div>
+          </div>
+
+          <div class="combo-row"><img class="cfoto" src="/pamfletos/promo_milanesa.jpg" alt=""><div class="combo-info">
+              <div class="combo-title">2 Sánd. de Milanesa con Papas</div>
+              <div class="combo-items">2 Milanesa de Carne Vacuna Completo + Papas Fritas</div>
+            </div>
+            <div class="combo-price">
+              <span class="antes">$27.000</span>
+              <span class="ahora">$18.000</span>
+            </div>
+          </div>
+
+          <div class="combo-row"><img class="cfoto" src="/pamfletos/promo_hamburguesas.jpg" alt=""><div class="combo-info">
+              <div class="combo-title">2 Hamburguesas con Papas</div>
+              <div class="combo-items">2 Hamburguesas Clásicas con Papas Fritas</div>
+            </div>
+            <div class="combo-price">
+              <span class="antes">$17.100</span>
+              <span class="ahora">$13.000</span>
+            </div>
+          </div>
+
+          <div class="combo-row"><img class="cfoto" src="/pamfletos/promo_hamburguesas.jpg" alt=""><div class="combo-info">
+              <div class="combo-title">3 Hamburguesas con Papas</div>
+              <div class="combo-items">3 Hamburguesas Clásicas con Papas Fritas</div>
+            </div>
+            <div class="combo-price">
+              <span class="antes">$25.650</span>
+              <span class="ahora">$18.500</span>
+            </div>
+          </div>
+
+      </div>
+
+      <div class="whatsapp-line">
+        📱 WhatsApp: <strong>+54 9 379 559-1611</strong> &nbsp;|&nbsp; <strong>+54 9 351 230-7121</strong>
+      </div>
+
+      <div class="bottom">
+        <div class="qrs">
+          <div class="qr-block">
+            <img src="/pamfletos/asset_bdd31c86.png" alt="QR Menú" />
+            <span>Ver MENÚ</span>
+          </div>
+          <div class="tagline">
+            <div>✨ Gastronomía Premium</div>
+            <div>🍲 Preparados Caseros</div>
+            <div>🥗 Comidas Nutricionales y Viandas — Consultar</div>
+          </div>
+          <div class="qr-block">
+            <img src="/pamfletos/asset_9ac8476d.png" alt="QR Pedidos" />
+            <span>PEDÍ YA</span>
+          </div>
+        </div>
+        <div class="promo">
+          🎁 En tu <strong>primera compra +$10.000</strong> por nuestro portal de pedidos, recibís <strong>1000 puntos de regalo</strong> para descontar en tu primer pedido.
+        </div>
+      </div>
+    </section></div>
+  </div>
+
+  <div class="hoja4 oculta" id="h-congelados">
+    <div class="celda"><section class="izq mini">
+  <div class="top">
+    <img class="logo" src="/pamfletos/asset_a35049cf.jpg" alt="Logo La Gran Rotisería">
+    <div class="brand"><div class="brand-name">LA GRAN ROTISERÍA</div><div class="brand-tag">Venta mayorista · Congelados</div><div class="brand-domain">spressgastro-ar.com</div></div>
+    <img class="logo" src="/pamfletos/asset_a35049cf.jpg" alt="Logo La Gran Rotisería">
+  </div>
+
+  <div class="sec">
+    <h2>Empanadas congeladas XL · formato grande</h2>
+    <div class="sb">Casa · Jamón y Queso · Carne · Verduras · 3 Cebollas y Queso. Todas valen lo mismo.</div>
+    <div class="fmts">
+      <div class="fmt"><img src="/pamfletos/bandeja_x6.jpg" alt="Bandeja de telgopor, media docena"><div class="cap">Bandeja x6 · media docena</div></div>
+      <div class="fmt"><img src="/pamfletos/bandeja_x12.jpg" alt="Bandeja de telgopor, una docena"><div class="cap">Bandeja x12 · una docena</div></div>
+    </div>
+    <div class="tiers"><div><div class="r">Hasta 3 docenas</div><div class="v">$14.000</div><div class="u">por docena</div></div><div><div class="r">Más de 3 y hasta 6 docenas</div><div class="v">$12.000</div><div class="u">por docena</div></div><div><div class="r">Más de 6 docenas</div><div class="v">$10.000</div><div class="u">por docena</div></div></div>
+  </div>
+
+  <div class="sec">
+    <h2>Chipá congelado</h2>
+    <div class="sb">Bollitos en paquetes de medio kilo o de un kilo.</div>
+    <div class="chipa">
+      <img src="/pamfletos/chipa_medio_kilo.jpg" alt="Bandejita de chipá congelado, medio kilo">
+      <div class="tiers"><div><div class="r">Hasta 5 kg</div><div class="v">$10.000</div><div class="u">por kilo</div></div><div><div class="r">Más de 5 kg</div><div class="v">$8.000</div><div class="u">por kilo</div></div></div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <h2>Pizzas congeladas</h2>
+    <div class="pz">
+      <div class="pzc"><img src="/pamfletos/prepizza_individual.jpg" alt="Prepizza individual"><div class="pzp"><span>Prepizza individual</span><b>$800</b><i>mayorista</i></div></div>
+      <div class="pzc"><img src="/pamfletos/prepizza_x2.jpg" alt="Pack por 2 prepizzas"><div class="pzp"><span>Pack x2 prepizzas</span><b>$1.500</b><i>mayorista</i></div></div>
+    </div>
+    <div class="pz"><div class="pzc pze"><img src="/pamfletos/pizza_jamon_queso.jpg" alt="Pizza de jamón y queso con muzzarella"><div class="pzp"><span>Pizza elaborada de muzzarella con jamón</span><b>$7.000</b><i>mayorista</i></div></div></div>
+  </div>
+
+  <div class="sec">
+    <h2>Sopa paraguaya congelada</h2>
+    <div class="sb">En bandejitas de aluminio.</div>
+    <div class="chipa sopa">
+      <img src="/pamfletos/sopa_paraguaya.jpg" alt="Sopa paraguaya congelada en bandejitas de aluminio">
+      <div class="tiers"><div><div class="r">Hasta 5 bandejas</div><div class="v">$4.500</div><div class="u">por bandejita</div></div><div><div class="r">Más de 5 bandejas</div><div class="v">$3.500</div><div class="u">por bandejita</div></div></div>
+    </div>
+  </div>
+
+  <div class="whatsapp-line">📱 WhatsApp: +54 9 379 559-1611 | +54 9 351 230-7121</div>
+  <div class="nota">Mayorista para reventa · Paquetes de media docena (6 u.) o una docena (12 u.) · España 1028 (casi Yrigoyen)</div>
+</section></div><div class="celda"><section class="izq mini">
+  <div class="top">
+    <img class="logo" src="/pamfletos/asset_a35049cf.jpg" alt="Logo La Gran Rotisería">
+    <div class="brand"><div class="brand-name">LA GRAN ROTISERÍA</div><div class="brand-tag">Venta mayorista · Congelados</div><div class="brand-domain">spressgastro-ar.com</div></div>
+    <img class="logo" src="/pamfletos/asset_a35049cf.jpg" alt="Logo La Gran Rotisería">
+  </div>
+
+  <div class="sec">
+    <h2>Empanadas congeladas XL · formato grande</h2>
+    <div class="sb">Casa · Jamón y Queso · Carne · Verduras · 3 Cebollas y Queso. Todas valen lo mismo.</div>
+    <div class="fmts">
+      <div class="fmt"><img src="/pamfletos/bandeja_x6.jpg" alt="Bandeja de telgopor, media docena"><div class="cap">Bandeja x6 · media docena</div></div>
+      <div class="fmt"><img src="/pamfletos/bandeja_x12.jpg" alt="Bandeja de telgopor, una docena"><div class="cap">Bandeja x12 · una docena</div></div>
+    </div>
+    <div class="tiers"><div><div class="r">Hasta 3 docenas</div><div class="v">$14.000</div><div class="u">por docena</div></div><div><div class="r">Más de 3 y hasta 6 docenas</div><div class="v">$12.000</div><div class="u">por docena</div></div><div><div class="r">Más de 6 docenas</div><div class="v">$10.000</div><div class="u">por docena</div></div></div>
+  </div>
+
+  <div class="sec">
+    <h2>Chipá congelado</h2>
+    <div class="sb">Bollitos en paquetes de medio kilo o de un kilo.</div>
+    <div class="chipa">
+      <img src="/pamfletos/chipa_medio_kilo.jpg" alt="Bandejita de chipá congelado, medio kilo">
+      <div class="tiers"><div><div class="r">Hasta 5 kg</div><div class="v">$10.000</div><div class="u">por kilo</div></div><div><div class="r">Más de 5 kg</div><div class="v">$8.000</div><div class="u">por kilo</div></div></div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <h2>Pizzas congeladas</h2>
+    <div class="pz">
+      <div class="pzc"><img src="/pamfletos/prepizza_individual.jpg" alt="Prepizza individual"><div class="pzp"><span>Prepizza individual</span><b>$800</b><i>mayorista</i></div></div>
+      <div class="pzc"><img src="/pamfletos/prepizza_x2.jpg" alt="Pack por 2 prepizzas"><div class="pzp"><span>Pack x2 prepizzas</span><b>$1.500</b><i>mayorista</i></div></div>
+    </div>
+    <div class="pz"><div class="pzc pze"><img src="/pamfletos/pizza_jamon_queso.jpg" alt="Pizza de jamón y queso con muzzarella"><div class="pzp"><span>Pizza elaborada de muzzarella con jamón</span><b>$7.000</b><i>mayorista</i></div></div></div>
+  </div>
+
+  <div class="sec">
+    <h2>Sopa paraguaya congelada</h2>
+    <div class="sb">En bandejitas de aluminio.</div>
+    <div class="chipa sopa">
+      <img src="/pamfletos/sopa_paraguaya.jpg" alt="Sopa paraguaya congelada en bandejitas de aluminio">
+      <div class="tiers"><div><div class="r">Hasta 5 bandejas</div><div class="v">$4.500</div><div class="u">por bandejita</div></div><div><div class="r">Más de 5 bandejas</div><div class="v">$3.500</div><div class="u">por bandejita</div></div></div>
+    </div>
+  </div>
+
+  <div class="whatsapp-line">📱 WhatsApp: +54 9 379 559-1611 | +54 9 351 230-7121</div>
+  <div class="nota">Mayorista para reventa · Paquetes de media docena (6 u.) o una docena (12 u.) · España 1028 (casi Yrigoyen)</div>
+</section></div><div class="celda"><section class="izq mini">
+  <div class="top">
+    <img class="logo" src="/pamfletos/asset_a35049cf.jpg" alt="Logo La Gran Rotisería">
+    <div class="brand"><div class="brand-name">LA GRAN ROTISERÍA</div><div class="brand-tag">Venta mayorista · Congelados</div><div class="brand-domain">spressgastro-ar.com</div></div>
+    <img class="logo" src="/pamfletos/asset_a35049cf.jpg" alt="Logo La Gran Rotisería">
+  </div>
+
+  <div class="sec">
+    <h2>Empanadas congeladas XL · formato grande</h2>
+    <div class="sb">Casa · Jamón y Queso · Carne · Verduras · 3 Cebollas y Queso. Todas valen lo mismo.</div>
+    <div class="fmts">
+      <div class="fmt"><img src="/pamfletos/bandeja_x6.jpg" alt="Bandeja de telgopor, media docena"><div class="cap">Bandeja x6 · media docena</div></div>
+      <div class="fmt"><img src="/pamfletos/bandeja_x12.jpg" alt="Bandeja de telgopor, una docena"><div class="cap">Bandeja x12 · una docena</div></div>
+    </div>
+    <div class="tiers"><div><div class="r">Hasta 3 docenas</div><div class="v">$14.000</div><div class="u">por docena</div></div><div><div class="r">Más de 3 y hasta 6 docenas</div><div class="v">$12.000</div><div class="u">por docena</div></div><div><div class="r">Más de 6 docenas</div><div class="v">$10.000</div><div class="u">por docena</div></div></div>
+  </div>
+
+  <div class="sec">
+    <h2>Chipá congelado</h2>
+    <div class="sb">Bollitos en paquetes de medio kilo o de un kilo.</div>
+    <div class="chipa">
+      <img src="/pamfletos/chipa_medio_kilo.jpg" alt="Bandejita de chipá congelado, medio kilo">
+      <div class="tiers"><div><div class="r">Hasta 5 kg</div><div class="v">$10.000</div><div class="u">por kilo</div></div><div><div class="r">Más de 5 kg</div><div class="v">$8.000</div><div class="u">por kilo</div></div></div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <h2>Pizzas congeladas</h2>
+    <div class="pz">
+      <div class="pzc"><img src="/pamfletos/prepizza_individual.jpg" alt="Prepizza individual"><div class="pzp"><span>Prepizza individual</span><b>$800</b><i>mayorista</i></div></div>
+      <div class="pzc"><img src="/pamfletos/prepizza_x2.jpg" alt="Pack por 2 prepizzas"><div class="pzp"><span>Pack x2 prepizzas</span><b>$1.500</b><i>mayorista</i></div></div>
+    </div>
+    <div class="pz"><div class="pzc pze"><img src="/pamfletos/pizza_jamon_queso.jpg" alt="Pizza de jamón y queso con muzzarella"><div class="pzp"><span>Pizza elaborada de muzzarella con jamón</span><b>$7.000</b><i>mayorista</i></div></div></div>
+  </div>
+
+  <div class="sec">
+    <h2>Sopa paraguaya congelada</h2>
+    <div class="sb">En bandejitas de aluminio.</div>
+    <div class="chipa sopa">
+      <img src="/pamfletos/sopa_paraguaya.jpg" alt="Sopa paraguaya congelada en bandejitas de aluminio">
+      <div class="tiers"><div><div class="r">Hasta 5 bandejas</div><div class="v">$4.500</div><div class="u">por bandejita</div></div><div><div class="r">Más de 5 bandejas</div><div class="v">$3.500</div><div class="u">por bandejita</div></div></div>
+    </div>
+  </div>
+
+  <div class="whatsapp-line">📱 WhatsApp: +54 9 379 559-1611 | +54 9 351 230-7121</div>
+  <div class="nota">Mayorista para reventa · Paquetes de media docena (6 u.) o una docena (12 u.) · España 1028 (casi Yrigoyen)</div>
+</section></div><div class="celda"><section class="izq mini">
+  <div class="top">
+    <img class="logo" src="/pamfletos/asset_a35049cf.jpg" alt="Logo La Gran Rotisería">
+    <div class="brand"><div class="brand-name">LA GRAN ROTISERÍA</div><div class="brand-tag">Venta mayorista · Congelados</div><div class="brand-domain">spressgastro-ar.com</div></div>
+    <img class="logo" src="/pamfletos/asset_a35049cf.jpg" alt="Logo La Gran Rotisería">
+  </div>
+
+  <div class="sec">
+    <h2>Empanadas congeladas XL · formato grande</h2>
+    <div class="sb">Casa · Jamón y Queso · Carne · Verduras · 3 Cebollas y Queso. Todas valen lo mismo.</div>
+    <div class="fmts">
+      <div class="fmt"><img src="/pamfletos/bandeja_x6.jpg" alt="Bandeja de telgopor, media docena"><div class="cap">Bandeja x6 · media docena</div></div>
+      <div class="fmt"><img src="/pamfletos/bandeja_x12.jpg" alt="Bandeja de telgopor, una docena"><div class="cap">Bandeja x12 · una docena</div></div>
+    </div>
+    <div class="tiers"><div><div class="r">Hasta 3 docenas</div><div class="v">$14.000</div><div class="u">por docena</div></div><div><div class="r">Más de 3 y hasta 6 docenas</div><div class="v">$12.000</div><div class="u">por docena</div></div><div><div class="r">Más de 6 docenas</div><div class="v">$10.000</div><div class="u">por docena</div></div></div>
+  </div>
+
+  <div class="sec">
+    <h2>Chipá congelado</h2>
+    <div class="sb">Bollitos en paquetes de medio kilo o de un kilo.</div>
+    <div class="chipa">
+      <img src="/pamfletos/chipa_medio_kilo.jpg" alt="Bandejita de chipá congelado, medio kilo">
+      <div class="tiers"><div><div class="r">Hasta 5 kg</div><div class="v">$10.000</div><div class="u">por kilo</div></div><div><div class="r">Más de 5 kg</div><div class="v">$8.000</div><div class="u">por kilo</div></div></div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <h2>Pizzas congeladas</h2>
+    <div class="pz">
+      <div class="pzc"><img src="/pamfletos/prepizza_individual.jpg" alt="Prepizza individual"><div class="pzp"><span>Prepizza individual</span><b>$800</b><i>mayorista</i></div></div>
+      <div class="pzc"><img src="/pamfletos/prepizza_x2.jpg" alt="Pack por 2 prepizzas"><div class="pzp"><span>Pack x2 prepizzas</span><b>$1.500</b><i>mayorista</i></div></div>
+    </div>
+    <div class="pz"><div class="pzc pze"><img src="/pamfletos/pizza_jamon_queso.jpg" alt="Pizza de jamón y queso con muzzarella"><div class="pzp"><span>Pizza elaborada de muzzarella con jamón</span><b>$7.000</b><i>mayorista</i></div></div></div>
+  </div>
+
+  <div class="sec">
+    <h2>Sopa paraguaya congelada</h2>
+    <div class="sb">En bandejitas de aluminio.</div>
+    <div class="chipa sopa">
+      <img src="/pamfletos/sopa_paraguaya.jpg" alt="Sopa paraguaya congelada en bandejitas de aluminio">
+      <div class="tiers"><div><div class="r">Hasta 5 bandejas</div><div class="v">$4.500</div><div class="u">por bandejita</div></div><div><div class="r">Más de 5 bandejas</div><div class="v">$3.500</div><div class="u">por bandejita</div></div></div>
+    </div>
+  </div>
+
+  <div class="whatsapp-line">📱 WhatsApp: +54 9 379 559-1611 | +54 9 351 230-7121</div>
+  <div class="nota">Mayorista para reventa · Paquetes de media docena (6 u.) o una docena (12 u.) · España 1028 (casi Yrigoyen)</div>
+</section></div>
+  </div>
+
+<script>
+var TEXTOS={
+  mixto:'A4 horizontal, 2 pamfletos: congelados mayoristas (izquierda) y promos cocinadas (derecha). Al imprimir elegí A4, horizontal, escala 100 % y activá "gráficos de fondo".',
+  cocinado:'A4 vertical, 4 pamfletos iguales de promos cocinadas (delivery en la app). Al imprimir elegí A4, vertical, escala 100 % y activá "gráficos de fondo".',
+  congelados:'A4 vertical, 4 pamfletos iguales de congelados para venta mayorista. Al imprimir elegí A4, vertical, escala 100 % y activá "gráficos de fondo".'
+};
+function modo(m){
+  ['mixto','cocinado','congelados'].forEach(function(k){
+    document.getElementById('h-'+k).classList.toggle('oculta',k!==m);
+    document.getElementById('m-'+k).classList.toggle('on',k===m);
+  });
+  document.getElementById('ayuda').textContent=TEXTOS[m];
+  document.getElementById('pagina').textContent='@page{size:A4 '+(m==='mixto'?'landscape':'portrait')+';margin:0}';
+  try{localStorage.setItem('pamfletos_modo',m);}catch(e){}
+}
+var inicial='mixto';
+try{var g=localStorage.getItem('pamfletos_modo'); if(g&&TEXTOS[g]) inicial=g;}catch(e){}
+modo(inicial);
+</script>
+</body>
+</html>

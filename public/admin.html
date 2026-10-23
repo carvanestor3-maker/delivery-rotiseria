@@ -43,19 +43,17 @@
       <button onclick="openImportExcelModal()" class="px-3 py-1.5 bg-teal-700 hover:bg-teal-600 text-xs font-black rounded-lg text-white flex items-center gap-1 shadow transition" title="Importar precios masivamente desde un archivo Excel">
         📥 Importar Excel
       </button>
-      <a href="/menu?print=1" target="_blank" class="px-3 py-1.5 bg-sky-700 hover:bg-sky-600 text-xs font-black rounded-lg text-white flex items-center gap-1 shadow transition" title="Ver e imprimir el menú actualizado, con descuentos incluidos">
-        🖨️ Imprimir Menú
-      </a>
-      <a href="/stickers.html" target="_blank" class="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-xs font-black rounded-lg text-white flex items-center gap-1 shadow transition" title="Imprimir el logo en stickers (redondos o rectángulo dorado) en hoja A4">
-        🏷️ Imprimir Stickers
-      </a>
-      <a href="/muestrario.html" target="_blank" class="px-3 py-1.5 bg-rose-700 hover:bg-rose-600 text-xs font-black rounded-lg text-white flex items-center gap-1 shadow transition" title="Ver, descargar e imprimir el muestrario de venta mayorista (empanadas, chipá y sopa paraguaya congelados)">
-        📄 Muestrario Mayorista
-      </a>
-      <a href="/pamfletos.html" target="_blank" class="px-3 py-1.5 bg-pink-700 hover:bg-pink-600 text-xs font-black rounded-lg text-white flex items-center gap-1 shadow transition" title="Imprimir pamfletos: 2 por hoja (congelados + cocinado), 4 por hoja solo cocinado o 4 por hoja solo congelados">
-        🖨️ Pamfletos
-      </a>
-
+      <details id="menu-imprimir" class="relative">
+        <summary class="list-none cursor-pointer select-none px-3 py-1.5 bg-sky-700 hover:bg-sky-600 text-xs font-black rounded-lg text-white flex items-center gap-1 shadow transition" title="Todas las opciones de impresión">🖨️ Imprimir ▾</summary>
+        <div class="absolute right-0 mt-1 w-72 bg-white rounded-xl shadow-2xl border border-slate-200 p-1 z-50">
+          <a href="/menu?print=1" target="_blank" class="flex items-start gap-2 px-3 py-2 rounded-lg hover:bg-slate-100 text-slate-800"><span class="text-base leading-5">🍽️</span><span><span class="block text-xs font-black">Menú</span><span class="block text-[11px] text-slate-500 font-medium">Ver e imprimir el menú actualizado, con descuentos</span></span></a>
+          <a href="/stickers.html" target="_blank" class="flex items-start gap-2 px-3 py-2 rounded-lg hover:bg-slate-100 text-slate-800"><span class="text-base leading-5">🏷️</span><span><span class="block text-xs font-black">Stickers</span><span class="block text-[11px] text-slate-500 font-medium">Logo en stickers redondos o rectángulo dorado, hoja A4</span></span></a>
+          <a href="/muestrario.html" target="_blank" class="flex items-start gap-2 px-3 py-2 rounded-lg hover:bg-slate-100 text-slate-800"><span class="text-base leading-5">📄</span><span><span class="block text-xs font-black">Muestrario Mayorista</span><span class="block text-[11px] text-slate-500 font-medium">Ver, descargar e imprimir el muestrario de congelados</span></span></a>
+          <a href="/pamfletos.html" target="_blank" class="flex items-start gap-2 px-3 py-2 rounded-lg hover:bg-slate-100 text-slate-800"><span class="text-base leading-5">📣</span><span><span class="block text-xs font-black">Pamfletos</span><span class="block text-[11px] text-slate-500 font-medium">2 por hoja, 4 solo cocinado o 4 solo congelados</span></span></a>
+          <a href="/talonario.html" target="_blank" class="flex items-start gap-2 px-3 py-2 rounded-lg hover:bg-slate-100 text-slate-800"><span class="text-base leading-5">📝</span><span><span class="block text-xs font-black">Talonario de Preventa</span><span class="block text-[11px] text-slate-500 font-medium">Original y duplicado en una hoja A4, con fotos</span></span></a>
+        </div>
+      </details>
+      <script>document.addEventListener('click',function(e){var d=document.getElementById('menu-imprimir');if(d&&d.open&&!d.contains(e.target))d.open=false;});</script>
       <a href="/" target="_blank" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs font-bold rounded-lg border border-slate-700 flex items-center gap-1">
         <i data-lucide="external-link" class="w-3.5 h-3.5"></i> Ver Menú Público
       </a>

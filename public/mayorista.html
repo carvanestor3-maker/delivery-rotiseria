@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Venta Mayorista de Congelados · La Gran Rotisería</title>
+<meta name="description" content="Empanadas, chipá, prepizzas y sopa paraguaya congelados para reventa. Precios mayoristas por cantidad. Armá tu pedido y envialo por WhatsApp.">
+<meta name="theme-color" content="#1e293b">
+<link rel="icon" href="/logo_icon.png">
+<style>
+:root{
+  --navy:#1e293b; --amber:#f59e0b; --amber-d:#d97706; --brown:#78350f; --brown-2:#92400e;
+  --cream:#fff7ed; --cream-2:#fde68a; --green:#166534; --ink:#292524; --muted:#57534e;
+  --bg:#fffaf3; --card:#ffffff; --line:#f1e3c8; --wa:#16a34a; --wa-d:#15803d;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink);line-height:1.45;-webkit-text-size-adjust:100%;padding-bottom:84px}
+img{max-width:100%;display:block}
+a{color:inherit}
+.wrap{max-width:1040px;margin:0 auto;padding:0 16px}
+
+/* encabezado */
+.top{background:var(--navy);color:#fff}
+.top .wrap{display:flex;align-items:center;gap:12px;padding-top:12px;padding-bottom:12px}
+.top img{width:44px;height:44px;border-radius:50%;border:2px solid var(--amber);object-fit:cover;flex:none}
+.top b{font-size:15px;letter-spacing:.3px;display:block;line-height:1.15}
+.top span{font-size:11px;color:var(--cream-2);font-weight:600}
+.top nav{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.top nav a{font-size:12px;font-weight:700;text-decoration:none;color:var(--navy);background:var(--cream-2);padding:7px 11px;border-radius:999px;white-space:nowrap}
+.top nav a.sec{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.35)}
+
+/* hero */
+.hero{background:linear-gradient(180deg,var(--cream) 0%,var(--bg) 100%);padding:28px 0 8px}
+.hero h1{margin:0 0 6px;font-size:clamp(24px,5.4vw,38px);line-height:1.12;color:var(--navy);font-weight:900;letter-spacing:-.3px}
+.hero p{margin:0;color:var(--muted);font-size:clamp(14px,3.6vw,17px);max-width:640px}
+.resumen{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;margin-top:18px}
+.resumen div{background:#fff;border:1px solid var(--line);border-left:4px solid var(--amber);border-radius:12px;padding:10px 12px}
+.resumen b{display:block;font-size:13px;color:var(--brown-2);text-transform:uppercase;letter-spacing:.2px}
+.resumen span{font-size:13px;color:var(--muted)}
+.resumen em{font-style:normal;font-weight:800;color:var(--green)}
+
+/* secciones */
+section.grupo{padding:26px 0 4px}
+.grupo h2{margin:0;font-size:clamp(20px,4.6vw,26px);color:var(--brown);font-weight:900}
+.grupo .nota{margin:4px 0 14px;font-size:13px;color:var(--muted)}
+.tiers{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px}
+.tiers div{flex:1 1 150px;background:var(--navy);color:#fff;border-radius:12px;padding:9px 12px;text-align:center}
+.tiers small{display:block;font-size:11px;color:var(--cream-2);font-weight:600}
+.tiers b{font-size:20px;font-weight:900;display:block;line-height:1.2}
+.tiers i{font-style:normal;font-size:10.5px;color:#cbd5e1;text-transform:uppercase;letter-spacing:.3px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 1px 2px rgba(120,53,15,.06)}
+.card img{width:100%;aspect-ratio:4/3;object-fit:cover;background:#f5ecd9}
+.card .in{padding:12px 14px 14px;display:flex;flex-direction:column;gap:6px;flex:1}
+.card h3{margin:0;font-size:17px;color:var(--brown-2);font-weight:800;line-height:1.2}
+.card p{margin:0;font-size:13px;color:var(--muted)}
+.precio{font-size:13px;color:var(--ink)}
+.precio b{font-size:22px;color:var(--green);font-weight:900}
+.opts{display:flex;flex-direction:column;gap:8px;margin-top:auto;padding-top:8px}
+.opt{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--cream);border:1px solid var(--cream-2);border-radius:12px;padding:7px 8px 7px 12px}
+.opt span{font-size:13px;font-weight:700;color:var(--brown)}
+.opt small{display:block;font-size:11px;font-weight:600;color:var(--muted)}
+.step{display:flex;align-items:center;gap:2px;flex:none}
+.step button{width:38px;height:38px;border-radius:10px;border:0;background:var(--navy);color:#fff;font-size:22px;font-weight:700;line-height:1;cursor:pointer}
+.step button:active{transform:scale(.94)}
+.step button:disabled{background:#cbd5e1;cursor:default}
+.step output{min-width:34px;text-align:center;font-weight:900;font-size:17px;color:var(--navy)}
+.opt.on{background:#ecfdf5;border-color:#86efac}
+
+/* pedido */
+#pedido{margin-top:34px;background:#fff;border:2px solid var(--amber);border-radius:18px;padding:18px 16px 20px}
+#pedido h2{margin:0 0 4px;font-size:22px;color:var(--navy);font-weight:900}
+#pedido .sub{margin:0 0 12px;font-size:13px;color:var(--muted)}
+#lista{list-style:none;margin:0 0 12px;padding:0;border-top:1px solid var(--line)}
+#lista li{display:flex;justify-content:space-between;gap:10px;padding:8px 2px;border-bottom:1px solid var(--line);font-size:14px}
+#lista li b{white-space:nowrap}
+#lista .vacio{color:var(--muted);justify-content:center;padding:16px}
+.tot{display:flex;justify-content:space-between;align-items:baseline;font-weight:900;font-size:20px;color:var(--navy);margin:8px 0 2px}
+.tot span:last-child{color:var(--green);font-size:26px}
+.aviso{font-size:12px;color:var(--muted);margin:2px 0 12px}
+.ahorro{font-size:12.5px;font-weight:700;color:var(--green);background:#ecfdf5;border:1px solid #86efac;border-radius:10px;padding:7px 10px;margin:0 0 10px}
+.ahorro:empty{display:none}
+label.f{display:block;font-size:12px;font-weight:800;color:var(--brown-2);text-transform:uppercase;margin:10px 0 4px}
+input.t,textarea.t{width:100%;border:1.5px solid #d6c7a8;border-radius:12px;padding:11px 12px;font:inherit;font-size:16px;background:#fffdf8;color:var(--ink)}
+input.t:focus,textarea.t:focus{outline:3px solid #fcd34d;border-color:var(--amber)}
+.acc{display:flex;flex-direction:column;gap:10px;margin-top:14px}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;text-align:center;text-decoration:none;font-weight:900;font-size:16px;border:0;border-radius:14px;padding:15px 16px;cursor:pointer}
+.btn.wa{background:var(--wa);color:#fff}
+.btn.wa:hover{background:var(--wa-d)}
+.btn.wa:disabled,.btn.wa[aria-disabled=true]{background:#a3b8a9;cursor:not-allowed}
+.btn.sec{background:#fff;color:var(--navy);border:2px solid var(--navy);font-size:14px;padding:11px 14px}
+.btn.lim{background:transparent;color:var(--muted);font-size:13px;padding:6px;font-weight:700;text-decoration:underline}
+
+/* info y pie */
+.info{margin:28px 0 8px;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.info div{background:var(--cream);border:1px solid var(--cream-2);border-radius:14px;padding:13px 14px;font-size:13.5px}
+.info b{display:block;color:var(--brown);margin-bottom:3px}
+footer{margin-top:26px;background:var(--navy);color:#cbd5e1;font-size:13px;padding:20px 0 26px}
+footer a{color:var(--cream-2);font-weight:700}
+footer .wrap{display:flex;flex-direction:column;gap:6px}
+
+/* barra fija */
+#barra{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--navy);color:#fff;border-top:3px solid var(--amber);transform:translateY(0)}
+#barra .wrap{display:flex;align-items:center;gap:12px;padding-top:10px;padding-bottom:calc(10px + env(safe-area-inset-bottom))}
+#barra .res{flex:1;min-width:0;font-size:12.5px;color:var(--cream-2);font-weight:600;line-height:1.2}
+#barra .res b{display:block;color:#fff;font-size:19px;font-weight:900}
+#barra a{background:var(--amber);color:var(--navy);text-decoration:none;font-weight:900;font-size:14px;padding:12px 16px;border-radius:12px;white-space:nowrap}
+@media (min-width:700px){.acc{flex-direction:row;flex-wrap:wrap}.acc .btn{flex:1 1 220px}.acc .lim{flex:0 0 auto}}
+@media print{#barra,.top nav,.step{display:none}}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <img src="/pamfletos/asset_a35049cf.jpg" alt="Logo La Gran Rotisería">
+    <div><b>LA GRAN ROTISERÍA</b><span>Express Gastro Bar · Venta mayorista</span></div>
+    <nav>
+      <a href="#pedido">Mi pedido</a>
+      <a class="sec" href="/">Pedidos delivery</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <div class="hero">
+    <h1>Congelados para reventa, directo de nuestra cocina</h1>
+    <p>Empanadas XL, chipá, prepizzas y sopa paraguaya. Elegí las cantidades, mirá el total estimado y mandá tu pedido por WhatsApp.</p>
+    <div class="resumen">
+      <div><b>Empanadas XL</b><span>desde <em>$10.000</em> la docena</span></div>
+      <div><b>Chipá congelado</b><span>desde <em>$8.000</em> el kilo</span></div>
+      <div><b>Prepizza</b><span>desde <em>$800</em> la unidad</span></div>
+      <div><b>Sopa paraguaya</b><span>desde <em>$3.500</em> la bandejita</span></div>
+    </div>
+  </div>
+
+  <section class="grupo" id="empanadas">
+    <h2>Empanadas congeladas XL</h2>
+    <p class="nota">Formato grande. Todas valen lo mismo, mezclá las variedades que quieras. Vienen en bandejas de media docena (x6) o una docena (x12).</p>
+    <div class="tiers">
+      <div><small>Hasta 3 docenas</small><b>$14.000</b><i>por docena</i></div>
+      <div><small>Más de 3 y hasta 6 docenas</small><b>$12.000</b><i>por docena</i></div>
+      <div><small>Más de 6 docenas</small><b>$10.000</b><i>por docena</i></div>
+    </div>
+    <div class="grid" id="g-emp"></div>
+  </section>
+
+  <section class="grupo" id="chipa">
+    <h2>Chipá congelado</h2>
+    <p class="nota">Bollitos en paquetes de medio kilo o de un kilo, con el logo de La Gran Rotisería.</p>
+    <div class="tiers">
+      <div><small>Hasta 5 kg por compra</small><b>$10.000</b><i>por kilo</i></div>
+      <div><small>Más de 5 kg por compra</small><b>$8.000</b><i>por kilo</i></div>
+    </div>
+    <div class="grid" id="g-chi"></div>
+  </section>
+
+  <section class="grupo" id="pizzas">
+    <h2>Pizzas congeladas</h2>
+    <p class="nota">Prepizzas listas para armar y pizza elaborada de muzzarella con jamón.</p>
+    <div class="grid" id="g-piz"></div>
+  </section>
+
+  <section class="grupo" id="sopa">
+    <h2>Sopa paraguaya congelada</h2>
+    <p class="nota">En bandejitas de aluminio.</p>
+    <div class="tiers">
+      <div><small>Hasta 5 bandejas</small><b>$4.500</b><i>por bandejita</i></div>
+      <div><small>Más de 5 bandejas</small><b>$3.500</b><i>por bandejita</i></div>
+    </div>
+    <div class="grid" id="g-sop"></div>
+  </section>
+
+  <section id="pedido" aria-live="polite">
+    <h2>Tu pedido</h2>
+    <p class="sub">Revisalo y enviámelo por WhatsApp: te confirmamos disponibilidad, total y entrega.</p>
+    <ul id="lista"></ul>
+    <div class="ahorro" id="ahorro"></div>
+    <div class="tot"><span>Total estimado</span><span id="total">$0</span></div>
+    <p class="aviso">El total se calcula con los precios mayoristas publicados según la cantidad de tu compra. Lo confirmamos por WhatsApp antes de cerrar el pedido.</p>
+    <label class="f" for="nombre">Tu nombre o comercio</label>
+    <input class="t" id="nombre" type="text" autocomplete="name" placeholder="Ej: Kiosco San Martín">
+    <label class="f" for="obs">Comentarios (opcional)</label>
+    <textarea class="t" id="obs" rows="2" placeholder="Día y zona de entrega, consultas…"></textarea>
+    <div class="acc">
+      <a class="btn wa" id="enviar" href="#" aria-disabled="true">💬 Enviar pedido por WhatsApp</a>
+      <button class="btn lim" id="limpiar" type="button">Vaciar pedido</button>
+    </div>
+  </section>
+
+  <div class="info">
+    <div><b>Para reventa</b>Precios mayoristas pensados para comercios. Los descuentos por cantidad se aplican sobre el total de cada rubro.</div>
+    <div><b>Consultas mayoristas</b>Escribinos por WhatsApp al <a href="https://wa.me/5493512307121" id="wa2">+54 9 351 230-7121</a>.</div>
+    <div><b>Retiro por el local</b>España 1028 (casi Yrigoyen).</div>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div><b style="color:#fff">La Gran Rotisería · Express Gastro Bar</b></div>
+    <div>España 1028 (casi Yrigoyen) · WhatsApp mayorista <a href="https://wa.me/5493512307121">351 230-7121</a></div>
+    <div>¿Buscás comida para tu mesa? <a href="/">Pedí delivery en la app</a> · <a href="/menu">Ver el menú</a> · WhatsApp rotisería <a href="https://wa.me/5493795591611">379 559-1611</a></div>
+  </div>
+</footer>
+
+<div id="barra">
+  <div class="wrap">
+    <div class="res"><span id="b-items">Sin productos</span><b id="b-total">$0</b></div>
+    <a href="#pedido">Ver mi pedido</a>
+  </div>
+</div>
+
+<script>
+(function(){
+  var WA = '5493512307121';
+
+  // Catálogo. "unid" = unidad de cantidad que se anota en el mensaje.
+  var P = [
+    {id:'casa', g:'emp', n:'Empanadas de la Casa', d:'Fiambres y quesos con salsa de cebolla.', img:'casa',
+      o:[{k:'x6', l:'Bandeja x6', s:'media docena', doc:0.5},{k:'x12', l:'Bandeja x12', s:'una docena', doc:1}]},
+    {id:'jyq', g:'emp', n:'Empanadas de Jamón y Queso', d:'Jamón cocido seleccionado y queso tirante cremoso. Cada empanada pesa 100 g.', img:'jyq',
+      o:[{k:'x6', l:'Bandeja x6', s:'media docena', doc:0.5},{k:'x12', l:'Bandeja x12', s:'una docena', doc:1}]},
+    {id:'carne', g:'emp', n:'Empanadas de Carne', d:'Carne molida con morrón, huevo y cebolla.', img:'carne',
+      o:[{k:'x6', l:'Bandeja x6', s:'media docena', doc:0.5},{k:'x12', l:'Bandeja x12', s:'una docena', doc:1}]},
+    {id:'verduras', g:'emp', n:'Empanadas de Verduras', d:'Espinaca salteada, ricota, nuez moscada y queso rallado.', img:'verduras',
+      o:[{k:'x6', l:'Bandeja x6', s:'media docena', doc:0.5},{k:'x12', l:'Bandeja x12', s:'una docena', doc:1}]},
+    {id:'cebollas', g:'emp', n:'Empanadas de 3 Cebollas y Queso', d:'Cebollas y queso.', img:'cebollas',
+      o:[{k:'x6', l:'Bandeja x6', s:'media docena', doc:0.5},{k:'x12', l:'Bandeja x12', s:'una docena', doc:1}]},
+
+    {id:'chipa', g:'chi', n:'Chipá congelado', d:'Bollitos de chipá en paquetes de medio kilo o de un kilo.', img:'chipa',
+      o:[{k:'p05', l:'Paquete ½ kilo', s:'0,5 kg', kg:0.5},{k:'p1', l:'Paquete 1 kilo', s:'1 kg', kg:1}]},
+
+    {id:'pre1', g:'piz', n:'Prepizza individual', d:'Prepizza congelada, por unidad.', img:'prepizza1', precio:800, pl:'$800', pu:'por unidad',
+      o:[{k:'u', l:'Unidades', s:'', p:800}]},
+    {id:'pre2', g:'piz', n:'Pack x 2 prepizzas', d:'Dos prepizzas en un mismo paquete.', img:'prepizza2', precio:1500, pl:'$1.500', pu:'por pack',
+      o:[{k:'u', l:'Packs', s:'2 prepizzas c/u', p:1500}]},
+    {id:'pizza', g:'piz', n:'Pizza elaborada de muzzarella con jamón', d:'Pizza lista, de muzzarella con jamón.', img:'pizza', precio:7000, pl:'$7.000', pu:'por unidad',
+      o:[{k:'u', l:'Unidades', s:'', p:7000}]},
+
+    {id:'sopa', g:'sop', n:'Sopa paraguaya', d:'Sopa paraguaya congelada, en bandejitas de aluminio.', img:'sopa',
+      o:[{k:'b', l:'Bandejitas', s:'aluminio', band:1}]}
+  ];
+
+  var cant = {};   // "id|k" -> n
+  function key(p,o){return p.id+'|'+o.k;}
+  function $(id){return document.getElementById(id);}
+  function money(n){return '$'+Math.round(n).toLocaleString('es-AR');}
+
+  function render(){
+    var cont = {emp:'g-emp', chi:'g-chi', piz:'g-piz', sop:'g-sop'};
+    P.forEach(function(p){
+      var c = document.createElement('article'); c.className='card';
+      var precio = p.pl ? '<div class="precio"><b>'+p.pl+'</b> '+p.pu+'</div>' : '';
+      var opts = p.o.map(function(o){
+        var k = key(p,o);
+        return '<div class="opt" id="o-'+k.replace('|','-')+'"><span>'+o.l+(o.s?'<small>'+o.s+'</small>':'')+'</span>'+
+          '<div class="step"><button type="button" data-k="'+k+'" data-d="-1" aria-label="Quitar '+o.l+' de '+p.n+'" disabled>−</button>'+
+          '<output id="n-'+k.replace('|','-')+'">0</output>'+
+          '<button type="button" data-k="'+k+'" data-d="1" aria-label="Agregar '+o.l+' de '+p.n+'">+</button></div></div>';
+      }).join('');
+      c.innerHTML = '<img src="/mayorista/'+p.img+'.jpg" alt="'+p.n+'" loading="lazy" width="800" height="600">'+
+        '<div class="in"><h3>'+p.n+'</h3><p>'+p.d+'</p>'+precio+'<div class="opts">'+opts+'</div></div>';
+      $(cont[p.g]).appendChild(c);
+    });
+  }
+
+  function calc(){
+    var lineas = [], total = 0, doc = 0, kg = 0, band = 0, ahorro = 0, items = 0;
+    var det = {emp:[], chi:[], piz:[], sop:[]};
+    P.forEach(function(p){
+      p.o.forEach(function(o){
+        var n = cant[key(p,o)]||0; if(!n) return;
+        items += n;
+        if(o.doc){ doc += o.doc*n; det.emp.push(n+' × '+p.n.replace('Empanadas de la ','').replace('Empanadas de ','')+' '+o.l.toLowerCase()); }
+        else if(o.kg){ kg += o.kg*n; det.chi.push(n+' × '+o.l.toLowerCase()); }
+        else if(o.band){ band += n; det.sop.push(n+' bandejita'+(n>1?'s':'')); }
+        else { var sub = o.p*n; total += sub; lineas.push({t:n+' × '+p.n+(o.l==='Packs'?' (pack x2)':''), v:sub}); }
+      });
+    });
+    if(doc>0){
+      var pd = doc<=3?14000:(doc<=6?12000:10000), sub = doc*pd;
+      total += sub; if(pd<14000) ahorro += doc*(14000-pd);
+      lineas.unshift({t:'Empanadas XL: '+det.emp.join(', ')+' — '+fmtDoc(doc)+' a '+money(pd), v:sub});
+    }
+    if(kg>0){
+      var pk = kg<=5?10000:8000, subk = kg*pk;
+      total += subk; if(pk<10000) ahorro += kg*(10000-pk);
+      lineas.push({t:'Chipá: '+det.chi.join(', ')+' — '+fmtKg(kg)+' a '+money(pk), v:subk});
+    }
+    if(band>0){
+      var pb = band<=5?4500:3500, subb = band*pb;
+      total += subb; if(pb<4500) ahorro += band*(4500-pb);
+      lineas.push({t:'Sopa paraguaya: '+band+' bandejita'+(band>1?'s':'')+' a '+money(pb), v:subb});
+    }
+    return {lineas:lineas,total:total,items:items,ahorro:ahorro,doc:doc,kg:kg,band:band};
+  }
+  function fmtDoc(d){ var s = (d%1===0)? String(d) : String(d).replace('.',','); return s+(d===1?' docena':' docenas'); }
+  function fmtKg(k){ return String(k).replace('.',',')+' kg'; }
+
+  function pintar(){
+    var r = calc();
+    // casilleros
+    P.forEach(function(p){ p.o.forEach(function(o){
+      var k = key(p,o), n = cant[k]||0, id = k.replace('|','-');
+      $('n-'+id).textContent = n;
+      $('o-'+id).classList.toggle('on', n>0);
+      var menos = document.querySelector('button[data-k="'+k+'"][data-d="-1"]'); menos.disabled = n===0;
+    });});
+    // lista
+    var ul = $('lista');
+    ul.innerHTML = r.lineas.length ? r.lineas.map(function(l){return '<li><span>'+l.t+'</span><b>'+money(l.v)+'</b></li>';}).join('')
+      : '<li class="vacio">Todavía no elegiste productos.</li>';
+    $('total').textContent = money(r.total);
+    $('b-total').textContent = money(r.total);
+    $('b-items').textContent = r.items ? r.items+' producto'+(r.items>1?'s':'')+' en tu pedido' : 'Sin productos';
+    var pistas = [];
+    if(r.doc>0 && r.doc<=3 && r.doc>2) pistas.push('Con más de 3 docenas la docena baja a $12.000.');
+    if(r.doc>3 && r.doc<=6 && r.doc>5) pistas.push('Con más de 6 docenas la docena baja a $10.000.');
+    if(r.kg>4 && r.kg<=5) pistas.push('Con más de 5 kg el kilo de chipá baja a $8.000.');
+    if(r.band>4 && r.band<=5) pistas.push('Con más de 5 bandejitas cada una baja a $3.500.');
+    $('ahorro').textContent = r.ahorro>0 ? 'Con tu cantidad ya ahorrás '+money(r.ahorro)+' respecto del precio base.' : (pistas[0]||'');
+    var a = $('enviar');
+    if(r.items){ a.removeAttribute('aria-disabled'); a.href = wa(r); } else { a.setAttribute('aria-disabled','true'); a.href = '#'; }
+  }
+
+  function wa(r){
+    var nombre = $('nombre').value.trim(), obs = $('obs').value.trim();
+    var t = 'Hola! Quiero hacer un pedido mayorista:\n\n';
+    r.lineas.forEach(function(l){ t += '• '+l.t+' = '+money(l.v)+'\n'; });
+    t += '\nTotal estimado: '+money(r.total);
+    if(nombre) t += '\nNombre / comercio: '+nombre;
+    if(obs) t += '\nComentarios: '+obs;
+    return 'https://wa.me/'+WA+'?text='+encodeURIComponent(t);
+  }
+
+  document.addEventListener('click', function(e){
+    var b = e.target.closest('button[data-k]');
+    if(b){
+      var k = b.getAttribute('data-k'), d = parseInt(b.getAttribute('data-d'),10);
+      cant[k] = Math.max(0, Math.min(99, (cant[k]||0)+d)); pintar(); return;
+    }
+    var en = e.target.closest('#enviar');
+    if(en && en.getAttribute('aria-disabled')==='true'){ e.preventDefault(); }
+  });
+  $('limpiar').addEventListener('click', function(){ cant = {}; pintar(); });
+  ['nombre','obs'].forEach(function(id){ $(id).addEventListener('input', pintar); });
+
+  render(); pintar();
+})();
+</script>
+</body>
+</html>
